@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # 1. 数据库服务：PostgreSQL + TimescaleDB 插件
+  timescaledb:
+    image: timescale/timescaledb:latest-pg14
+    container_name: smart_energy_db
+    environment:
+      POSTGRES_USER: energy_user
+      POSTGRES_PASSWORD: energy_password
+      POSTGRES_DB: smart_energy
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # 挂载初始化 SQL 脚本（容器首次启动时会自动执行该目录下的脚本）
+      - ./init-sql:/docker-entrypoint-initdb.d
+    restart: always
+    networks:
+      - energy_network
+
+  # 2. 后端服务 (Spring Boot)
+  backend:
+    build: 
+      context: ../backend
+      dockerfile: ../deploy/Dockerfile-backend
+    container_name: smart_energy_backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - timescaledb
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://timescaledb:5432/smart_energy
+      - SPRING_DATASOURCE_USERNAME=energy_user
+      - SPRING_DATASOURCE_PASSWORD=energy_password
+    restart: on-failure
+    networks:
+      - energy_network
+
+  # 3. 前端服务 (Vue3) - 预留位置，后续前端联调时启用
+  # frontend:
+  #   image: nginx:alpine
+  #   ...
+
+volumes:
+  pgdata: # 数据持久化卷，防止容器重启后数据丢失
+
+networks:
+  energy_network:
+    driver: bridge
