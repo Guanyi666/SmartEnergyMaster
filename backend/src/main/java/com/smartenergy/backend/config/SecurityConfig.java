@@ -36,6 +36,12 @@ public class SecurityConfig {
                 // 3. 配置拦截规则
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll() // 放行登录和注册接口
+
+                        .requestMatchers("/api/sensor/upload").permitAll()  // 放行硬件数据上传接口
+
+                        // 测试用
+                        .requestMatchers("/api/sensor/latest/**", "/api/sensor/history/**").permitAll()
+
                         .anyRequest().authenticated()                // 其他所有接口都必须带 Token 才能访问
                 );
 

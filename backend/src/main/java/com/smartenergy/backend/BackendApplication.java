@@ -26,7 +26,7 @@ public class BackendApplication {
 
             // 构造查询条件：查出 device_code 是 'BF-01' 的设备
             QueryWrapper<Device> queryWrapper = new QueryWrapper<>();
-            queryWrapper.eq("device_code", "BF-01");
+            queryWrapper.eq("device_code", "EAF-01");
 
             // 执行查询
             Device bf01 = deviceMapper.selectOne(queryWrapper);
