@@ -1,4 +1,4 @@
-SmartEnergyMaster
+# SmartEnergyMaster
 这是一个基于 Spring Boot + Vue 3 的智能能源管理平台。本项目支持使用 Docker 进行一键式快速部署。
 
 1. 克隆代码
