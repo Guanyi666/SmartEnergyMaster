@@ -72,16 +72,19 @@ docker run -d \
   -p 8080:8080 \
   --name energy-api \
   energy-backend
+
 ```
 方式二：本地运行
 ```bash
 cd backend
 mvn spring-boot:run
 ```
+
 📌 默认后端地址：
 http://localhost:8080
 
 4.4 启动前端（Vue 3）
+
 ```bash
 cd frontend
 npm install
@@ -99,8 +102,10 @@ spring:
     url: jdbc:postgresql://localhost:5432/your_db
     username: your_username
     password: your_password
+
 ```
 前端接口地址（.env）
+
 ```env
 VITE_API_BASE_URL=http://localhost:8080
 ```
@@ -111,23 +116,28 @@ VITE_API_BASE_URL=http://localhost:8080
 docker ps
 docker logs <container_id>
 ```
+
 ❓ 数据库连不上
 检查 TimescaleDB 是否启动
 检查 5432 端口是否占用
 检查 application.yml 配置
+
 ❓ 前端无法访问后端
 后端是否运行在 8080
 是否配置 CORS
 API 地址是否正确
+
 📌 7. 启动顺序（推荐）
 启动数据库（Docker）
 启动后端
 启动前端
+
 📈 8. 可扩展方向
 AI 能耗预测
 实时数据流处理
 Grafana 可视化监控
 多租户能源系统
+
 🔧 9. Git 协作规范（团队开发）
 9.1 分支规范
 main：生产稳定分支（禁止直接提交）
@@ -135,7 +145,9 @@ develop：开发主分支
 feature/xxx：功能开发
 fix/xxx：bug 修复
 hotfix/xxx：紧急修复
+
 9.2 开发流程
+
 ```bash
 git checkout develop
 git pull origin develop
@@ -162,7 +174,9 @@ feat(backend): add energy API
 fix(frontend): fix chart bug
 docs(readme): update guide
 ```
+
 9.4 常用 Git 命令
+
 ```bash
 git status
 git pull origin develop
@@ -173,6 +187,7 @@ git branch -a
 git branch -d feature/name
 git reset --hard HEAD~1
 ```
+
 9.5 注意事项
 禁止直接 push main
 必须通过 PR 合并
