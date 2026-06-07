@@ -1,4 +1,29 @@
-在 deploy/ 目录下执行 docker-compose up -d timescaledb
-执行完用 docker ps 验证，列表里出现了一个名为 smart_energy_db 的容器，并且状态是 Up 即成功
+在 `deploy/` 目录下只启动数据库容器，后端继续在宿主机运行。
 
-已经在数据库中预写入了两条数据用于测试，项目启动后，应可打印出设备信息
+如果你之前已经启动过旧版本数据库，这次表结构有变化，先删除旧卷再重建：
+`docker compose down -v`
+
+启动数据库：
+`docker compose up -d timescaledb`
+
+查看数据库状态：
+`docker compose ps`
+
+查看数据库日志：
+`docker compose logs -f timescaledb`
+
+后端启动方式：
+1. 进入后端目录
+`cd ..\backend`
+2. 打包
+`mvn -DskipTests package`
+3. 启动后端
+`java -jar target\backend-0.0.1-SNAPSHOT.jar`
+
+后端接口地址：
+`http://localhost:8080`
+
+补充说明：
+1. 这样不会在 Docker 内下载 Maven 依赖，也不会拉取 Java 基础镜像。
+2. 初始化 SQL 已和当前代码一致，包含 `device` 扩展字段、`sensor_data`、`work_order`。
+3. 默认账号是 `admin`，默认密码是 `123456`。

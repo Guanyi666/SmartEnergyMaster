@@ -7,14 +7,6 @@ import lombok.Data;
 
 import java.time.LocalDateTime;
 
-/**
- * @author Duan Guanyi
- * @version 1.0.0
- * @date 2026/3/18
- */
-/**
- * 设备实体类
- */
 @Data
 @TableName("device")
 public class Device {
@@ -30,6 +22,13 @@ public class Device {
 
     private String status;
 
+    private String location;
+
+    private String maintainer;
+
+    private String description;
+
     private LocalDateTime createdAt;
 
+    private LocalDateTime updatedAt;
 }

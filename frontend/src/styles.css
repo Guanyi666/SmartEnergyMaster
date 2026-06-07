@@ -1,0 +1,149 @@
+:root {
+  color-scheme: dark;
+  --bg-primary: #07111f;
+  --bg-secondary: #0f172a;
+  --bg-tertiary: rgba(15, 23, 42, 0.78);
+  --panel-border: rgba(91, 192, 255, 0.18);
+  --panel-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  --text-primary: #eef4ff;
+  --text-secondary: #94a3b8;
+  --accent-blue: #52c8ff;
+  --accent-green: #3bff9f;
+  --accent-orange: #ffb347;
+  --accent-red: #ff5d5d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top right, rgba(82, 200, 255, 0.18), transparent 24%),
+    radial-gradient(circle at bottom left, rgba(59, 255, 159, 0.08), transparent 22%),
+    linear-gradient(135deg, #030712 0%, #07111f 38%, #020617 100%);
+  color: var(--text-primary);
+  font-family: Bahnschrift, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.glass-panel {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.9), rgba(7, 17, 31, 0.78));
+  border: 1px solid var(--panel-border);
+  border-radius: 22px;
+  box-shadow: var(--panel-shadow);
+  backdrop-filter: blur(18px);
+}
+
+.page-shell {
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.page-subtitle {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.grid-two {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 20px;
+}
+
+.grid-three {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.card-title {
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #dbeafe;
+}
+
+.section-spacer {
+  margin-top: 20px;
+}
+
+.muted {
+  color: var(--text-secondary);
+}
+
+.el-card,
+.el-table,
+.el-dialog,
+.el-select__wrapper,
+.el-input__wrapper,
+.el-textarea__inner {
+  --el-bg-color: transparent;
+  --el-fill-color-blank: rgba(15, 23, 42, 0.88);
+  --el-fill-color-light: rgba(30, 41, 59, 0.85);
+  --el-border-color: rgba(148, 163, 184, 0.18);
+  --el-text-color-primary: var(--text-primary);
+  --el-text-color-regular: var(--text-primary);
+}
+
+.el-table {
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: rgba(15, 23, 42, 0.8);
+  --el-table-row-hover-bg-color: rgba(30, 41, 59, 0.68);
+  background: transparent;
+}
+
+.el-dialog {
+  background: #07111f !important;
+  border: 1px solid var(--panel-border);
+}
+
+.el-menu {
+  border-right: none !important;
+}
+
+@media (max-width: 1024px) {
+  .grid-two,
+  .grid-three {
+    grid-template-columns: 1fr;
+  }
+
+  .page-shell {
+    padding: 18px;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .page-title {
+    font-size: 24px;
+  }
+}

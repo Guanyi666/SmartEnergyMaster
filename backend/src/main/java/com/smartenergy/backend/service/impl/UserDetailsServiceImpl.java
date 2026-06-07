@@ -3,22 +3,18 @@ package com.smartenergy.backend.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.smartenergy.backend.entity.SysUser;
 import com.smartenergy.backend.mapper.SysUserMapper;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-/**
- * @author Duan Guanyi
- * @version 1.0.0
- * @date 2026/3/18
- */
 @Service
+@RequiredArgsConstructor
 public class UserDetailsServiceImpl implements UserDetailsService {
-    @Autowired
-    private SysUserMapper sysUserMapper;
+
+    private final SysUserMapper sysUserMapper;
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {

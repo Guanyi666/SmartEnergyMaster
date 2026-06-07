@@ -1,0 +1,15 @@
+import request from './http'
+
+export const loginApi = (payload) => request.post('/auth/login', payload)
+export const registerApi = (payload) => request.post('/auth/register', payload)
+export const getDashboardSummary = (deviceCode) => request.get('/dashboard/summary', { params: { deviceCode } })
+export const getDispatchAdvice = (deviceCode) => request.get('/dashboard/dispatch-advice', { params: { deviceCode } })
+export const getLatestSensor = (deviceCode) => request.get(`/sensor/latest/${deviceCode}`)
+export const getSensorHistory = (deviceCode, hours = 24) => request.get(`/sensor/history/${deviceCode}`, { params: { hours } })
+export const getDevices = () => request.get('/devices')
+export const createDevice = (payload) => request.post('/devices', payload)
+export const updateDevice = (id, payload) => request.put(`/devices/${id}`, payload)
+export const deleteDevice = (id) => request.delete(`/devices/${id}`)
+export const getWorkOrders = (status) => request.get('/work-orders', { params: { status } })
+export const updateWorkOrderStatus = (id, payload) => request.patch(`/work-orders/${id}/status`, payload)
+export const getActiveAlerts = (limit = 5) => request.get('/work-orders/active-alerts', { params: { limit } })
