@@ -35,6 +35,10 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // Swagger UI & API docs
+                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html").permitAll()
+                        .requestMatchers("/v3/api-docs/**", "/swagger-resources/**", "/webjars/**").permitAll()
+                        // 认证白名单
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/sensor/upload").permitAll()
                         .requestMatchers("/api/sensor/latest/**", "/api/sensor/history/**").permitAll()

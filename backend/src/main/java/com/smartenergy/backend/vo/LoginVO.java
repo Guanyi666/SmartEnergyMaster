@@ -1,27 +1,24 @@
 package com.smartenergy.backend.vo;
 
-/**
- * @author Duan Guanyi
- * @version 1.0.0
- * @date 2026/3/18
- */
-
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * 登陆成功后返回的视图对象
- */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Schema(description = "登录响应")
 public class LoginVO {
+
+    @Schema(description = "JWT Token（24h 有效）", example = "eyJhbGciOiJIUzI1NiJ9...")
     private String token;
 
+    @Schema(description = "用户名", example = "admin")
     private String username;
 
+    @Schema(description = "角色（ADMIN / OPERATOR）", example = "ADMIN")
     private String role;
 }
