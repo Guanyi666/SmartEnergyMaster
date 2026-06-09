@@ -43,12 +43,12 @@ public class WorkOrder {
     private String priority;
 
     /**
-     * 🟢 修复：updateStrategy = IGNORED
+     * 🟢 修复：updateStrategy = ALWAYS
      * 之前 MyBatis-Plus 默认 NOT_NULL 策略，setAssignee(null) 后 updateById 不会把 null
      * 写进 SQL，导致"释放工单清空 assignee"无效，老字段残留。
-     * 改为 IGNORED 后 null 也会被写入（满足 8081 sync 接口显式清空需求）。
+     * 改为 ALWAYS 后 null 也会被写入（满足 8081 sync 接口显式清空需求）。
      */
-    @TableField(updateStrategy = FieldStrategy.IGNORED)
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     @Schema(description = "处理人")
     private String assignee;
 

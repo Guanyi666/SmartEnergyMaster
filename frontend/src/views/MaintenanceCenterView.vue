@@ -212,7 +212,9 @@ const confirmHandle = async (o) => {
     ElMessage.success('已确认处理')
     drawerOpen.value = false
     await refreshNow()
-  } catch (e) {}
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '操作失败')
+  }
 }
 
 const markResolved = async (o) => {

@@ -1,15 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 import LoginView from '../views/LoginView.vue'
-import DashboardView from '../views/DashboardView.vue'
-import AnalysisView from '../views/AnalysisView.vue'
-import DevicesView from '../views/DevicesView.vue'
-// ★ 新增 Epic 05 维修模块 4 个视图
-import MaintenanceCenterView from '../views/MaintenanceCenterView.vue'
-import PersonnelView from '../views/PersonnelView.vue'
-import DispatchView from '../views/DispatchView.vue'
-import WorkOrderDetailView from '../views/WorkOrderDetailView.vue'
-import { useAuthStore } from '../stores/auth'   // ★ 守卫需要拿角色
+import { useAuthStore } from '../stores/auth'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -31,41 +23,41 @@ const router = createRouter({
         {
           path: '/dashboard',
           name: 'dashboard',
-          component: DashboardView
+          component: () => import('../views/DashboardView.vue')
         },
         {
           path: '/analysis',
           name: 'analysis',
-          component: AnalysisView
+          component: () => import('../views/AnalysisView.vue')
         },
         {
           path: '/devices',
           name: 'devices',
-          component: DevicesView
+          component: () => import('../views/DevicesView.vue')
         },
-        // ★ 新增 4 条路由（带 meta.roles 用于角色拦截）
+        // Epic 05 维修模块（按需加载，含 meta.roles 角色拦截）
         {
           path: '/maintenance',
           name: 'maintenance',
-          component: MaintenanceCenterView,
+          component: () => import('../views/MaintenanceCenterView.vue'),
           meta: { roles: ['MAINTENANCE_ENGINEER', 'ADMIN'] }
         },
         {
           path: '/maintenance/personnel',
           name: 'maintenance-personnel',
-          component: PersonnelView,
+          component: () => import('../views/PersonnelView.vue'),
           meta: { roles: ['MAINTENANCE_ENGINEER', 'ADMIN', 'MANAGER'] }
         },
         {
           path: '/maintenance/dispatch',
           name: 'maintenance-dispatch',
-          component: DispatchView,
+          component: () => import('../views/DispatchView.vue'),
           meta: { roles: ['MAINTENANCE_ENGINEER', 'ADMIN', 'MANAGER'] }
         },
         {
           path: '/maintenance/orders/:id',
           name: 'maintenance-order-detail',
-          component: WorkOrderDetailView,
+          component: () => import('../views/WorkOrderDetailView.vue'),
           meta: { roles: ['MAINTENANCE_ENGINEER', 'ADMIN'], hideInMenu: true }
         }
       ]

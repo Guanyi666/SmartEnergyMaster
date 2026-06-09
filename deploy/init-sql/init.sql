@@ -76,3 +76,41 @@ CREATE TABLE work_order (
 );
 
 CREATE INDEX ix_work_order_status_created_at ON work_order (status, created_at DESC);
+
+-- ============================================================
+-- Epic 05：维修人员调度模块（与 workorder-backend 合并后统一建表）
+-- ============================================================
+
+CREATE TABLE workorder_maintenance_personnel (
+    id BIGSERIAL PRIMARY KEY,
+    employee_no VARCHAR(32) UNIQUE NOT NULL,
+    name VARCHAR(64) NOT NULL,
+    phone VARCHAR(32),
+    email VARCHAR(128),
+    avatar_color VARCHAR(16) DEFAULT '#52c8ff',
+    specializations JSONB DEFAULT '[]'::jsonb,
+    skill_level VARCHAR(16) NOT NULL DEFAULT 'JUNIOR',
+    certification VARCHAR(255),
+    current_workload INT NOT NULL DEFAULT 0,
+    max_workload INT NOT NULL DEFAULT 5,
+    is_on_duty BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX ix_personnel_skill_level ON workorder_maintenance_personnel (skill_level);
+CREATE INDEX ix_personnel_on_duty ON workorder_maintenance_personnel (is_on_duty);
+
+CREATE TABLE workorder_assignment (
+    id BIGSERIAL PRIMARY KEY,
+    work_order_id BIGINT NOT NULL,
+    personnel_id BIGINT NOT NULL,
+    role VARCHAR(32) NOT NULL DEFAULT 'PRIMARY',
+    assigned_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    released_at TIMESTAMP,
+    note VARCHAR(255)
+);
+
+CREATE INDEX ix_assignment_work_order ON workorder_assignment (work_order_id);
+CREATE INDEX ix_assignment_personnel ON workorder_assignment (personnel_id);
+CREATE INDEX ix_assignment_active ON workorder_assignment (work_order_id, personnel_id) WHERE released_at IS NULL;

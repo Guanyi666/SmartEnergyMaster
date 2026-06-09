@@ -5,29 +5,28 @@ spring:
   application:
     name: smart-energy-backend
   datasource:
-    url: jdbc:postgresql://localhost:5432/smart_energy
-    username: energy_user
-    password: energy_password
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/smart_energy}
+    username: ${DB_USERNAME:energy_user}
+    password: ${DB_PASSWORD:energy_password}
     driver-class-name: org.postgresql.Driver
   profiles:
     active: dev
   sql:
     init:
-      # 🆕 合并 workorder-backend: 改用 ${SQL_INIT_MODE:always} 兼容 prod
+      # SQL 初始化策略：开发/第一次部署用 always，生产可覆写为 never
       mode: ${SQL_INIT_MODE:always}
       continue-on-error: false
       encoding: UTF-8
   jackson:
-    # 🆕 合并 workorder-backend: 保留全局 non_null（具体 DTO 上 @JsonInclude(ALWAYS) 显式保留 null）
+    # 全局 Jackson 配置：non_null（具体 DTO 上 @JsonInclude(ALWAYS) 显式保留 null）
     default-property-inclusion: non_null
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
       database: 0
       timeout: 3000ms
-      # 生产环境必须配置 password 和 SSL：
-      # password: ${REDIS_PASSWORD}
+      password: ${REDIS_PASSWORD:}
       lettuce:
         pool:
           max-active: 16
@@ -42,10 +41,15 @@ prediction:
     timeout-ms: 8000       # MC Dropout×10 + 并发预热下单次推理可能 >4s，放宽避免超时降级
     lookback: 96          # 取最近 96 条读数作为预测输入窗口
 
-# MyBatis-Plus（合并 workorder-backend 的 type-aliases-package）
+# JWT
+jwt:
+  secret: ${JWT_SECRET:SmartEnergyMasterSecretKey}
+  expiration-ms: 86400000  # 24h
+
+# MyBatis-Plus
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
-  type-aliases-package: com.smartenergy.backend.entity,com.smartenergy.workorder.entity
+  type-aliases-package: com.smartenergy.backend.entity
   global-config:
     db-config:
       id-type: auto
@@ -61,7 +65,7 @@ springdoc:
     path: /swagger-ui.html
     tags-sorter: alpha
     operations-sorter: alpha
-  packages-to-scan: com.smartenergy.backend.controller,com.smartenergy.workorder.controller
+  packages-to-scan: com.smartenergy.backend.controller
 
 logging:
   level:

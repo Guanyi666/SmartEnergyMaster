@@ -2,6 +2,7 @@ package com.smartenergy.backend.service.impl;
 
 import cn.hutool.jwt.JWT;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.smartenergy.backend.config.JwtConfig;
 import com.smartenergy.backend.dto.LoginRequest;
 import com.smartenergy.backend.dto.RegisterRequest;
 import com.smartenergy.backend.entity.SysUser;
@@ -19,11 +20,10 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
-    private static final byte[] JWT_KEY = "SmartEnergyMasterSecretKey".getBytes();
-
     private final SysUserMapper sysUserMapper;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
+    private final JwtConfig jwtConfig;
 
     @Override
     public void register(RegisterRequest request) {
@@ -49,8 +49,8 @@ public class UserServiceImpl implements UserService {
         String token = JWT.create()
                 .setPayload("username", request.getUsername())
                 .setPayload("role", role)
-                .setPayload("expire_time", System.currentTimeMillis() + 1000L * 60 * 60 * 24)
-                .setKey(JWT_KEY)
+                .setPayload("expire_time", System.currentTimeMillis() + jwtConfig.getExpirationMs())
+                .setKey(jwtConfig.getKeyBytes())
                 .sign();
 
         return LoginVO.builder()

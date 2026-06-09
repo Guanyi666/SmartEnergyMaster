@@ -5,13 +5,11 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 /**
- * 🆕 合并 workorder-backend: scanBasePackages = "com.smartenergy"
- * 之前 @SpringBootApplication 默认只扫 com.smartenergy.backend.*，
- * 合并后 com.smartenergy.workorder.* 下的 @Controller / @Service / @Configuration 都扫不到。
- * 显式指定 scanBasePackages 让两个 namespace 同时被加载。
+ * 🆕 workorder 模块已合并到 com.smartenergy.backend 包下。
+ * scanBasePackages = "com.smartenergy" 保留以兼容任何外部扩展包。
  */
 @SpringBootApplication(scanBasePackages = "com.smartenergy")
-@MapperScan({"com.smartenergy.backend.mapper", "com.smartenergy.workorder.mapper"})
+@MapperScan("com.smartenergy.backend.mapper")
 public class BackendApplication {
 
     public static void main(String[] args) {

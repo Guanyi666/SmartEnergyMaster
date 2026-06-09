@@ -185,7 +185,9 @@ const selectOrder = async (o) => {
   try {
     const res = await autoMatch({ faultType: o.faultType, workOrderId: o.id, topN: 5 })
     matchResult.value = res
-  } catch (e) {}
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '匹配推荐加载失败')
+  }
 }
 
 const assign = async (c) => {
@@ -195,7 +197,9 @@ const assign = async (c) => {
     await loadAll()
     // 重新匹配（可能状态变化导致推荐变化）
     if (currentOrderId.value) await selectOrder(currentOrder.value)
-  } catch (e) {}
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '指派失败')
+  }
 }
 
 watch(() => route.query.workOrderId, (id) => {

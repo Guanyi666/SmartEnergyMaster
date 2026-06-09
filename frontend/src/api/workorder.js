@@ -1,6 +1,6 @@
 // frontend/src/api/workorder.js
 // 维修工单与人员调度 API 封装
-// baseURL = '/api'（与 http.js 共享实例），Vite 代理把 '/api/workorder/*' 打到 8081
+// 所有 /api/* 请求统一通过 Vite 代理打到后端 8080（workorder 模块已合并到 backend）
 import request from './http'
 
 // ============ 人员 CRUD ============
@@ -30,7 +30,6 @@ export const autoMatch = (params) => request.get('/workorder/orders/auto-match',
 export const getDispatchSummary = () => request.get('/workorder/dashboard/summary')
 export const getDispatchBoard = () => request.get('/workorder/dispatch-board')
 
-// ============ 跨服务：调 8080 现有 WorkOrderController PATCH /status ============
-// 🟠 严重问题 #3 修正：前端拖拽改 status 必须走现有 8080 API，不走 8081
-//    这是前端代理配置（vite.config.js）：'/api' → :8080，所以这里直接打 /work-orders/* 即可
+// ============ 工单状态更新（调用主 WorkOrderController PATCH /status）============
+// 所有 API 统一通过 Vite 代理打到 8080，直接调用 /work-orders/* 即可
 export const patchWorkOrderStatus = (id, payload) => request.patch(`/work-orders/${id}/status`, payload)

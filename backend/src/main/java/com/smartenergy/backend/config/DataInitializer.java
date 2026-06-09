@@ -6,6 +6,7 @@ import com.smartenergy.backend.entity.SysUser;
 import com.smartenergy.backend.mapper.DeviceMapper;
 import com.smartenergy.backend.mapper.SysUserMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -21,6 +22,9 @@ public class DataInitializer implements CommandLineRunner {
     private final SysUserMapper sysUserMapper;
     private final PasswordEncoder passwordEncoder;
 
+    @Value("${app.admin.password:admin123}")
+    private String defaultAdminPassword;
+
     @Override
     public void run(String... args) {
         seedDefaultUser();
@@ -35,7 +39,7 @@ public class DataInitializer implements CommandLineRunner {
 
         SysUser admin = new SysUser();
         admin.setUsername("admin");
-        admin.setPassword(passwordEncoder.encode("admin123"));
+        admin.setPassword(passwordEncoder.encode(defaultAdminPassword));
         admin.setRole("ADMIN");
         sysUserMapper.insert(admin);
     }

@@ -259,7 +259,9 @@ const onDutyChange = async (p, onDuty) => {
     await toggleDuty(p.id, onDuty)
     p.isOnDuty = onDuty
     ElMessage.success(`${p.name} 已${onDuty ? '回到在岗' : '切换为离岗'}`)
-  } catch (e) {}
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '切换在岗状态失败')
+  }
 }
 
 onMounted(loadList)
