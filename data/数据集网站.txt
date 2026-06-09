@@ -1,0 +1,3 @@
+https://archive.ics.uci.edu/dataset/851/steel+industry+energy+consumption
+
+https://www.kaggle.com/datasets/csafrit2/steel-industry-energy-consumption?resource=download
