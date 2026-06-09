@@ -27,12 +27,34 @@
           <el-icon><Setting /></el-icon>
           <span>设备管理</span>
         </el-menu-item>
+
+        <!-- ★ 新增：仅 MAINTENANCE_ENGINEER / ADMIN / MANAGER 看到 -->
+        <el-menu-item
+          v-if="isMaintenanceRole"
+          index="/maintenance"
+        >
+          <el-icon><Tools /></el-icon>
+          <span>维修指挥中心</span>
+        </el-menu-item>
+
+        <el-sub-menu
+          v-if="isMaintenanceRole"
+          index="maintenance-sub"
+        >
+          <template #title>
+            <el-icon><User /></el-icon>
+            <span>人员调度</span>
+          </template>
+          <el-menu-item index="/maintenance/personnel">维修人员</el-menu-item>
+          <el-menu-item index="/maintenance/dispatch">智能调度</el-menu-item>
+        </el-sub-menu>
       </el-menu>
 
       <div class="sidebar-footer">
         <div>
           <p class="muted footer-label">当前账号</p>
           <strong>{{ auth.user?.username || '未登录' }}</strong>
+          <p v-if="auth.user?.role" class="role-tag">{{ roleLabel(auth.user.role) }}</p>
         </div>
         <el-button text type="danger" @click="logout">退出</el-button>
       </div>
@@ -45,12 +67,27 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+
+// 🟠 重要问题 #5 修复：菜单项按角色动态显示
+const isMaintenanceRole = computed(() => {
+  const r = auth.user?.role
+  return r === 'MAINTENANCE_ENGINEER' || r === 'ADMIN' || r === 'MANAGER'
+})
+
+const ROLE_LABELS = {
+  ADMIN: '管理员',
+  OPERATOR: '操作员',
+  MAINTENANCE_ENGINEER: '维修工程师',
+  MANAGER: '调度主管'
+}
+const roleLabel = (role) => ROLE_LABELS[role] || role
 
 const logout = () => {
   auth.logout()
@@ -111,6 +148,18 @@ const logout = () => {
   gap: 12px;
   padding: 18px 12px 8px;
   border-top: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.role-tag {
+  display: inline-block;
+  margin: 4px 0 0;
+  padding: 2px 8px;
+  background: rgba(82, 200, 255, 0.16);
+  border: 1px solid rgba(82, 200, 255, 0.32);
+  border-radius: 10px;
+  color: #52c8ff;
+  font-size: 11px;
+  letter-spacing: 1px;
 }
 
 @media (max-width: 1024px) {

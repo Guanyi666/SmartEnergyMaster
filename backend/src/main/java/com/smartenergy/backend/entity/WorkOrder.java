@@ -1,6 +1,8 @@
 package com.smartenergy.backend.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -40,6 +42,13 @@ public class WorkOrder {
     @Schema(description = "优先级（HIGH / CRITICAL）")
     private String priority;
 
+    /**
+     * 🟢 修复：updateStrategy = IGNORED
+     * 之前 MyBatis-Plus 默认 NOT_NULL 策略，setAssignee(null) 后 updateById 不会把 null
+     * 写进 SQL，导致"释放工单清空 assignee"无效，老字段残留。
+     * 改为 IGNORED 后 null 也会被写入（满足 8081 sync 接口显式清空需求）。
+     */
+    @TableField(updateStrategy = FieldStrategy.IGNORED)
     @Schema(description = "处理人")
     private String assignee;
 

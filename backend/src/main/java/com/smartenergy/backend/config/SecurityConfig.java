@@ -42,6 +42,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/sensor/upload").permitAll()
                         .requestMatchers("/api/sensor/latest/**", "/api/sensor/history/**").permitAll()
+                        // 🟠 Epic 05 跨服务调用：维修模块（8081）的 WorkOrderClient
+                        //    PATCH work_order.assignee 同步现有 work_order 表，免 JWT
+                        //    路径：/api/work-orders/*/status
+                        //    原因：8081 内部信任区，调用方是同一项目的另一个服务
+                        .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/work-orders/*/status").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

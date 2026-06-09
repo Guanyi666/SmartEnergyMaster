@@ -1,0 +1,56 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: workorder-backend
+  datasource:
+    url: jdbc:postgresql://localhost:5432/smart_energy
+    username: energy_user
+    password: energy_password
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 8
+      minimum-idle: 2
+  profiles:
+    active: dev
+  sql:
+    init:
+      # 🟢 dev 默认 always（配合 init-workorder.sql 全部 IF NOT EXISTS + ON CONFLICT 幂等）
+      mode: ${SQL_INIT_MODE:always}
+      schema-locations: classpath:db/init-workorder.sql
+      continue-on-error: false
+      encoding: UTF-8
+  jackson:
+    default-property-inclusion: non_null
+
+# 现有 8080 后端地址（assign 接口内部 PATCH /api/work-orders/{id}/status）
+existing-backend:
+  base-url: ${EXISTING_BACKEND_URL:http://localhost:8080}
+
+# MyBatis-Plus
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: null
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.smartenergy.workorder.entity
+
+# SpringDoc
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  packages-to-scan: com.smartenergy.workorder.controller
+
+logging:
+  level:
+    com.smartenergy.workorder: INFO
+    org.springframework.jdbc.core.JdbcTemplate: WARN
