@@ -29,6 +29,7 @@ public class DeviceController {
     private final DeviceHealthService deviceHealthService;
 
     @GetMapping
+    @Operation(summary = "设备列表", description = "查询所有设备，每台设备附带最新传感器数据、当前状态和活跃工单数")
     public PageVO<DeviceOverviewVO> listDevices(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -52,10 +53,6 @@ public class DeviceController {
     @GetMapping("/{id}/health-score")
     public DeviceHealthScoreVO getHealthScore(@PathVariable Integer id) {
         return deviceHealthService.evaluateHealth(id);
-    }
-    @Operation(summary = "设备列表", description = "查询所有设备，每台设备附带最新传感器数据、当前状态和活跃工单数")
-    public List<DeviceOverviewVO> listDevices() {
-        return deviceService.listDevices();
     }
 
     @PostMapping
