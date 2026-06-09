@@ -106,13 +106,13 @@ const formatNumber = (value) => (value ?? value === 0 ? Number(value).toFixed(2)
 const loadAll = async () => {
   const [summaryResult, devicesResult, latestResult, alertsResult] = await Promise.all([
     getDashboardSummary(focusDeviceCode.value),
-    getDevices(),
+    getDevices({ size: 999 }),
     getLatestSensor(focusDeviceCode.value),
     getActiveAlerts(8)
   ])
 
   summary.value = summaryResult
-  devices.value = devicesResult
+  devices.value = devicesResult.records || devicesResult
   latestData.value = typeof latestResult === 'string' ? {} : latestResult
   alerts.value = alertsResult
 

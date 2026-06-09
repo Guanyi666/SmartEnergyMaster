@@ -130,6 +130,16 @@ public class WorkOrderServiceImpl implements WorkOrderService {
                 .in("status", List.of("PENDING", "IN_PROGRESS"))) > 0;
     }
 
+    @Override
+    public List<WorkOrderVO> listWorkOrdersByDevice(Integer deviceId) {
+        return workOrderMapper.selectList(new QueryWrapper<WorkOrder>()
+                        .eq("device_id", deviceId)
+                        .orderByDesc("created_at"))
+                .stream()
+                .map(this::toVO)
+                .toList();
+    }
+
     private void syncDeviceStatusAfterOrderUpdate(Integer deviceId, String currentStatus) {
         if ("RESOLVED".equals(currentStatus)) {
             boolean hasInProgress = workOrderMapper.selectCount(new QueryWrapper<WorkOrder>()

@@ -20,4 +20,6 @@ public interface WorkOrderService {
     long countActiveByDevice(Integer deviceId);
 
     boolean hasActiveFault(Integer deviceId, String faultType);
+
+    List<WorkOrderVO> listWorkOrdersByDevice(Integer deviceId);
 }

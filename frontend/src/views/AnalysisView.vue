@@ -81,7 +81,7 @@ const loadAnalysis = async () => {
 const { start: startPolling, run: refreshNow } = usePollingTask(loadAnalysis, 10000)
 
 onMounted(async () => {
-  devices.value = await getDevices()
+  devices.value = (await getDevices({ size: 999 })).records
   if (devices.value.length) {
     deviceCode.value = devices.value[0].deviceCode
   }

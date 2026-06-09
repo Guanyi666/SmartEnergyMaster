@@ -1,6 +1,8 @@
 package com.smartenergy.backend.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.smartenergy.backend.cache.CacheKeys;
 import com.smartenergy.backend.cache.CacheService;
 import com.smartenergy.backend.dto.DeviceUpsertRequest;
@@ -13,6 +15,7 @@ import com.smartenergy.backend.mapper.WorkOrderMapper;
 import com.smartenergy.backend.service.DeviceService;
 import com.smartenergy.backend.utils.DeviceStatusHelper;
 import com.smartenergy.backend.vo.DeviceOverviewVO;
+import com.smartenergy.backend.vo.PageVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -33,13 +36,38 @@ public class DeviceServiceImpl implements DeviceService {
     private final CacheService cacheService;
 
     @Override
-    public List<DeviceOverviewVO> listDevices() {
-        return cacheService.getOrLoad(CacheKeys.DEVICE_LIST, CacheKeys.DEVICE_LIST_TTL, () ->
-                new ArrayList<>(deviceMapper.selectList(new QueryWrapper<Device>().orderByAsc("id"))
-                        .stream()
-                        .map(this::toOverview)
-                        .toList()));
+    public PageVO<DeviceOverviewVO> listDevices(int page, int size, String type, String status, String keyword) {
+        QueryWrapper<Device> wrapper = new QueryWrapper<Device>().orderByAsc("id");
+        if (StringUtils.hasText(type)) {
+            wrapper.eq("device_type", type);
+        }
+        if (StringUtils.hasText(status)) {
+            wrapper.eq("status", status.toUpperCase());
+        }
+        if (StringUtils.hasText(keyword)) {
+            wrapper.and(w -> w.like("device_name", keyword).or().like("device_code", keyword));
+        }
+        IPage<Device> result = deviceMapper.selectPage(new Page<>(page, size), wrapper);
+        List<DeviceOverviewVO> records = result.getRecords().stream()
+                .map(this::toOverview)
+                .toList();
+        IPage<DeviceOverviewVO> voPage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
+        voPage.setRecords(records);
+        return PageVO.of(voPage);
     }
+
+    @Override
+    public DeviceOverviewVO getDeviceOverview(Integer id) {
+        return toOverview(getDeviceById(id));
+    }
+    public List<DeviceOverviewVO> listDevices () {
+            return cacheService.getOrLoad(CacheKeys.DEVICE_LIST, CacheKeys.DEVICE_LIST_TTL, () ->
+                    new ArrayList<>(deviceMapper.selectList(new QueryWrapper<Device>().orderByAsc("id"))
+                            .stream()
+                            .map(this::toOverview)
+                            .toList()));
+    }
+
 
     @Override
     @Transactional

@@ -32,7 +32,7 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     private DashboardSummaryVO buildSummary(String deviceCode) {
-        List<DeviceOverviewVO> devices = deviceService.listDevices();
+        List<DeviceOverviewVO> devices = deviceService.listDevices(1, 10000, null, null, null).getRecords();
         DashboardSummaryVO summary = new DashboardSummaryVO();
 
         BigDecimal totalUsage = BigDecimal.ZERO;
