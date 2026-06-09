@@ -13,7 +13,7 @@ CREATE TABLE sys_user (
 );
 
 INSERT INTO sys_user (username, password, role)
-VALUES ('admin', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', 'ADMIN');
+VALUES ('admin', '$2a$10$Fpw7PxEw9SrLN/GdQ2Mg4eVsgPu4B2ptII3zyYsfZNHAm54b.cb4S', 'ADMIN');  -- 明文: 123456
 
 CREATE TABLE device (
     id SERIAL PRIMARY KEY,
