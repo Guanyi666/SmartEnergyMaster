@@ -1,5 +1,7 @@
 package com.smartenergy.backend.service.impl;
 
+import com.smartenergy.backend.cache.CacheKeys;
+import com.smartenergy.backend.cache.CacheService;
 import com.smartenergy.backend.entity.SensorData;
 import com.smartenergy.backend.service.DashboardService;
 import com.smartenergy.backend.service.DeviceService;
@@ -21,9 +23,15 @@ public class DashboardServiceImpl implements DashboardService {
     private final DeviceService deviceService;
     private final SensorDataService sensorDataService;
     private final WorkOrderService workOrderService;
+    private final CacheService cacheService;
 
     @Override
     public DashboardSummaryVO getSummary(String deviceCode) {
+        return cacheService.getOrLoad(CacheKeys.dashboardSummary(deviceCode),
+                CacheKeys.DASHBOARD_SUMMARY_TTL, () -> buildSummary(deviceCode));
+    }
+
+    private DashboardSummaryVO buildSummary(String deviceCode) {
         List<DeviceOverviewVO> devices = deviceService.listDevices();
         DashboardSummaryVO summary = new DashboardSummaryVO();
 

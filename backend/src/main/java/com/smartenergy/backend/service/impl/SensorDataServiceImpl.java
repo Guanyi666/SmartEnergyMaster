@@ -1,6 +1,8 @@
 package com.smartenergy.backend.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.smartenergy.backend.cache.CacheKeys;
+import com.smartenergy.backend.cache.CacheService;
 import com.smartenergy.backend.dto.SensorDataDTO;
 import com.smartenergy.backend.entity.Device;
 import com.smartenergy.backend.entity.SensorData;
@@ -26,6 +28,7 @@ public class SensorDataServiceImpl implements SensorDataService {
     private final DeviceMapper deviceMapper;
     private final DeviceService deviceService;
     private final WorkOrderService workOrderService;
+    private final CacheService cacheService;
 
     @Override
     @Transactional
@@ -44,20 +47,23 @@ public class SensorDataServiceImpl implements SensorDataService {
 
         sensorDataMapper.insert(sensorData);
         deviceService.updateDeviceStatus(device.getId(), DeviceStatusHelper.statusFromOperating(sensorData.getOperatingStatus()));
+        // 新数据落库后，让该设备的最新工况缓存失效，下次读取回源最新值
+        cacheService.evict(CacheKeys.deviceLatest(device.getDeviceCode()));
         analyzeAndTriggerAlarm(device, sensorData);
     }
 
     @Override
     public SensorData getLatestData(String deviceCode) {
-        Device device = deviceMapper.selectOne(new QueryWrapper<Device>().eq("device_code", deviceCode));
-        if (device == null) {
-            throw new IllegalArgumentException("找不到设备编号 " + deviceCode);
-        }
-
-        return sensorDataMapper.selectOne(new QueryWrapper<SensorData>()
-                .eq("device_id", device.getId())
-                .orderByDesc("time")
-                .last("LIMIT 1"));
+        return cacheService.getOrLoad(CacheKeys.deviceLatest(deviceCode), CacheKeys.DEVICE_LATEST_TTL, () -> {
+            Device device = deviceMapper.selectOne(new QueryWrapper<Device>().eq("device_code", deviceCode));
+            if (device == null) {
+                throw new IllegalArgumentException("找不到设备编号 " + deviceCode);
+            }
+            return sensorDataMapper.selectOne(new QueryWrapper<SensorData>()
+                    .eq("device_id", device.getId())
+                    .orderByDesc("time")
+                    .last("LIMIT 1"));
+        });
     }
 
     @Override

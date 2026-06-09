@@ -1,5 +1,7 @@
 package com.smartenergy.backend.controller;
 
+import com.smartenergy.backend.exception.LockAcquireException;
+import com.smartenergy.backend.exception.RateLimitException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -14,6 +16,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException exception) {
         return ResponseEntity.badRequest().body(Map.of("message", exception.getMessage()));
+    }
+
+    @ExceptionHandler(RateLimitException.class)
+    public ResponseEntity<Map<String, String>> handleRateLimit(RateLimitException exception) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(Map.of("message", exception.getMessage()));
+    }
+
+    @ExceptionHandler(LockAcquireException.class)
+    public ResponseEntity<Map<String, String>> handleLockAcquire(LockAcquireException exception) {
+        return ResponseEntity.status(HttpStatus.LOCKED)
+                .body(Map.of("message", exception.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

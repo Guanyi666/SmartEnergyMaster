@@ -1,5 +1,6 @@
 package com.smartenergy.backend.controller;
 
+import com.smartenergy.backend.annotation.RateLimit;
 import com.smartenergy.backend.dto.LoginRequest;
 import com.smartenergy.backend.dto.RegisterRequest;
 import com.smartenergy.backend.service.UserService;
@@ -31,6 +32,8 @@ public class AuthController {
 
     @PostMapping("/login")
     @Operation(summary = "用户登录", description = "验证用户名密码，返回 JWT Token（24h 有效）")
+    @RateLimit(name = "login", limit = 3, window = 60, dimension = RateLimit.Dimension.IP,
+            message = "登录尝试过于频繁，请 1 分钟后再试")
     public ResponseEntity<LoginVO> login(@Validated @RequestBody LoginRequest loginRequest) {
         return ResponseEntity.ok(userService.login(loginRequest));
     }
