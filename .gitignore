@@ -81,10 +81,5 @@ ai_models/**/*.onnx
 .env.*.local
 application-prod.yml
 
-# 8. 文档与媒体文件（如果不需要版本控制）
-.md
-.doc
-.docx
-.excel
-.pdf
-.mp4
+# 8. 过程文档（仅本地保留，不纳入版本控制）
+docs/
