@@ -59,6 +59,11 @@ public class DistributedLockAspect {
         }
     }
 
+    /**
+     * 自旋尝试获取锁。当前业务场景 waitMillis ≤ 200ms（最多自旋 ~10 次，总阻塞 < 200ms）。
+     * NOTE: 如果未来有接口配置 waitMillis > 2000，需改用 Redis Pub/Sub 或 Redisson
+     * RLock.tryLock() 避免长时间阻塞 Tomcat worker 线程。
+     */
     private boolean acquire(String lockKey, String token, DistributedLock lock) throws InterruptedException {
         Duration lease = Duration.ofMillis(lock.leaseMillis());
         long deadline = System.currentTimeMillis() + lock.waitMillis();
@@ -70,6 +75,7 @@ public class DistributedLockAspect {
             if (lock.waitMillis() <= 0) {
                 return false;
             }
+            // waitMillis 较短（< 500ms）时自旋是合理的，避免引入额外的消息队列依赖
             Thread.sleep(20);
         } while (System.currentTimeMillis() < deadline);
         return false;

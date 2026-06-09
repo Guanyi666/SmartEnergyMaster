@@ -16,6 +16,8 @@ spring:
       port: 6379
       database: 0
       timeout: 3000ms
+      # 生产环境必须配置 password 和 SSL：
+      # password: ${REDIS_PASSWORD}
       lettuce:
         pool:
           max-active: 16

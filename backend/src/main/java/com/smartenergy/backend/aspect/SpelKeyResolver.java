@@ -1,5 +1,6 @@
 package com.smartenergy.backend.aspect;
 
+import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.core.DefaultParameterNameDiscoverer;
@@ -15,6 +16,7 @@ import java.lang.reflect.Method;
  * 把切面上的 SpEL 表达式对方法入参求值，得到限流/加锁的动态 key。
  * 同时暴露形参名、p0/p1.. 与 a0/a1.. 三种变量写法，兼容编译期未带 -parameters 的情况。
  */
+@Slf4j
 final class SpelKeyResolver {
 
     private static final ExpressionParser PARSER = new SpelExpressionParser();
@@ -43,6 +45,12 @@ final class SpelKeyResolver {
 
         Expression parsed = PARSER.parseExpression(expression);
         Object value = parsed.getValue(context);
-        return value == null ? "" : value.toString();
+        String result = value == null ? "" : value.toString();
+
+        if (result.isEmpty()) {
+            log.warn("SpEL 表达式 '{}' 对方法 {}.{} 解析结果为空，可能导致锁/限流作用范围扩大",
+                    expression, method.getDeclaringClass().getSimpleName(), method.getName());
+        }
+        return result;
     }
 }
