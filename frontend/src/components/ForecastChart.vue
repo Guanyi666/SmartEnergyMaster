@@ -16,6 +16,7 @@ const props = defineProps({
 
 const chartRef = ref()
 let chart
+let resizeObserver
 
 const fmtTime = (t) => new Date(t).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 
@@ -52,7 +53,12 @@ const renderChart = () => {
       data: ['实际负荷', '预测负荷', '95% 置信区间'],
       textStyle: { color: '#94a3b8' }, top: 4
     },
-    tooltip: { trigger: 'axis' },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(15, 23, 42, 0.92)',
+      borderColor: 'rgba(148, 163, 184, 0.25)',
+      textStyle: { color: '#e2e8f0' }
+    },
     xAxis: {
       type: 'category', boundaryGap: false,
       axisLabel: { color: '#94a3b8' }, data: labels
@@ -78,9 +84,21 @@ const renderChart = () => {
   })
 }
 
-onMounted(() => { renderChart(); window.addEventListener('resize', renderChart) })
+const resize = () => chart?.resize()
+
+onMounted(() => {
+  renderChart()
+  // 容器尺寸变化时重测画布——修复在隐藏 tab 内以 0 宽度初始化、切换后不重排的问题
+  resizeObserver = new ResizeObserver(() => chart?.resize())
+  resizeObserver.observe(chartRef.value)
+  window.addEventListener('resize', resize)
+})
 watch(() => [props.history, props.forecast], renderChart, { deep: true })
-onBeforeUnmount(() => { window.removeEventListener('resize', renderChart); chart?.dispose() })
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', resize)
+  resizeObserver?.disconnect()
+  chart?.dispose()
+})
 </script>
 
 <style scoped>
