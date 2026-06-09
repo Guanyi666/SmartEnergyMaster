@@ -35,7 +35,7 @@ public class DataInitializer implements CommandLineRunner {
 
         SysUser admin = new SysUser();
         admin.setUsername("admin");
-        admin.setPassword(passwordEncoder.encode("123456"));
+        admin.setPassword(passwordEncoder.encode("admin123"));
         admin.setRole("ADMIN");
         sysUserMapper.insert(admin);
     }
