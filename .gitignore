@@ -20,6 +20,7 @@ Thumbs.db
 *.log
 
 # 4. 前端：Vue / Node.js (针对 frontend/ 目录)
+node_modules/
 frontend/node_modules/
 frontend/dist/
 frontend/dist-ssr/
