@@ -35,6 +35,13 @@ spring:
           min-idle: 2
           max-wait: 2000ms
 
+# Epic 6-3: Python 能耗预测微服务
+prediction:
+  service:
+    base-url: http://localhost:8000
+    timeout-ms: 8000       # MC Dropout×10 + 并发预热下单次推理可能 >4s，放宽避免超时降级
+    lookback: 96          # 取最近 96 条读数作为预测输入窗口
+
 # MyBatis-Plus（合并 workorder-backend 的 type-aliases-package）
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml

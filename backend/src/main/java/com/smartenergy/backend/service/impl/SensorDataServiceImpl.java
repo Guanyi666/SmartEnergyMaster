@@ -67,6 +67,20 @@ public class SensorDataServiceImpl implements SensorDataService {
     }
 
     @Override
+    public List<SensorData> getRecentData(String deviceCode, int limit) {
+        Device device = deviceMapper.selectOne(new QueryWrapper<Device>().eq("device_code", deviceCode));
+        if (device == null) {
+            throw new IllegalArgumentException("找不到设备编号 " + deviceCode);
+        }
+        List<SensorData> desc = sensorDataMapper.selectList(new QueryWrapper<SensorData>()
+                .eq("device_id", device.getId())
+                .orderByDesc("time")
+                .last("LIMIT " + limit));
+        java.util.Collections.reverse(desc);   // 转为时间升序
+        return desc;
+    }
+
+    @Override
     public List<SensorData> getHistoryData(String deviceCode, int hours) {
         Device device = deviceMapper.selectOne(new QueryWrapper<Device>().eq("device_code", deviceCode));
         if (device == null) {

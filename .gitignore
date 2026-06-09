@@ -23,7 +23,11 @@ Thumbs.db
 frontend/node_modules/
 frontend/dist/
 frontend/dist-ssr/
+frontend/.vite/
 frontend/*.local
+
+# Claude Code 本地个人设置（launch.json 可共享，settings.local 不提交）
+.claude/settings.local.json
 frontend/npm-debug.log*
 frontend/yarn-debug.log*
 frontend/yarn-error.log*

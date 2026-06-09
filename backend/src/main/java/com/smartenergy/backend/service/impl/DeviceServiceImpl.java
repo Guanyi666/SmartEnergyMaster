@@ -60,14 +60,6 @@ public class DeviceServiceImpl implements DeviceService {
     public DeviceOverviewVO getDeviceOverview(Integer id) {
         return toOverview(getDeviceById(id));
     }
-    public List<DeviceOverviewVO> listDevices () {
-            return cacheService.getOrLoad(CacheKeys.DEVICE_LIST, CacheKeys.DEVICE_LIST_TTL, () ->
-                    new ArrayList<>(deviceMapper.selectList(new QueryWrapper<Device>().orderByAsc("id"))
-                            .stream()
-                            .map(this::toOverview)
-                            .toList()));
-    }
-
 
     @Override
     @Transactional

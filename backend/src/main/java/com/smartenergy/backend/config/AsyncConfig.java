@@ -3,6 +3,7 @@ package com.smartenergy.backend.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
@@ -11,9 +12,11 @@ import java.util.concurrent.ThreadPoolExecutor;
 /**
  * 异步线程池配置 (Epic 11-4-1).
  * 给 @Async 任务（批量预测、缓存预热等）提供独立线程池，避免占用 Web 容器线程。
+ * 同时开启定时任务（@Scheduled），用于预测缓存周期性预热。
  */
 @Configuration
 @EnableAsync
+@EnableScheduling
 public class AsyncConfig {
 
     @Bean("taskExecutor")
