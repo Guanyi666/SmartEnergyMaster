@@ -25,4 +25,9 @@ public interface SensorDataService {
      * 【大屏接口】获取某设备过去 N 小时的时序历史数据 (用于绘制折线图)
      */
     List<SensorData> getHistoryData(String deviceCode, int hours);
+
+    /**
+     * 【预测用】获取某设备最近 limit 条读数，按时间升序返回（构造 LSTM 输入窗口）
+     */
+    List<SensorData> getRecentData(String deviceCode, int limit);
 }

@@ -22,8 +22,16 @@ public final class CacheKeys {
     public static final String DASHBOARD_SUMMARY_PREFIX = "dashboard:summary:";
     public static final Duration DASHBOARD_SUMMARY_TTL = Duration.ofSeconds(5);
 
+    /** 能耗预测：prediction:forecast:{deviceCode}，TTL 5min（预测开销大，命中率优先）。 */
+    public static final String FORECAST_PREFIX = "prediction:forecast:";
+    public static final Duration FORECAST_TTL = Duration.ofMinutes(5);
+
     public static String deviceLatest(String deviceCode) {
         return DEVICE_LATEST_PREFIX + deviceCode;
+    }
+
+    public static String forecast(String deviceCode) {
+        return FORECAST_PREFIX + deviceCode;
     }
 
     public static String dashboardSummary(String deviceCode) {

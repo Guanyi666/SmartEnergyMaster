@@ -39,4 +39,7 @@ public class DashboardSummaryVO {
 
     @Schema(description = "活跃告警列表")
     private List<WorkOrderVO> activeAlerts;
+
+    /** 焦点设备未来 +15/+30min 能耗预测（含 95% 置信区间），Epic 6-3。 */
+    private List<ForecastPointVO> forecast;
 }

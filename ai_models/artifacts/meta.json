@@ -1,0 +1,19 @@
+{
+  "lookback": 96,
+  "horizon": 2,
+  "dynamic_features": 8,
+  "calendar_features": 5,
+  "hidden_size": 96,
+  "num_layers": 2,
+  "dropout": 0.2,
+  "test_mape": 6.420414924621582,
+  "per_step_mape": [
+    6.017389297485352,
+    6.8234405517578125
+  ],
+  "rmse": 2.077631950378418,
+  "mc_samples": 10,
+  "ci_conformal_q": 2.0986653580258094,
+  "ci_coverage_test": 0.9604574529947665,
+  "ci_avg_width_kwh": 9.050742802642732
+}

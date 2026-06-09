@@ -1,5 +1,6 @@
 package com.smartenergy.backend.service.impl;
 
+import com.smartenergy.backend.agent.ForecastService;
 import com.smartenergy.backend.cache.CacheKeys;
 import com.smartenergy.backend.cache.CacheService;
 import com.smartenergy.backend.entity.SensorData;
@@ -24,6 +25,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final SensorDataService sensorDataService;
     private final WorkOrderService workOrderService;
     private final CacheService cacheService;
+    private final ForecastService forecastService;
 
     @Override
     public DashboardSummaryVO getSummary(String deviceCode) {
@@ -78,6 +80,7 @@ public class DashboardServiceImpl implements DashboardService {
         summary.setFocusDeviceCode(focusDevice != null ? focusDevice.getDeviceCode() : null);
         summary.setFocusDeviceName(focusDevice != null ? focusDevice.getDeviceName() : null);
         summary.setDispatchAdvice(getDispatchAdvice(focusDevice != null ? focusDevice.getDeviceCode() : null));
+        summary.setForecast(forecastService.getForecast(focusDevice != null ? focusDevice.getDeviceCode() : null));
         return summary;
     }
 
@@ -97,19 +100,29 @@ public class DashboardServiceImpl implements DashboardService {
                 .toList()
                 .isEmpty();
         if (hasActiveFault) {
-            return new DispatchAdviceVO("CRITICAL", "设备故障优先处置", "当前设备存在未闭环维修工单，请先完成检修，再恢复高耗能工序。");
+            return new DispatchAdviceVO("CRITICAL", "设备故障优先处置",
+                    "当前设备存在未闭环维修工单，请先完成检修，再恢复高耗能工序。",
+                    "暂停高耗能工序，立即派工检修", "故障停机损失高，优先止损");
         }
 
         if (List.of("CRITICAL_PEAK", "PEAK").contains(latestData.getXianPriceTier())
                 && latestData.getUsageKwh() != null
                 && latestData.getUsageKwh().compareTo(new BigDecimal("70")) >= 0) {
-            return new DispatchAdviceVO("WARN", "建议推迟排产", "当前处于高价时段且负荷偏高，建议将非关键任务顺延 30-60 分钟，优先避峰。");
+            BigDecimal saving = latestData.getUsageKwh().multiply(new BigDecimal("0.8"))
+                    .setScale(0, java.math.RoundingMode.HALF_UP);
+            return new DispatchAdviceVO("WARN", "建议推迟排产",
+                    "当前处于高价时段且负荷偏高，建议将非关键任务顺延 30-60 分钟，优先避峰。",
+                    "将非关键负荷顺延 30-60 分钟避峰", "预计避峰节省 ≈ ¥" + saving + "/小时");
         }
 
         if (List.of("VALLEY", "DEEP_VALLEY").contains(latestData.getXianPriceTier())) {
-            return new DispatchAdviceVO("GOOD", "建议加大排产", "当前处于低谷电价窗口，可安排可转移负荷或补充预热工序。");
+            return new DispatchAdviceVO("GOOD", "建议加大排产",
+                    "当前处于低谷电价窗口，可安排可转移负荷或补充预热工序。",
+                    "上调可转移负荷 / 补充预热工序", "低谷电价，单位电费约降低 30%");
         }
 
-        return new DispatchAdviceVO("INFO", "维持当前策略", "当前负荷与电价处于可控区间，建议保持现有节奏并持续观察。");
+        return new DispatchAdviceVO("INFO", "维持当前策略",
+                "当前负荷与电价处于可控区间，建议保持现有节奏并持续观察。",
+                "保持现有节奏，持续观察", "—");
     }
 }

@@ -25,6 +25,13 @@ spring:
           min-idle: 2
           max-wait: 2000ms
 
+# Epic 6-3: Python 能耗预测微服务
+prediction:
+  service:
+    base-url: http://localhost:8000
+    timeout-ms: 4000
+    lookback: 96          # 取最近 96 条读数作为预测输入窗口
+
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
   type-aliases-package: com.smartenergy.backend.entity

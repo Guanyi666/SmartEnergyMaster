@@ -15,8 +15,17 @@
 
     <div class="grid-two">
       <div class="glass-panel analysis-panel">
-        <h3 class="card-title">过去 24 小时负荷曲线</h3>
-        <TrendChart :records="history" />
+        <el-tabs v-model="activeTab">
+          <el-tab-pane label="过去 24 小时负荷" name="history">
+            <TrendChart :records="history" />
+          </el-tab-pane>
+          <el-tab-pane label="AI 能耗预测对比" name="forecast">
+            <ForecastChart :history="history" :forecast="forecast" />
+            <p class="forecast-note">
+              蓝色实线为实际平滑负荷，橙色虚线为模型预测的未来 +15/+30 分钟负荷，橙色阴影为 95% 置信区间。
+            </p>
+          </el-tab-pane>
+        </el-tabs>
       </div>
 
       <div class="analysis-side">
@@ -54,7 +63,8 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import TrendChart from '../components/TrendChart.vue'
-import { getDevices, getDispatchAdvice, getLatestSensor, getSensorHistory } from '../api'
+import ForecastChart from '../components/ForecastChart.vue'
+import { getDevices, getDispatchAdvice, getForecast, getLatestSensor, getSensorHistory } from '../api'
 import { usePollingTask } from '../composables/usePollingTask'
 import { getPriceTierMeta } from '../utils/status'
 
@@ -63,19 +73,23 @@ const deviceCode = ref('EAF-01')
 const history = ref([])
 const advice = ref({})
 const latest = ref({})
+const forecast = ref([])
+const activeTab = ref('history')
 
 const latestUsage = computed(() => (latest.value?.usageKwh ?? latest.value?.usageKwh === 0 ? `${Number(latest.value.usageKwh).toFixed(2)} kWh` : '--'))
 const priceMeta = computed(() => getPriceTierMeta(latest.value?.xianPriceTier))
 
 const loadAnalysis = async () => {
-  const [historyResult, adviceResult, latestResult] = await Promise.all([
+  const [historyResult, adviceResult, latestResult, forecastResult] = await Promise.all([
     getSensorHistory(deviceCode.value, 24),
     getDispatchAdvice(deviceCode.value),
-    getLatestSensor(deviceCode.value)
+    getLatestSensor(deviceCode.value),
+    getForecast(deviceCode.value)
   ])
   history.value = historyResult
   advice.value = adviceResult
   latest.value = typeof latestResult === 'string' ? {} : latestResult
+  forecast.value = Array.isArray(forecastResult) ? forecastResult : []
 }
 
 const { start: startPolling, run: refreshNow } = usePollingTask(loadAnalysis, 10000)
@@ -93,6 +107,13 @@ onMounted(async () => {
 .analysis-tools {
   display: flex;
   gap: 12px;
+}
+
+.forecast-note {
+  margin: 10px 4px 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
 }
 
 .analysis-panel,
