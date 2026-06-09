@@ -29,7 +29,7 @@ spring:
 prediction:
   service:
     base-url: http://localhost:8000
-    timeout-ms: 4000
+    timeout-ms: 8000       # MC Dropout×10 + 并发预热下单次推理可能 >4s，放宽避免超时降级
     lookback: 96          # 取最近 96 条读数作为预测输入窗口
 
 mybatis-plus:
