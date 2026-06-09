@@ -1,6 +1,6 @@
 # 维修工单与人员调度（Epic 05）— 5 分钟启动指南
 
-> 第25组"智驭能效"项目 — 维修工单与人员调度独立子模块
+> 第25组"智驭能效"项目 — 维修工单与人员调度子模块
 
 ---
 
@@ -16,19 +16,23 @@
 # 1. 启动 TimescaleDB（沿用现有 deploy/）
 cd deploy && docker compose up -d
 
-# 2. 启动现有 8080 后端（必须！本模块会调它的 PATCH /api/work-orders/{id}/status）
+# 2. 启动合并后的 8080 后端（包含原维修模块代码 + 新表 init）—— 首次启动自动建表 + seed 6 名维修人员 + E001 账号
 cd backend && mvn spring-boot:run
 
-# 3. 启动新 8081 后端（维修模块）—— 首次启动会自动创建 E001 账号
-cd workorder-backend && mvn spring-boot:run
-
-# 4. 启动前端
+# 3. 启动前端
 cd frontend && npm install && npm run dev
 ```
 
-**E001 维修账号的创建**：`workorder-backend/src/main/resources/db/init-workorder.sql` 末尾有 1 条 `INSERT INTO sys_user ... ON CONFLICT (username) DO NOTHING`（只有 3 个实际存在的列：`username, password, role`）。语义：**首次启动写入一次；后续启动完全 no-op**（依赖 `ON CONFLICT DO NOTHING` 实现幂等）。
+> 🆕 **架构变化**（v2.0）：维修模块已合并到 8080 后端，**不再需要单独启动 8081**。
+>   - 删除了 `workorder-backend/` 目录
+>   - 维修模块的 Java 代码合并到 `backend/src/main/java/com/smartenergy/workorder/`
+>   - 2 张新表 + 6 名维修人员 + E001 账号的 init SQL 追加到 `backend/src/main/resources/schema.sql`
+>   - 修老字段 `work_order.assignee` 不再走 HTTP，改用同模块 `WorkOrderSyncService` 本地调用
+>   - 修掉了 8 个跨服务同步的连环 bug
 
-E001 密码 `123456`（BCrypt cost=10），已用 Spring Security `BCryptPasswordEncoder` 实际验证通过；哈希值 `$2a$10$QiUD0hIi91K2NzBx8YN/R.4KXD3.0H8A3s1mg2x9Ew.atUPOE6S7q` 写在 init-workorder.sql 末尾。
+**E001 维修账号的创建**：`backend/src/main/resources/schema.sql` 末尾有 1 条 `INSERT INTO sys_user ... ON CONFLICT (username) DO NOTHING`。语义：**首次启动写入一次；后续启动完全 no-op**。
+
+E001 密码 `123456`（BCrypt cost=10），已用 Spring Security `BCryptPasswordEncoder` 实际验证通过；哈希值 `$2a$10$QiUD0hIi91K2NzBx8YN/R.4KXD3.0H8A3s1mg2x9Ew.atUPOE6S7q` 写在 schema.sql 末尾。
 
 ⚠️ **admin 不动**：admin 账号保留 `deploy/init-sql/init.sql` 种子原密码 `admin123`，本模块不去碰它（遵守"现有表 0 写入"原则）。如果以后想统一为 123456，手动跑 `UPDATE sys_user SET password = '<新哈希>' WHERE username = 'admin';` 即可。
 
@@ -37,73 +41,76 @@ E001 密码 `123456`（BCrypt cost=10），已用 Spring Security `BCryptPasswor
 | 地址 | 内容 |
 |---|---|
 | http://localhost:5173 | 前端（登录后自动按角色分流） |
-| http://localhost:8081/swagger-ui.html | 新模块 Swagger UI |
-| http://localhost:8080/swagger-ui.html | 现有 8080 后端 Swagger UI |
+| http://localhost:8080/swagger-ui.html | 合并后 8080 后端 Swagger UI（包含维修模块） |
 
 ## 测试账号
 
 | 用户名 | 密码 | 角色 | 登录后落地 | 备注 |
 |---|---|---|---|---|
 | admin | **admin123** | ADMIN | /dashboard (现有大屏) | **保留 deploy/init-sql 种子原密码不动**（不改） |
-| E001 | **123456** | MAINTENANCE_ENGINEER | /maintenance (维修中心) | 首次启动由 8081 init-workorder.sql 自动 seed |
+| E001 | **123456** | MAINTENANCE_ENGINEER | /maintenance (维修中心) | 首次启动由 8080 schema.sql 自动 seed |
 
-> E001 账号由 `workorder-backend/src/main/resources/db/init-workorder.sql` 自动创建，BCrypt 密码 "123456"
+> E001 账号由 `backend/src/main/resources/schema.sql` 自动创建，BCrypt 密码 "123456"
 
 ---
 
-## 模块架构
+## 模块架构（v2.0 合并后）
 
 ```
-workorder-backend/                  ← 新模块（端口 8081）
+backend/                              ← 唯一后端（端口 8080）
 ├── pom.xml
-├── src/main/java/com/smartenergy/workorder/
-│   ├── WorkorderApplication.java
-│   ├── config/                     (OpenAPI, GlobalExceptionHandler, MybatisPlus, HttpClient)
-│   ├── entity/                     (MaintenancePersonnel, WorkOrderAssignment, ExistingWorkOrder, ExistingDevice)
-│   ├── mapper/                     (BaseMapper × 3 + WorkOrderQueryMapper 自定义 JOIN)
-│   ├── service/
-│   │   ├── MaintenancePersonnelService       (CRUD + 切岗)
-│   │   ├── WorkOrderReadService             (JOIN 设备 + 指派人)
-│   │   ├── WorkOrderAssignmentService       (assign/release/autoMatch)
-│   │   ├── DispatchDashboardService         (summary/board)
-│   │   ├── AutoMatchEngine                  (英文 faultType 匹配)
-│   │   └── WorkOrderClient                  (调 8080 PATCH /status)
-│   ├── controller/                 (4 个 Controller)
-│   ├── dto/                        (MaintenancePersonnelRequest, WorkOrderAssignRequest, PageQuery)
-│   └── vo/                         (5 个 VO)
-└── src/main/resources/
-    ├── application.yml             (dev = mode:always)
-    ├── application-prod.yml        (prod = mode:never + Flyway 占位)
-    └── db/init-workorder.sql       (2 张表 + 6 名种子 + E001 账号)
+└── src/main/
+    ├── java/com/smartenergy/
+    │   ├── backend/                  (原 8080 业务)
+    │   │   ├── BackendApplication.java
+    │   │   ├── config/               (Security/JWT, OpenAPI, DataInitializer)
+    │   │   ├── controller/           (Auth, WorkOrder, Device, Sensor, Dashboard)
+    │   │   ├── service/              (5 个)
+    │   │   ├── entity/               (4 个: SysUser, WorkOrder, Device, SensorData)
+    │   │   ├── mapper/               (4 个 BaseMapper)
+    │   │   ├── filter/               (JwtAuthenticationFilter)
+    │   │   ├── utils/                (JwtUtils, DeviceStatusHelper)
+    │   │   ├── dto/  vo/             (5 + 5)
+    │   │   └── service/WorkOrderSyncService.java  ← 🆕 合并新加：本地同步老字段
+    │   └── workorder/                ← 🆕 从原 8081 合并
+    │       ├── config/               (GlobalExceptionHandler, MybatisPlus)
+    │       ├── controller/           (4 个: WorkOrderRead/Assignment, DispatchDashboard, MaintenancePersonnel)
+    │       ├── service/              (含 AutoMatchEngine, 不再有 WorkOrderClient)
+    │       ├── entity/               (MaintenancePersonnel, WorkOrderAssignment, ExistingWorkOrder, ExistingDevice)
+    │       ├── mapper/               (5 个)
+    │       ├── dto/  vo/             (5 + 9)
+    └── resources/
+        ├── application.yml           (合并 MyBatis-Plus, SQL init, SpringDoc)
+        └── schema.sql                (原 4 张表 + 🆕 2 张新表 + 6 维修人员 + E001 账号)
 
-workorder-docs/                     ← 设计文档
-├── API.md
-├── DB.md
-└── UI.md
+workorder-docs/                       ← 设计文档
+├── API.md  DB.md  UI.md
 ```
 
 ---
 
-## 跨服务调用（关键）
+## 同步策略（关键）
 
 | 操作 | 谁 | 通过 |
 |---|---|---|
-| 读 work_order | 新模块 | 直查 DB（只读） |
-| 改 work_order.status | **现有 8080** | PATCH /api/work-orders/{id}/status |
-| 改 work_order.assignee | **现有 8080** | PATCH /api/work-orders/{id}/status (body 携 assignee) |
-| 设备状态联动 | 现有 8080 | WorkOrderServiceImpl 自动 |
-| 写 workorder_assignment | 新模块 | 直写新表 |
-| 写 workorder_maintenance_personnel | 新模块 | 直写新表 |
+| 读 work_order | 8080 业务 | 直查 DB（只读） |
+| 改 work_order.status | 8080 业务 | `WorkOrderService.updateStatus`（前端 PATCH /api/work-orders/{id}/status） |
+| 改 work_order.assignee | 8080 业务 | **同模块 `WorkOrderSyncService` → `WorkOrderService.updateStatus`**（无 HTTP） |
+| 设备状态联动 | 8080 业务 | WorkOrderServiceImpl 自动 |
+| 写 workorder_assignment | 8080 维修模块 | 直写新表 |
+| 写 workorder_maintenance_personnel | 8080 维修模块 | 直写新表 |
 
-**前端拖拽改 status 直调 8080 现有 API**，不经过 8081 中转。`frontend/src/api/workorder.js` 的 `patchWorkOrderStatus()` 函数封装此调用。
+**前端拖拽改 status 直调 8080 现有 API**。`frontend/src/api/workorder.js` 的 `patchWorkOrderStatus()` 函数封装此调用。
+
+**指派/释放/替换 → 修老字段** 走 `WorkOrderSyncService` 同模块本地方法调用，**不再有跨进程 HTTP 同步**。从根本上消除 8 个连环 bug 的根因层。
 
 ---
 
 ## 数据库（关键）
 
-`init-workorder.sql` 用 `IF NOT EXISTS` + `ON CONFLICT DO NOTHING` 保证幂等，dev profile 的 `mode: always` 重复启动不会崩溃。
+`schema.sql` 用 `IF NOT EXISTS` + `ON CONFLICT DO NOTHING` 保证幂等，dev profile 的 `mode: ${SQL_INIT_MODE:always}` 重复启动不会崩溃。
 
-生产环境：`SPRING_PROFILES_ACTIVE=prod` 或 `SQL_INIT_MODE=never` 切换到 `application-prod.yml`（v1 暂未引入 Flyway，留 TODO）。
+生产环境：`SPRING_PROFILES_ACTIVE=prod` 或 `SQL_INIT_MODE=never` 手动跑 DDL。
 
 ---
 

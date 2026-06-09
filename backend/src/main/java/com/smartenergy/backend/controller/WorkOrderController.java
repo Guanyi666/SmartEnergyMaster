@@ -10,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/work-orders")
@@ -36,38 +35,21 @@ public class WorkOrderController {
     }
 
     /**
-     * 🟢 修复：用 Map 接收请求体以区分"未提供"和"显式 null"
-     * 之前用 WorkOrderStatusRequest 强类型 DTO + StringUtils.hasText() 判断，
-     * 导致客户端发 { "assignee": null } 想清空字段时，hasText(null)=false 静默忽略，
-     * 工单拖回 PENDING 后仍残留旧指派人文本。
+     * 🆕 合并 workorder-backend: 改回 DTO 接收
+     * 之前用 Map 是为了在 8080 端区分"未传 assignee"和"传 null"，因为跨进程 HTTP 同步需要。
+     * 合并后 WorkOrderSyncService 是同模块方法调用，直接构造 DTO 即可，HTTP 入口只需要
+     * 正常处理 DTO（前端拖拽改 status 时不传 assignee 字段 → assigneeProvided 默认 false → 字段不变）。
      *
-     * 现在的语义：
-     *   - status     必传，否则 400
-     *   - assignee   不传=保持原值；null 或 ""=清空；其他字符串=更新
-     *   - note       不传=不变；其他=追加到描述尾部
+     * 语义保持：
+     *   - status     必传
+     *   - assignee   不传 → 保持原值（拖拽场景）；WorkOrderSyncService 显式设 assigneeProvided=true 可清空
+     *   - note       不传 → 不变
      */
     @PatchMapping("/{id}/status")
-    @Operation(summary = "工单状态流转", description = "更新工单状态：PENDING → IN_PROGRESS → RESOLVED。状态变更自动联动设备状态。assignee 支持显式清空（传 null）")
+    @Operation(summary = "工单状态流转", description = "更新工单状态：PENDING → IN_PROGRESS → RESOLVED。状态变更自动联动设备状态")
     public WorkOrderVO updateStatus(
             @Parameter(description = "工单 ID") @PathVariable Long id,
-            @RequestBody Map<String, Object> request) {
-        // status 必传，单独取出后转 DTO 给 service
-        Object statusObj = request.get("status");
-        if (statusObj == null || statusObj.toString().isBlank()) {
-            throw new IllegalArgumentException("工单状态不能为空");
-        }
-        WorkOrderStatusRequest dto = new WorkOrderStatusRequest();
-        dto.setStatus(statusObj.toString());
-        if (request.containsKey("assignee")) {
-            Object a = request.get("assignee");
-            dto.setAssignee(a == null ? null : a.toString());
-        }
-        if (request.containsKey("note")) {
-            Object n = request.get("note");
-            dto.setNote(n == null ? null : n.toString());
-        }
-        // 把"是否显式传了 assignee"标记传给 service，避免它在内部丢失语义
-        dto.setAssigneeProvided(request.containsKey("assignee"));
-        return workOrderService.updateStatus(id, dto);
+            @RequestBody WorkOrderStatusRequest request) {
+        return workOrderService.updateStatus(id, request);
     }
 }
