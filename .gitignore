@@ -57,6 +57,8 @@ __pycache__/
 ai_models/env/
 ai_models/venv/
 ai_models/.venv/
+data/.venv/
+.venv/
 Pipfile.lock
 
 # 6. 🚨 核心防御：数据与大模型权重 (针对 data/ 和 ai_models/ 目录)

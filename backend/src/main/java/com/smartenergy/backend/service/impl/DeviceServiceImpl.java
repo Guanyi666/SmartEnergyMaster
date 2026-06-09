@@ -1,6 +1,8 @@
 package com.smartenergy.backend.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.smartenergy.backend.cache.CacheKeys;
+import com.smartenergy.backend.cache.CacheService;
 import com.smartenergy.backend.dto.DeviceUpsertRequest;
 import com.smartenergy.backend.entity.Device;
 import com.smartenergy.backend.entity.SensorData;
@@ -18,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -27,13 +30,15 @@ public class DeviceServiceImpl implements DeviceService {
     private final DeviceMapper deviceMapper;
     private final SensorDataMapper sensorDataMapper;
     private final WorkOrderMapper workOrderMapper;
+    private final CacheService cacheService;
 
     @Override
     public List<DeviceOverviewVO> listDevices() {
-        return deviceMapper.selectList(new QueryWrapper<Device>().orderByAsc("id"))
-                .stream()
-                .map(this::toOverview)
-                .toList();
+        return cacheService.getOrLoad(CacheKeys.DEVICE_LIST, CacheKeys.DEVICE_LIST_TTL, () ->
+                new ArrayList<>(deviceMapper.selectList(new QueryWrapper<Device>().orderByAsc("id"))
+                        .stream()
+                        .map(this::toOverview)
+                        .toList()));
     }
 
     @Override
@@ -49,6 +54,7 @@ public class DeviceServiceImpl implements DeviceService {
         device.setCreatedAt(LocalDateTime.now());
         device.setUpdatedAt(LocalDateTime.now());
         deviceMapper.insert(device);
+        cacheService.evict(CacheKeys.DEVICE_LIST);
         return device;
     }
 
@@ -60,6 +66,7 @@ public class DeviceServiceImpl implements DeviceService {
         applyRequest(existing, request);
         existing.setUpdatedAt(LocalDateTime.now());
         deviceMapper.updateById(existing);
+        cacheService.evict(CacheKeys.DEVICE_LIST);
         return existing;
     }
 
@@ -68,6 +75,7 @@ public class DeviceServiceImpl implements DeviceService {
     public void deleteDevice(Integer id) {
         getDeviceById(id);
         deviceMapper.deleteById(id);
+        cacheService.evict(CacheKeys.DEVICE_LIST);
     }
 
     @Override
@@ -95,6 +103,7 @@ public class DeviceServiceImpl implements DeviceService {
         device.setStatus(status);
         device.setUpdatedAt(LocalDateTime.now());
         deviceMapper.updateById(device);
+        cacheService.evict(CacheKeys.DEVICE_LIST);
     }
 
     @Override
@@ -106,6 +115,7 @@ public class DeviceServiceImpl implements DeviceService {
         device.setStatus(status);
         device.setUpdatedAt(LocalDateTime.now());
         deviceMapper.updateById(device);
+        cacheService.evict(CacheKeys.DEVICE_LIST);
     }
 
     private DeviceOverviewVO toOverview(Device device) {

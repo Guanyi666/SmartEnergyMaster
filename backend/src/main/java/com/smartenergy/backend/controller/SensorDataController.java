@@ -1,5 +1,7 @@
 package com.smartenergy.backend.controller;
 
+import com.smartenergy.backend.annotation.DistributedLock;
+import com.smartenergy.backend.annotation.RateLimit;
 import com.smartenergy.backend.dto.SensorDataDTO;
 import com.smartenergy.backend.entity.SensorData;
 import com.smartenergy.backend.service.SensorDataService;
@@ -23,6 +25,9 @@ public class SensorDataController {
 
     @PostMapping("/upload")
     @Operation(summary = "上报传感器数据", description = "接收设备遥测数据（功耗、温度、振动、压力、CO₂排放、电价时段等），数据上传后自动触发故障检测")
+    @RateLimit(name = "upload", limit = 100, window = 1, dimension = RateLimit.Dimension.SPEL,
+            key = "#sensorDataDTO.deviceCode", message = "设备上报频率超限")
+    @DistributedLock(name = "upload", key = "#sensorDataDTO.deviceCode", waitMillis = 200, leaseMillis = 3000)
     public ResponseEntity<String> uploadSensorData(@Validated @RequestBody SensorDataDTO sensorDataDTO) {
         sensorDataService.uploadData(sensorDataDTO);
         return ResponseEntity.ok("数据接收成功");
