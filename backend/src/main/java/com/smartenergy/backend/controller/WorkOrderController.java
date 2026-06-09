@@ -6,7 +6,6 @@ import com.smartenergy.backend.vo.WorkOrderVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,11 +34,22 @@ public class WorkOrderController {
         return workOrderService.listActiveAlerts(limit);
     }
 
+    /**
+     * 🆕 合并 workorder-backend: 改回 DTO 接收
+     * 之前用 Map 是为了在 8080 端区分"未传 assignee"和"传 null"，因为跨进程 HTTP 同步需要。
+     * 合并后 WorkOrderSyncService 是同模块方法调用，直接构造 DTO 即可，HTTP 入口只需要
+     * 正常处理 DTO（前端拖拽改 status 时不传 assignee 字段 → assigneeProvided 默认 false → 字段不变）。
+     *
+     * 语义保持：
+     *   - status     必传
+     *   - assignee   不传 → 保持原值（拖拽场景）；WorkOrderSyncService 显式设 assigneeProvided=true 可清空
+     *   - note       不传 → 不变
+     */
     @PatchMapping("/{id}/status")
     @Operation(summary = "工单状态流转", description = "更新工单状态：PENDING → IN_PROGRESS → RESOLVED。状态变更自动联动设备状态")
     public WorkOrderVO updateStatus(
             @Parameter(description = "工单 ID") @PathVariable Long id,
-            @Valid @RequestBody WorkOrderStatusRequest request) {
+            @RequestBody WorkOrderStatusRequest request) {
         return workOrderService.updateStatus(id, request);
     }
 }

@@ -82,8 +82,17 @@ public class WorkOrderServiceImpl implements WorkOrderService {
             throw new IllegalArgumentException("不支持的工单状态: " + request.getStatus());
         }
 
-        if (StringUtils.hasText(request.getAssignee())) {
-            workOrder.setAssignee(request.getAssignee());
+        // 🟢 修复：用 assigneeProvided 区分"未传"和"显式 null"
+        //   - 未传 → 保持原值（兼容老客户端拖拽改 status 的场景）
+        //   - 显式 null / 空串 → 清空字段（用于 release 时同步 8080）
+        //   - 非空字符串 → 更新
+        if (request.isAssigneeProvided()) {
+            String a = request.getAssignee();
+            if (a == null || a.isBlank()) {
+                workOrder.setAssignee(null);
+            } else {
+                workOrder.setAssignee(a);
+            }
         }
         if (StringUtils.hasText(request.getNote())) {
             String suffix = " | 处理备注: " + request.getNote();

@@ -37,8 +37,8 @@
       </el-form>
 
       <div class="login-tip">
-        <span>演示账号：admin</span>
-        <span>密码：admin123</span>
+        <span>演示账号：admin (ADMIN) / E001 (MAINTENANCE_ENGINEER)</span>
+        <span>密码：admin=admin123 / E001=123456</span>
       </div>
     </div>
   </div>
@@ -62,7 +62,7 @@ const modeOptions = [
 
 const loginForm = reactive({
   username: 'admin',
-  password: 'admin123'
+  password: 'admin123'  // admin 实际密码（保留 deploy/init-sql 原值不动）
 })
 
 const registerForm = reactive({
@@ -81,7 +81,13 @@ const handleLogin = async () => {
   try {
     await authStore.login(loginForm)
     ElMessage.success('登录成功')
-    router.push('/dashboard')
+    // ★ 登录后按角色 redirect：MAINTENANCE_ENGINEER 进维修中心
+    const role = authStore.user?.role
+    if (role === 'MAINTENANCE_ENGINEER') {
+      router.push('/maintenance')
+    } else {
+      router.push('/dashboard')
+    }
   } finally {
     loading.value = false
   }
@@ -166,5 +172,8 @@ const handleRegister = async () => {
   justify-content: space-between;
   margin-top: 20px;
   font-size: 13px;
+  flex-direction: column;
+  gap: 4px;
+  text-align: center;
 }
 </style>

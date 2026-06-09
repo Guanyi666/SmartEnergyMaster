@@ -42,7 +42,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/sensor/upload").permitAll()
                         .requestMatchers("/api/sensor/latest/**", "/api/sensor/history/**").permitAll()
-                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
+                        // 🆕 合并 workorder-backend: 删除了 PATCH /api/work-orders/*/status 的 permitAll
+                        //   原因：8081 合并后不再有跨进程 HTTP 调用，"信任区"前提消失
+                        //   改由 8080 内部的 WorkOrderSyncService 本地同步，无 HTTP 入口
+                        // 🆕 /api/workorder/** 不在白名单，自动走 anyRequest().authenticated() 走 JWT
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

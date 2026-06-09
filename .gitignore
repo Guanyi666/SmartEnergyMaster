@@ -1,42 +1,23 @@
-# ==========================================
-# 智驭能效 (SmartEnergyMaster) 综合忽略清单
-# ==========================================
+# Maven build artifacts
+target/
+*.class
+*.jar
+*.war
+*.ear
 
-# 1. 操作系统自动生成的文件
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# 2. IDE 配置文件
+# IDE
 .idea/
 .vscode/
 *.iml
 *.iws
 *.ipr
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
 
-# 3. 后端：Spring Boot / Java (针对 backend/ 目录)
-backend/target/
-backend/out/
-*.class
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
 *.log
-*.jar
-*.war
-*.nar
-*.ear
-*.zip
-*.tar.gz
-*.rar
-# 允许保留 Maven 包装器
-!backend/.mvn/wrapper/maven-wrapper.jar
 
 # 4. 前端：Vue / Node.js (针对 frontend/ 目录)
 frontend/node_modules/
@@ -47,6 +28,7 @@ frontend/npm-debug.log*
 frontend/yarn-debug.log*
 frontend/yarn-error.log*
 frontend/pnpm-debug.log*
+frontend/.vite/                  # 🆕 合并 workorder: Vite 缓存目录
 
 # 5. 算法与数据泵：Python (针对 ai_models/ 目录)
 __pycache__/
@@ -67,7 +49,7 @@ data/*.csv
 data/*.json
 data/*.xlsx
 # 允许提交一个非常小的示例文件供大家测试联调
-!data/sample_data.csv 
+!data/sample_data.csv
 
 ai_models/**/*.h5
 ai_models/**/*.pkl
@@ -83,3 +65,8 @@ application-prod.yml
 
 # 8. 过程文档（仅本地保留，不纳入版本控制）
 docs/
+
+# 🆕 合并 workorder: Spring Boot devtools
+.spring-boot-devtools.properties
+restartServer.dat
+

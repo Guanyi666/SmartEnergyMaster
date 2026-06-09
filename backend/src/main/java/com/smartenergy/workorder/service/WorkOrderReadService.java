@@ -1,0 +1,19 @@
+package com.smartenergy.workorder.service;
+
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.smartenergy.workorder.vo.WorkOrderAssignmentVO;
+import com.smartenergy.workorder.vo.WorkOrderReadVO;
+
+import java.util.List;
+
+public interface WorkOrderReadService {
+
+    /** 分页查询工单（JOIN 设备 + 活跃指派人） */
+    Page<WorkOrderReadVO> listOrders(String status, long pageNum, long pageSize);
+
+    /** 详情（JOIN 设备 + 活跃指派人） */
+    WorkOrderReadVO getOrderDetail(Long id);
+
+    /** 工单指派历史 */
+    List<WorkOrderAssignmentVO> getAssignments(Long workOrderId);
+}
