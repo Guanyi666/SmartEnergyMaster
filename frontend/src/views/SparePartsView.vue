@@ -52,14 +52,31 @@
         <el-table-column prop="unitPrice" label="单价" min-width="100">
           <template #default="{ row }">{{ row.unitPrice ? Number(row.unitPrice).toFixed(2) : '--' }}</template>
         </el-table-column>
-        <el-table-column prop="supplier" label="供应商" min-width="160" show-overflow-tooltip />
-        <el-table-column prop="location" label="位置" min-width="120" show-overflow-tooltip />
-        <el-table-column label="操作" width="320" fixed="right">
+        <el-table-column prop="supplier" label="供应商" min-width="140" show-overflow-tooltip class-name="hidden-md" />
+        <el-table-column prop="location" label="位置" min-width="100" show-overflow-tooltip class-name="hidden-md" />
+        <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click.stop="openPartDialog(row)">编辑</el-button>
-            <el-button link type="warning" @click.stop="openUsageDialog(row)">领用</el-button>
-            <el-button link type="info" @click.stop="openHistory(row)">领用记录</el-button>
-            <el-button link type="danger" @click.stop="handleDelete(row)">删除</el-button>
+            <!-- 宽屏：按钮组 -->
+            <span class="btn-group-wide">
+              <el-button link type="primary" size="small" @click.stop="openPartDialog(row)">编辑</el-button>
+              <el-button link type="warning" size="small" @click.stop="openUsageDialog(row)">领用</el-button>
+              <el-button link type="info" size="small" @click.stop="openHistory(row)">记录</el-button>
+              <el-button link type="danger" size="small" @click.stop="handleDelete(row)">删除</el-button>
+            </span>
+            <!-- 窄屏：下拉菜单 -->
+            <span class="btn-group-narrow">
+              <el-dropdown trigger="click" @command="(cmd) => handleRowCmd(cmd, row)">
+                <el-button link type="primary" size="small">操作 ▾</el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="edit">编辑</el-dropdown-item>
+                    <el-dropdown-item command="usage">领用</el-dropdown-item>
+                    <el-dropdown-item command="history">领用记录</el-dropdown-item>
+                    <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </span>
           </template>
         </el-table-column>
       </el-table>
@@ -278,6 +295,13 @@ const openAllHistory = async () => {
   usages.value = await listSparePartUsages({ limit: 100 })
 }
 
+const handleRowCmd = (cmd, row) => {
+  if (cmd === 'edit')    openPartDialog(row)
+  if (cmd === 'usage')   openUsageDialog(row)
+  if (cmd === 'history') openHistory(row)
+  if (cmd === 'delete')  handleDelete(row)
+}
+
 defineExpose({ openHistory })
 
 onMounted(() => loadParts())
@@ -286,15 +310,41 @@ onMounted(() => loadParts())
 <style scoped>
 .header-actions {
   display: flex;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .filter-panel {
   padding: 18px 20px;
+  overflow-x: auto;
+}
+
+.filter-panel :deep(.el-form) {
+  flex-wrap: wrap;
 }
 
 .table-panel {
   padding: 18px 20px;
+  overflow-x: auto;
+}
+
+@media (max-width: 1200px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .header-actions {
+    width: 100%;
+  }
+}
+
+.table-panel :deep(.el-table__body-wrapper) {
+  overflow-x: auto;
+}
+
+:deep(.el-dialog) {
+  max-width: 90vw;
 }
 
 .empty-tip {
@@ -354,5 +404,14 @@ onMounted(() => loadParts())
 
 :deep(.el-table__empty-block) {
   background-color: transparent !important;
+}
+
+/* 宽屏显示按钮组，窄屏显示下拉菜单 */
+.btn-group-narrow { display: none; }
+
+@media (max-width: 900px) {
+  .btn-group-wide   { display: none; }
+  .btn-group-narrow { display: inline-block; }
+  :deep(.hidden-md) { display: none; }
 }
 </style>
