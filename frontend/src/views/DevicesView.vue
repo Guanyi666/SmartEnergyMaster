@@ -66,7 +66,11 @@
             <StatusPill :status="row.status" />
           </template>
         </el-table-column>
-        <el-table-column prop="location" label="区域" min-width="120" />
+        <el-table-column label="区域" min-width="120">
+          <template #default="{ row }">
+            {{ locationLabel(row.location) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="maintainer" label="维修工人" min-width="120" />
         <el-table-column label="实时指标" min-width="220">
           <template #default="{ row }">
@@ -187,7 +191,7 @@
               </div>
               <div class="detail-item">
                 <span class="detail-label">所在区域</span>
-                <span class="detail-value">{{ deviceDetail.location }}</span>
+                <span class="detail-value">{{ locationLabel(deviceDetail.location) }}</span>
               </div>
               <div class="detail-item">
                 <span class="detail-label">维修工人</span>
@@ -336,10 +340,21 @@ const deviceTypeMap = {
   'FAN': '风机',
   'TRANSFORMER': '变压器',
   'BOILER': '锅炉',
-  'GENERATOR': '发电机组'
+  'GENERATOR': '发电机组',
+  'LADLE_FURNACE': '钢包精炼炉',
+  'CONTINUOUS_CASTER': '连铸机',
+  'DUST_COLLECTOR': '除尘系统'
 }
 
 const deviceTypeLabel = (type) => deviceTypeMap[type] || type || '--'
+
+const locationMap = {
+  'Steel Workshop A': '炼钢一车间',
+  'Utility Station': '公用动力站',
+  'Power Station': '动力中心'
+}
+
+const locationLabel = (loc) => locationMap[loc] || loc || '--'
 
 const emptyForm = () => ({
   deviceCode: '',
