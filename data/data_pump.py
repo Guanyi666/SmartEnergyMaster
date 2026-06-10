@@ -1,3 +1,4 @@
+import argparse
 import random
 import time
 from datetime import datetime, timedelta, timezone
@@ -12,8 +13,10 @@ except ImportError:
     fetch_ucirepo = None
 
 API_URL = "http://localhost:8080/api/sensor/upload"
-SLEEP_INTERVAL = 3
-BACKFILL_POINTS = 96
+DEFAULT_SLEEP_INTERVAL = 3
+DEFAULT_HISTORY_HOURS = 24
+DEFAULT_FAULT_RATE = 0.012
+HISTORY_STEP_MINUTES = 15
 BACKFILL_SLEEP = 0.05
 SHANGHAI_TZ = timezone(timedelta(hours=8))
 DATA_FILE = Path(__file__).resolve().parent / "raw_steel_data.csv"
@@ -71,38 +74,103 @@ def infer_stage(usage_kwh, power_factor, day_type, hour):
 
 
 class DeviceSimulator:
-    def __init__(self, device_code, device_name, seed):
+    def __init__(self, device_code, device_name, seed, fault_rate=DEFAULT_FAULT_RATE):
         self.device_code = device_code
         self.device_name = device_name
         self.random = random.Random(seed)
+        self.fault_rate = clamp(fault_rate, 0.0, 1.0)
         self.temperature = 80.0
         self.vibration = 1.0
         self.pressure = 120.0
         self.fault_mode = None
         self.fault_remaining = 0
+        self.sensor_drift_remaining = 0
+        self.sensor_bias = {
+            "usageKwh": 0.0,
+            "temperature": 0.0,
+            "vibration": 0.0,
+            "pressure": 0.0,
+        }
 
     def maybe_start_fault(self, stage):
+        self.tick_sensor_drift()
         if self.fault_mode is not None:
             self.fault_remaining -= 1
             if self.fault_remaining <= 0:
                 self.fault_mode = None
             return
 
-        chance = self.random.random()
-        if self.device_code == "EAF-01" and stage == "IDLE" and chance < 0.009:
-            self.fault_mode = "MECHANICAL_JAM"
-            self.fault_remaining = self.random.randint(3, 5)
-        elif self.device_code == "EAF-01" and stage in {"RUNNING", "HIGH_LOAD"} and chance < 0.006:
+        if self.device_code != "EAF-01" or self.random.random() >= self.fault_rate:
+            return
+
+        roll = self.random.random()
+        if stage in {"RUNNING", "HIGH_LOAD"} and roll < 0.22:
             self.fault_mode = "COOLING_INTERRUPT"
             self.fault_remaining = self.random.randint(2, 4)
+        elif stage in {"RUNNING", "HIGH_LOAD"} and roll < 0.55:
+            self.fault_mode = "BEARING_WEAR"
+            self.fault_remaining = self.random.randint(18, 36)
+        elif stage in {"IDLE", "RUNNING"} and roll < 0.82:
+            self.fault_mode = "INTERMITTENT_JAM"
+            self.fault_remaining = self.random.randint(6, 12)
+        elif stage in {"IDLE", "RUNNING", "HIGH_LOAD"}:
+            self.fault_mode = "MECHANICAL_JAM"
+            self.fault_remaining = self.random.randint(3, 5)
+
+    def tick_sensor_drift(self):
+        if self.sensor_drift_remaining > 0:
+            self.sensor_drift_remaining -= 1
+            for field in self.sensor_bias:
+                self.sensor_bias[field] = lerp(self.sensor_bias[field], self.sensor_bias[field] * 1.015, 0.25)
+            return
+
+        if any(abs(value) > 0.02 for value in self.sensor_bias.values()):
+            for field in self.sensor_bias:
+                self.sensor_bias[field] = lerp(self.sensor_bias[field], 0.0, 0.10)
+            return
+
+        if self.random.random() < self.fault_rate * 0.18:
+            direction = -1 if self.random.random() < 0.5 else 1
+            self.sensor_drift_remaining = self.random.randint(24, 72)
+            self.sensor_bias = {
+                "usageKwh": direction * self.random.uniform(0.6, 2.8),
+                "temperature": direction * self.random.uniform(4.0, 24.0),
+                "vibration": direction * self.random.uniform(0.15, 1.2),
+                "pressure": direction * self.random.uniform(1.8, 8.5),
+            }
+
+    def apply_sensor_drift(self, payload):
+        if not any(abs(value) > 0.01 for value in self.sensor_bias.values()):
+            return payload
+
+        adjusted = dict(payload)
+        limits = {
+            "usageKwh": (0.0, 160.0),
+            "temperature": (0.0, 1300.0),
+            "vibration": (0.0, 28.0),
+            "pressure": (0.0, 190.0),
+        }
+        for field, bias in self.sensor_bias.items():
+            if field in adjusted and adjusted[field] is not None:
+                lower, upper = limits[field]
+                adjusted[field] = round(clamp(float(adjusted[field]) + bias, lower, upper), 2)
+        return adjusted
+
+    def active_faults(self):
+        faults = []
+        if self.fault_mode:
+            faults.append(self.fault_mode)
+        if self.sensor_drift_remaining > 0:
+            faults.append("SENSOR_DRIFT")
+        return faults
 
     def build_payload(self, row, simulated_time):
         raise NotImplementedError
 
 
 class FurnaceSimulator(DeviceSimulator):
-    def __init__(self, device_code, device_name, seed):
-        super().__init__(device_code, device_name, seed)
+    def __init__(self, device_code, device_name, seed, fault_rate=DEFAULT_FAULT_RATE):
+        super().__init__(device_code, device_name, seed, fault_rate)
         self.hearth_heat = 0.25
         self.cooling_health = 1.0
         self.bearing_health = 1.0
@@ -146,9 +214,15 @@ class FurnaceSimulator(DeviceSimulator):
         if self.fault_mode == "MECHANICAL_JAM":
             stage = "IDLE"
             self.bearing_health = clamp(self.bearing_health - 0.06, 0.45, 1.0)
+        elif self.fault_mode == "INTERMITTENT_JAM":
+            self.bearing_health = clamp(self.bearing_health - 0.025, 0.50, 1.0)
+            if self.random.random() < 0.55:
+                stage = "IDLE"
         elif self.fault_mode == "COOLING_INTERRUPT":
             stage = "HIGH_LOAD"
             self.cooling_health = clamp(self.cooling_health - 0.18, 0.35, 1.0)
+        elif self.fault_mode == "BEARING_WEAR":
+            self.bearing_health = clamp(self.bearing_health - 0.011, 0.50, 1.0)
 
         usage = {
             "STOPPED": clamp(usage_raw * 0.25 + self.random.uniform(0.1, 0.8), 0.2, 2.0),
@@ -187,10 +261,22 @@ class FurnaceSimulator(DeviceSimulator):
             self.temperature = lerp(self.temperature, 330 + self.random.uniform(-18, 25), 0.35)
             self.vibration = lerp(self.vibration, self.random.uniform(18.0, 24.5), 0.92)
             self.pressure = lerp(self.pressure, self.random.uniform(112, 125), 0.35)
+        elif self.fault_mode == "INTERMITTENT_JAM":
+            jam_pulse = self.random.random() < 0.60
+            if jam_pulse:
+                self.temperature = lerp(self.temperature, 280 + self.random.uniform(-15, 20), 0.25)
+                self.vibration = lerp(self.vibration, self.random.uniform(12.5, 20.5), 0.75)
+                self.pressure = lerp(self.pressure, self.random.uniform(106, 130), 0.28)
+            else:
+                self.vibration = lerp(self.vibration, self.random.uniform(5.0, 8.5), 0.30)
         elif self.fault_mode == "COOLING_INTERRUPT":
             self.temperature = lerp(self.temperature, self.random.uniform(1040, 1165), 0.68)
             self.vibration = lerp(self.vibration, self.random.uniform(7.5, 10.8), 0.45)
             self.pressure = lerp(self.pressure, self.random.uniform(26, 42), 0.88)
+        elif self.fault_mode == "BEARING_WEAR":
+            wear_index = 1 - self.bearing_health
+            self.temperature = lerp(self.temperature, self.temperature + 42 * wear_index, 0.18)
+            self.vibration = lerp(self.vibration, 6.5 + 30 * wear_index + self.random.uniform(-0.5, 1.4), 0.42)
 
         op_status = {
             "STOPPED": 0,
@@ -214,15 +300,16 @@ class FurnaceSimulator(DeviceSimulator):
             "operatingStatus": op_status,
             "time": simulated_time.isoformat(),
         }
-        return payload
+        return self.apply_sensor_drift(payload)
 
 
 class PumpSimulator(DeviceSimulator):
-    def __init__(self, device_code, device_name, seed):
-        super().__init__(device_code, device_name, seed)
+    def __init__(self, device_code, device_name, seed, fault_rate=DEFAULT_FAULT_RATE):
+        super().__init__(device_code, device_name, seed, fault_rate)
         self.flow_health = 1.0
 
     def build_payload(self, furnace_payload, simulated_time):
+        self.tick_sensor_drift()
         furnace_status = furnace_payload["operatingStatus"]
         furnace_pressure = furnace_payload["pressure"]
         furnace_temperature = furnace_payload["temperature"]
@@ -248,7 +335,7 @@ class PumpSimulator(DeviceSimulator):
 
         op_status = 0 if usage < 5 else (1 if usage < 12 else 2 if usage < 25 else 3)
 
-        return {
+        payload = {
             "deviceCode": self.device_code,
             "usageKwh": round(clamp(usage, 2.5, 38.0), 2),
             "co2Emission": round(usage * 0.0075, 2),
@@ -263,14 +350,16 @@ class PumpSimulator(DeviceSimulator):
             "operatingStatus": op_status,
             "time": simulated_time.isoformat(),
         }
+        return self.apply_sensor_drift(payload)
 
 
 class CompressorSimulator(DeviceSimulator):
-    def __init__(self, device_code, device_name, seed):
-        super().__init__(device_code, device_name, seed)
+    def __init__(self, device_code, device_name, seed, fault_rate=DEFAULT_FAULT_RATE):
+        super().__init__(device_code, device_name, seed, fault_rate)
         self.air_health = 1.0
 
     def build_payload(self, furnace_payload, simulated_time):
+        self.tick_sensor_drift()
         furnace_status = furnace_payload["operatingStatus"]
         furnace_load = furnace_payload["usageKwh"]
         load_index = clamp(furnace_load / 145, 0.0, 1.0)
@@ -288,7 +377,7 @@ class CompressorSimulator(DeviceSimulator):
 
         op_status = 0 if usage_target < 6 else (1 if usage_target < 15 else 2 if usage_target < 34 else 3)
 
-        return {
+        payload = {
             "deviceCode": self.device_code,
             "usageKwh": round(clamp(usage_target, 4.0, 46.0), 2),
             "co2Emission": round(usage_target * 0.006, 2),
@@ -303,6 +392,7 @@ class CompressorSimulator(DeviceSimulator):
             "operatingStatus": op_status,
             "time": simulated_time.isoformat(),
         }
+        return self.apply_sensor_drift(payload)
 
 
 def send_payload(payload):
@@ -320,47 +410,72 @@ def send_cycle(furnace_sim, pump_sim, compressor_sim, row, simulated_time, delay
     payloads = [furnace_payload, pump_payload, compressor_payload]
     now_time = datetime.now().strftime("%H:%M:%S")
 
-    for payload in payloads:
-        try:
-            send_payload(payload)
+    try:
+        send_payload(payloads)
+        for payload in payloads:
             print(
                 f"[{now_time}] sent {payload['deviceCode']:<8} "
                 f"load={payload['usageKwh']:>6}kWh status={payload['operatingStatus']} "
                 f"temp={payload['temperature']:>7} pressure={payload['pressure']:>6} "
                 f"tier={payload['xianPriceTier']}"
             )
-        except Exception as exc:
+    except Exception as exc:
+        for payload in payloads:
             print(f"[{now_time}] failed {payload['deviceCode']}: {exc}")
 
-    if furnace_sim.fault_mode:
-        print(f"   fault injected on {furnace_sim.device_code}: {furnace_sim.fault_mode}")
+    for simulator in (furnace_sim, pump_sim, compressor_sim):
+        faults = simulator.active_faults()
+        if faults:
+            print(f"   active anomaly on {simulator.device_code}: {', '.join(faults)}")
 
     time.sleep(delay)
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="SmartEnergyMaster plant simulator data pump")
+    parser.add_argument("--interval", type=float, default=DEFAULT_SLEEP_INTERVAL,
+                        help="live push interval in seconds, default: 3")
+    parser.add_argument("--fault-rate", type=float, default=DEFAULT_FAULT_RATE,
+                        help="base anomaly probability per furnace sample, default: 0.012")
+    parser.add_argument("--history-hours", type=float, default=DEFAULT_HISTORY_HOURS,
+                        help="history backfill window in hours, default: 24")
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
+    live_interval = max(0.2, args.interval)
+    history_hours = max(0.25, args.history_hours)
+    backfill_points = max(1, int(round(history_hours * 60 / HISTORY_STEP_MINUTES)))
+    fault_rate = clamp(args.fault_rate, 0.0, 1.0)
+
     df = load_dataset()
     print(f"[dataset] rows={len(df)}")
+    print(
+        f"[config] interval={live_interval}s "
+        f"fault_rate={fault_rate} history_hours={history_hours} "
+        f"backfill_points={backfill_points}"
+    )
 
-    furnace_sim = FurnaceSimulator("EAF-01", "Electric Arc Furnace 01", 20260320)
-    pump_sim = PumpSimulator("PUMP-01", "Cooling Pump 01", 20260321)
-    compressor_sim = CompressorSimulator("COMP-01", "Air Compressor A", 20260322)
+    furnace_sim = FurnaceSimulator("EAF-01", "Electric Arc Furnace 01", 20260320, fault_rate)
+    pump_sim = PumpSimulator("PUMP-01", "Cooling Pump 01", 20260321, fault_rate * 0.35)
+    compressor_sim = CompressorSimulator("COMP-01", "Air Compressor A", 20260322, fault_rate * 0.30)
 
-    start_index = random.randint(0, max(0, len(df) - BACKFILL_POINTS - 1))
-    backfill_slice = df.iloc[start_index:start_index + BACKFILL_POINTS].reset_index(drop=True)
-    live_index = start_index + BACKFILL_POINTS
+    start_index = random.randint(0, max(0, len(df) - backfill_points - 1))
+    backfill_slice = df.iloc[start_index:start_index + backfill_points].reset_index(drop=True)
+    live_index = start_index + backfill_points
 
-    backfill_start_time = datetime.now(SHANGHAI_TZ) - timedelta(hours=24)
-    print("[backfill] sending a 24h history window to make charts look reasonable")
+    backfill_start_time = datetime.now(SHANGHAI_TZ) - timedelta(hours=history_hours)
+    print(f"[backfill] sending a {history_hours:g}h history window to make charts look reasonable")
     for offset, (_, row) in enumerate(backfill_slice.iterrows()):
-        simulated_time = backfill_start_time + timedelta(minutes=15 * offset)
+        simulated_time = backfill_start_time + timedelta(minutes=HISTORY_STEP_MINUTES * offset)
         send_cycle(furnace_sim, pump_sim, compressor_sim, row, simulated_time, BACKFILL_SLEEP)
 
     print("[live] switch to accelerated live mode")
     while True:
         row = df.iloc[live_index % len(df)]
         simulated_time = datetime.now(SHANGHAI_TZ)
-        send_cycle(furnace_sim, pump_sim, compressor_sim, row, simulated_time, SLEEP_INTERVAL)
+        send_cycle(furnace_sim, pump_sim, compressor_sim, row, simulated_time, live_interval)
         live_index += 1
 
 

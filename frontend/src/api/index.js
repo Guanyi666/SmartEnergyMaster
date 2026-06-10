@@ -8,6 +8,7 @@ export const getForecast = (deviceCode) => request.get('/dashboard/forecast', { 
 export const postDispatchDecision = (payload) => request.post('/dashboard/dispatch-advice/decision', payload)
 export const getLatestSensor = (deviceCode) => request.get(`/sensor/latest/${deviceCode}`)
 export const getSensorHistory = (deviceCode, hours = 24) => request.get(`/sensor/history/${deviceCode}`, { params: { hours } })
+export const getSensorHistoryPage = (deviceCode, params = {}) => request.get(`/sensor/history/${deviceCode}`, { params })
 export const getDevices = (params) => request.get('/devices', { params })
 export const getDeviceDetail = (id) => request.get(`/devices/${id}`)
 export const getDeviceFaultHistory = (id) => request.get(`/devices/${id}/fault-history`)

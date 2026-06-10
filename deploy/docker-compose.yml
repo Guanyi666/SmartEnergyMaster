@@ -10,7 +10,14 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./init-sql:/docker-entrypoint-initdb.d
+      - ./init-sql/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+      - ./init-sql/02_user_expansion.sql:/docker-entrypoint-initdb.d/02_user_expansion.sql:ro
+      - ./init-sql/03_audit_log.sql:/docker-entrypoint-initdb.d/03_audit_log.sql:ro
+      - ./init-sql/04_llm_analysis.sql:/docker-entrypoint-initdb.d/04_llm_analysis.sql:ro
+      - ./init-sql/05_spare_parts.sql:/docker-entrypoint-initdb.d/05_spare_parts.sql:ro
+      - ./init-sql/06_maintenance_sop.sql:/docker-entrypoint-initdb.d/06_maintenance_sop.sql:ro
+      - ./init-sql/07_carbon_config.sql:/docker-entrypoint-initdb.d/07_carbon_config.sql:ro
+      - ./init-sql/08_notification.sql:/docker-entrypoint-initdb.d/08_notification.sql:ro
     deploy:
       resources:
         limits:

@@ -70,6 +70,10 @@ application-prod.yml
 
 # 8. 过程文档（仅本地保留，不纳入版本控制）
 docs/
+!docs/
+!docs/local-dev-setup-guide.md
+!docs/assets/
+!docs/assets/local-env-check.svg
 
 # 🆕 合并 workorder: Spring Boot devtools
 .spring-boot-devtools.properties
