@@ -43,7 +43,7 @@
           </el-table-column>
             <el-table-column prop="title" label="标题" min-width="220" />
             <el-table-column prop="estimatedMinutes" label="预计耗时" width="110">
-              <template #default="{ row }">{{ row.estimatedMinutes }} min</template>
+              <template #default="{ row }">{{ row.estimatedMinutes }} 分钟</template>
             </el-table-column>
             <el-table-column prop="version" label="版本" width="70" />
             <el-table-column label="启用" width="80">
@@ -96,7 +96,7 @@
             <el-table-column prop="title" label="标题" min-width="260" />
             <el-table-column prop="technician" label="维修人员" min-width="100" />
             <el-table-column prop="durationMinutes" label="耗时" width="100">
-              <template #default="{ row }">{{ row.durationMinutes || '--' }} min</template>
+              <template #default="{ row }">{{ row.durationMinutes || '--' }} 分钟</template>
             </el-table-column>
             <el-table-column prop="occurredAt" label="发生时间" min-width="170" />
             <el-table-column label="操作" width="160" fixed="right">
@@ -193,7 +193,7 @@
           <el-tag type="info">{{ selectedCase.deviceType }}</el-tag>
           <el-tag type="warning">{{ selectedCase.faultType }}</el-tag>
           <el-tag v-if="selectedCase.technician">处理人 {{ selectedCase.technician }}</el-tag>
-          <el-tag v-if="selectedCase.durationMinutes" type="success">耗时 {{ selectedCase.durationMinutes }} min</el-tag>
+          <el-tag v-if="selectedCase.durationMinutes" type="success">耗时 {{ selectedCase.durationMinutes }} 分钟</el-tag>
         </div>
         <h4>故障现象</h4>
         <p>{{ selectedCase.faultSymptom || '—' }}</p>

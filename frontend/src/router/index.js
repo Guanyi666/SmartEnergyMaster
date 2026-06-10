@@ -35,6 +35,17 @@ const router = createRouter({
           name: 'devices',
           component: () => import('../views/DevicesView.vue')
         },
+        // Epic 07：维修知识库 & 备件管理
+        {
+          path: '/knowledge',
+          name: 'knowledge',
+          component: () => import('../views/KnowledgeView.vue')
+        },
+        {
+          path: '/spare-parts',
+          name: 'spare-parts',
+          component: () => import('../views/SparePartsView.vue')
+        },
         // Epic 05 维修模块（按需加载，含 meta.roles 角色拦截）
         {
           path: '/maintenance',

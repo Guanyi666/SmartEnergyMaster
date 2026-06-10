@@ -19,3 +19,29 @@ export const deleteDevice = (id) => request.delete(`/devices/${id}`)
 export const getWorkOrders = (status) => request.get('/work-orders', { params: { status } })
 export const updateWorkOrderStatus = (id, payload) => request.patch(`/work-orders/${id}/status`, payload)
 export const getActiveAlerts = (limit = 5) => request.get('/work-orders/active-alerts', { params: { limit } })
+
+// ============ Epic 07：维修知识库 & 备件管理 ============
+// SOP
+export const listSops = (params) => request.get('/sops', { params })
+export const getSop = (id) => request.get(`/sops/${id}`)
+export const createSop = (payload) => request.post('/sops', payload)
+export const updateSop = (id, payload) => request.put(`/sops/${id}`, payload)
+export const deleteSop = (id) => request.delete(`/sops/${id}`)
+// 维修案例
+export const listCases = (params) => request.get('/cases', { params })
+export const getCase = (id) => request.get(`/cases/${id}`)
+export const createCase = (payload) => request.post('/cases', payload)
+export const updateCase = (id, payload) => request.put(`/cases/${id}`, payload)
+export const deleteCase = (id) => request.delete(`/cases/${id}`)
+// 知识图谱
+export const getKnowledgeGraph = (params) => request.get('/knowledge/graph', { params })
+// 维修建议
+export const getRepairAdvice = (payload) => request.post('/ai/repair-advice', payload)
+// 备件管理
+export const listSpareParts = (params) => request.get('/spare-parts', { params })
+export const getSparePart = (id) => request.get(`/spare-parts/${id}`)
+export const createSparePart = (payload) => request.post('/spare-parts', payload)
+export const updateSparePart = (id, payload) => request.put(`/spare-parts/${id}`, payload)
+export const deleteSparePart = (id) => request.delete(`/spare-parts/${id}`)
+export const recordSparePartUsage = (payload) => request.post('/spare-parts/usage', payload)
+export const listSparePartUsages = (params) => request.get('/spare-parts/usage', { params })

@@ -118,6 +118,27 @@ CREATE INDEX ix_assignment_work_order ON workorder_assignment (work_order_id);
 CREATE INDEX ix_assignment_personnel ON workorder_assignment (personnel_id);
 CREATE INDEX ix_assignment_active ON workorder_assignment (work_order_id, personnel_id) WHERE released_at IS NULL;
 
+-- 维修人员种子数据（6 人）
+INSERT INTO workorder_maintenance_personnel
+    (employee_no, name, phone, specializations, skill_level, certification, max_workload)
+VALUES
+    ('E001', '张工', '13800000001', '["电气","自动化"]',       'EXPERT',       '高级工程师 / 15年', 5),
+    ('E002', '李工', '13800000002', '["机械","液压"]',         'SENIOR',       '机械工程师 / 10年', 4),
+    ('E003', '王工', '13800000003', '["电气","机械","液压"]',  'SENIOR',       '复合技师 / 8年',   4),
+    ('E004', '赵工', '13800000004', '["仪表","自动化"]',       'INTERMEDIATE', '仪表技师 / 5年',    3),
+    ('E005', '孙工', '13800000005', '["机械","焊接"]',         'INTERMEDIATE', '机修工 / 3年',      3),
+    ('E006', '周工', '13800000006', '["电气","仪表","自动化"]', 'JUNIOR',       '助理工程师 / 1年',  2)
+ON CONFLICT (employee_no) DO NOTHING;
+
+-- 维修工程师登录账号（E001 / 123456）
+INSERT INTO sys_user (username, password, role)
+VALUES (
+    'E001',
+    '$2a$10$QiUD0hIi91K2NzBx8YN/R.4KXD3.0H8A3s1mg2x9Ew.atUPOE6S7q',
+    'MAINTENANCE_ENGINEER'
+)
+ON CONFLICT (username) DO NOTHING;
+
 -- =====================================================================
 -- Epic 07-1/07-2: 维修知识体系
 -- =====================================================================

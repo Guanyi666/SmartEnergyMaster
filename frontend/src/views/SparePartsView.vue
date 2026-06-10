@@ -34,7 +34,7 @@
     </div>
 
     <div class="glass-panel table-panel section-spacer">
-      <el-table :data="parts" stripe @row-click="openPartDialog">
+      <el-table :data="parts" stripe>
         <el-table-column prop="partCode" label="备件编号" min-width="140" />
         <el-table-column prop="name" label="名称" min-width="180" />
         <el-table-column prop="spec" label="规格" min-width="160" />
