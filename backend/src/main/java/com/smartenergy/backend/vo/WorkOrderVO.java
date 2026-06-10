@@ -29,7 +29,7 @@ public class WorkOrderVO {
     @Schema(description = "工单标题")
     private String title;
 
-    @Schema(description = "故障类型（MECHANICAL_JAM / COOLING_INTERRUPT）")
+    @Schema(description = "故障类型（MECHANICAL_JAM / COOLING_INTERRUPT 等）")
     private String faultType;
 
     @Schema(description = "故障描述")
@@ -53,7 +53,7 @@ public class WorkOrderVO {
     @Schema(description = "解决时间")
     private LocalDateTime resolvedAt;
 
-    @Schema(description = "触发时温度（℃）")
+    @Schema(description = "触发时温度（°C）")
     private BigDecimal latestTemperature;
 
     @Schema(description = "触发时振动（mm/s）")
@@ -61,6 +61,9 @@ public class WorkOrderVO {
 
     @Schema(description = "触发时压力（kPa）")
     private BigDecimal latestPressure;
+
+    @Schema(description = "关联 SOP 编号（自动匹配）")
+    private Long sopId;
 
     @Schema(description = "创建时间")
     private LocalDateTime createdAt;

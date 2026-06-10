@@ -1,8 +1,6 @@
 package com.smartenergy.backend.entity;
 
-import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -42,13 +40,6 @@ public class WorkOrder {
     @Schema(description = "优先级（HIGH / CRITICAL）")
     private String priority;
 
-    /**
-     * 🟢 修复：updateStrategy = ALWAYS
-     * 之前 MyBatis-Plus 默认 NOT_NULL 策略，setAssignee(null) 后 updateById 不会把 null
-     * 写进 SQL，导致"释放工单清空 assignee"无效，老字段残留。
-     * 改为 ALWAYS 后 null 也会被写入（满足 8081 sync 接口显式清空需求）。
-     */
-    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     @Schema(description = "处理人")
     private String assignee;
 
@@ -61,7 +52,7 @@ public class WorkOrder {
     @Schema(description = "解决时间")
     private LocalDateTime resolvedAt;
 
-    @Schema(description = "触发时温度（℃）")
+    @Schema(description = "触发时温度（°C）")
     private BigDecimal latestTemperature;
 
     @Schema(description = "触发时振动（mm/s）")
@@ -69,6 +60,9 @@ public class WorkOrder {
 
     @Schema(description = "触发时压力（kPa）")
     private BigDecimal latestPressure;
+
+    @Schema(description = "关联 SOP 编号（自动匹配）")
+    private Long sopId;
 
     @Schema(description = "创建时间")
     private LocalDateTime createdAt;

@@ -8,6 +8,8 @@ import com.smartenergy.backend.entity.WorkOrder;
 import com.smartenergy.backend.mapper.DeviceMapper;
 import com.smartenergy.backend.mapper.WorkOrderMapper;
 import com.smartenergy.backend.service.DeviceService;
+import com.smartenergy.backend.service.MaintenanceSOPService;
+import com.smartenergy.backend.service.SparePartService;
 import com.smartenergy.backend.service.WorkOrderService;
 import com.smartenergy.backend.vo.WorkOrderVO;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,8 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     private final WorkOrderMapper workOrderMapper;
     private final DeviceMapper deviceMapper;
     private final DeviceService deviceService;
+    private final MaintenanceSOPService sopService;
+    private final SparePartService sparePartService;
 
     @Override
     @Transactional
@@ -50,6 +54,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
         workOrder.setLatestTemperature(data.getTemperature());
         workOrder.setLatestVibration(data.getVibration());
         workOrder.setLatestPressure(data.getPressure());
+        workOrder.setSopId(sopService.matchSOPId(device.getDeviceType(), faultType));
         workOrder.setCreatedAt(LocalDateTime.now());
         workOrder.setUpdatedAt(LocalDateTime.now());
         workOrderMapper.insert(workOrder);
@@ -105,6 +110,8 @@ public class WorkOrderServiceImpl implements WorkOrderService {
         }
         if ("RESOLVED".equals(targetStatus)) {
             workOrder.setResolvedAt(LocalDateTime.now());
+            // 工单闭环触发 SOP 关联备件自动扣减（idempotent：同 workOrder+part 已存在 usage 记录会跳过）
+            sparePartService.autoDeductForWorkOrder(workOrder);
         }
         workOrder.setUpdatedAt(LocalDateTime.now());
         workOrderMapper.updateById(workOrder);

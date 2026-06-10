@@ -28,6 +28,15 @@
           <span>设备管理</span>
         </el-menu-item>
 
+        <el-menu-item index="/knowledge">
+          <el-icon><Reading /></el-icon>
+          <span>维修知识库</span>
+        </el-menu-item>
+        <el-menu-item index="/spare-parts">
+          <el-icon><Box /></el-icon>
+          <span>备件库存</span>
+        </el-menu-item>
+
         <!-- ★ 新增：仅 MAINTENANCE_ENGINEER / ADMIN / MANAGER 看到 -->
         <el-menu-item
           v-if="isMaintenanceRole"
@@ -69,6 +78,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { Monitor, TrendCharts, Setting, Reading, Box, Tools, User } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()

@@ -125,3 +125,100 @@ VALUES (
     'MAINTENANCE_ENGINEER'
 )
 ON CONFLICT (username) DO NOTHING;
+
+-- =====================================================================
+-- Epic 07-1/07-2: 维修知识体系
+-- =====================================================================
+
+-- 1. SOP 标准操作流程
+CREATE TABLE IF NOT EXISTS maintenance_sop (
+    id BIGSERIAL PRIMARY KEY,
+    sop_code VARCHAR(64) UNIQUE NOT NULL,
+    device_type VARCHAR(64) NOT NULL,
+    fault_type VARCHAR(64) NOT NULL,
+    title VARCHAR(128) NOT NULL,
+    summary VARCHAR(500),
+    content TEXT NOT NULL,
+    steps TEXT NOT NULL DEFAULT '[]',
+    required_skills TEXT NOT NULL DEFAULT '[]',
+    required_tools TEXT NOT NULL DEFAULT '[]',
+    required_parts TEXT NOT NULL DEFAULT '[]',
+    estimated_minutes INTEGER NOT NULL DEFAULT 60,
+    version INTEGER NOT NULL DEFAULT 1,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by VARCHAR(64),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS ix_sop_device_fault ON maintenance_sop (device_type, fault_type);
+CREATE INDEX IF NOT EXISTS ix_sop_active ON maintenance_sop (is_active);
+
+-- 2. 维修案例
+CREATE TABLE IF NOT EXISTS repair_case (
+    id BIGSERIAL PRIMARY KEY,
+    case_code VARCHAR(64) UNIQUE NOT NULL,
+    title VARCHAR(128) NOT NULL,
+    device_type VARCHAR(64) NOT NULL,
+    fault_type VARCHAR(64) NOT NULL,
+    fault_symptom VARCHAR(500),
+    root_cause VARCHAR(500),
+    repair_process TEXT,
+    repair_result VARCHAR(500),
+    duration_minutes INTEGER,
+    technician VARCHAR(64),
+    keywords VARCHAR(500),
+    related_work_order_id BIGINT,
+    occurred_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS ix_case_device_fault ON repair_case (device_type, fault_type);
+CREATE INDEX IF NOT EXISTS ix_case_occurred_at ON repair_case (occurred_at DESC);
+
+-- 3. 为 work_order 表新增 sop_id
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'work_order' AND column_name = 'sop_id'
+    ) THEN
+        ALTER TABLE work_order ADD COLUMN sop_id BIGINT;
+    END IF;
+END $$;
+
+-- 4. 备件主表
+CREATE TABLE IF NOT EXISTS spare_part (
+    id BIGSERIAL PRIMARY KEY,
+    part_code VARCHAR(64) UNIQUE NOT NULL,
+    name VARCHAR(128) NOT NULL,
+    spec VARCHAR(256),
+    unit VARCHAR(32) NOT NULL DEFAULT '件',
+    quantity INTEGER NOT NULL DEFAULT 0,
+    safety_stock INTEGER NOT NULL DEFAULT 0,
+    unit_price NUMERIC(12, 2),
+    supplier VARCHAR(128),
+    location VARCHAR(128),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_spare_part_code ON spare_part(part_code);
+CREATE INDEX IF NOT EXISTS idx_spare_part_quantity ON spare_part(quantity);
+
+-- 5. 备件领用记录
+CREATE TABLE IF NOT EXISTS spare_part_usage (
+    id BIGSERIAL PRIMARY KEY,
+    part_id BIGINT NOT NULL REFERENCES spare_part(id) ON DELETE CASCADE,
+    work_order_id BIGINT REFERENCES work_order(id) ON DELETE SET NULL,
+    quantity INTEGER NOT NULL,
+    user_name VARCHAR(64),
+    note VARCHAR(256),
+    used_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_spare_part_usage_part ON spare_part_usage(part_id);
+CREATE INDEX IF NOT EXISTS idx_spare_part_usage_order ON spare_part_usage(work_order_id);
+CREATE INDEX IF NOT EXISTS idx_spare_part_usage_used_at ON spare_part_usage(used_at DESC);
