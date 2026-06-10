@@ -117,7 +117,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Plus } from '@element-plus/icons-vue'
@@ -205,6 +205,18 @@ const statusLabel = (s) => ({ PENDING: '待处理', IN_PROGRESS: '处理中', RE
 const drawerOpen = ref(false)
 const currentOrder = ref(null)
 const openDetail = (o) => { currentOrder.value = o; drawerOpen.value = true }
+
+// 🔧 同步 currentOrder：抽屉里执行"指派/替换/释放"后，后端已更新但 currentOrder
+//    还指向打开抽屉时的旧对象，导致 activeList 不刷新；轮询也只刷 allOrders 不刷 currentOrder。
+//    监听 allOrders 变化时按 id 重新指向最新对象，drawer 立即反映最新数据。
+watch(allOrders, (newList) => {
+  if (!currentOrder.value || !Array.isArray(newList)) return
+  const id = currentOrder.value.id
+  const updated = newList.find(o => o.id === id)
+  if (updated && updated !== currentOrder.value) {
+    currentOrder.value = updated
+  }
+})
 
 const confirmHandle = async (o) => {
   try {
