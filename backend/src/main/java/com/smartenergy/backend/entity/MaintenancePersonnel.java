@@ -41,10 +41,10 @@ public class MaintenancePersonnel {
     private String avatarColor;
 
     /**
-     * 技能标签 JSON 字符串（DB 列是 JSONB，PG 接受 String 写入）。
-     * 应用层用 Jackson 解析/序列化（见 service 层的 toList/fromList 辅助）。
+     * 技能标签 JSON 字符串（DB 列是 JSONB）。
+     * 应用层用 Jackson 解析/序列化，DB 写入通过 JsonbTypeHandler 包装为 PGobject("jsonb")。
      */
-    @TableField(jdbcType = JdbcType.VARCHAR)
+    @TableField(typeHandler = com.smartenergy.backend.handler.JsonbTypeHandler.class)
     @Schema(description = "技能标签 JSON 字符串", hidden = true)
     private String specializations;
 
