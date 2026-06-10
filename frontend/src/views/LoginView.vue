@@ -2,7 +2,7 @@
   <div class="login-shell">
     <div class="login-card glass-panel">
       <div class="login-head">
-        <p class="login-mark">SMART ENERGY COMMAND</p>
+        <p class="login-mark">智能能源指挥中心</p>
         <h1>智驭能效平台</h1>
         <span>工业现场实时监控与工单闭环中心</span>
       </div>
@@ -37,7 +37,7 @@
       </el-form>
 
       <div class="login-tip">
-        <span>演示账号：admin (ADMIN) / E001 (MAINTENANCE_ENGINEER)</span>
+        <span>演示账号：admin（管理员）/ E001（维修工程师）</span>
         <span>密码：admin=admin123 / E001=123456</span>
       </div>
     </div>

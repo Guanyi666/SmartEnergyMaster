@@ -73,7 +73,7 @@
               :type="a.releasedAt ? 'warning' : 'primary'"
             >
               <strong>{{ a.personnelName }}</strong>
-              <span class="role-tag">{{ a.role }}</span>
+              <span class="role-tag">{{ getRoleLabel(a.role) }}</span>
               <p v-if="a.releasedAt" class="released">已释放于 {{ formatTime(a.releasedAt) }}</p>
               <p v-if="a.note" class="note">{{ a.note }}</p>
             </el-timeline-item>
@@ -92,6 +92,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Cpu, Flag, Clock, DataLine, User, InfoFilled, Document } from '@element-plus/icons-vue'
 import { getWorkOrderDetail, getWorkOrderAssignments } from '../api/workorder'
+import { getRoleLabel } from '../utils/status'
 
 const route = useRoute()
 const workOrderId = computed(() => Number(route.params.id))

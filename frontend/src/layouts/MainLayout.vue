@@ -2,7 +2,7 @@
   <div class="layout-shell">
     <aside class="layout-sidebar glass-panel">
       <div class="brand-block">
-        <p class="brand-mark">SMART ENERGY</p>
+        <p class="brand-mark">智能能源</p>
         <h1>智驭能效</h1>
         <span>工业能效中控平台</span>
       </div>
