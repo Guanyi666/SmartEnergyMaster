@@ -76,7 +76,7 @@
         <div class="device-row">
           <span class="device-name">{{ order.deviceName || '—' }}</span>
           <span class="device-code">{{ order.deviceCode }}</span>
-          <span v-if="order.deviceType" class="device-type">{{ order.deviceType }}</span>
+          <span v-if="order.deviceType" class="device-type">{{ getDeviceTypeLabel(order.deviceType) }}</span>
           <span v-if="order.deviceLocation" class="device-loc">
             <el-icon><Location /></el-icon> {{ order.deviceLocation }}
           </span>
@@ -243,7 +243,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Close, Cpu, Location, DataLine, Clock, InfoFilled, Check, CircleCheck, Refresh, Warning, Loading, SuccessFilled, User, Plus } from '@element-plus/icons-vue'
 import { listPersonnel, releaseOneAssignment, replaceAssignment, batchAssignWorkOrder } from '../api/workorder'
 import { skillLevelLabel } from '../utils/skillLevel'
-import { getPriorityMeta, getFaultTypeMeta, getRoleLabel } from '../utils/status'
+import { getPriorityMeta, getFaultTypeMeta, getRoleLabel, getDeviceTypeLabel } from '../utils/status'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -299,10 +299,17 @@ const activeList = computed(() => {
 // ===== 释放单条 =====
 const confirmRelease = async (a) => {
   try {
+    const isLast = activeList.value.length === 1
     await ElMessageBox.confirm(
-      `确定将 ${a.name} 从工单 ${props.order.orderNo} 上撤下？`,
+      isLast
+        ? `${a.name} 是该工单最后一名指派人，释放后工单将回到待处理状态。确认撤下？`
+        : `确定将 ${a.name} 从工单 ${props.order.orderNo} 上撤下？`,
       '释放指派',
-      { type: 'warning' }
+      {
+        type: isLast ? 'error' : 'warning',
+        confirmButtonText: '确认释放',
+        cancelButtonText: '取消'
+      }
     )
     await releaseOneAssignment(props.order.id, a.personnelId)
     ElMessage.success(`${a.name} 已撤下`)
@@ -397,10 +404,11 @@ const openReplaceDialog = async (target) => {
   newPersonnelId.value = null
   replaceNote.value = ''
   replaceDialogOpen.value = true
-  if (replaceCandidates.value.length === 0) {
-    const res = await listPersonnel({ pageNum: 1, pageSize: 100, onDuty: true })
-    replaceCandidates.value = (res.records || []).filter(p => p.isOnDuty && p.currentWorkload < p.maxWorkload)
-  }
+  // 每次打开重新拉取，确保数据和负载最新
+  const res = await listPersonnel({ pageNum: 1, pageSize: 100, onDuty: true })
+  replaceCandidates.value = (res.records || []).filter(p =>
+    p.isOnDuty && p.currentWorkload < p.maxWorkload && p.id !== target.personnelId
+  )
 }
 
 const submitReplace = async () => {

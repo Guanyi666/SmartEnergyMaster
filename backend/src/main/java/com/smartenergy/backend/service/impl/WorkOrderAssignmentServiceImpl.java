@@ -50,6 +50,9 @@ public class WorkOrderAssignmentServiceImpl implements WorkOrderAssignmentServic
     public void assign(Long workOrderId, WorkOrderAssignRequest req) {
         // 1. 校验工单 + 人员（不变量）
         WorkOrder workOrder = requireWorkOrder(workOrderId);
+        if ("RESOLVED".equals(workOrder.getStatus())) {
+            throw new IllegalStateException("工单已闭环，无法指派");
+        }
         MaintenancePersonnel personnel = requireAvailablePersonnel(req.getPersonnelId(), workOrderId);
 
         // 2. 写新行
@@ -106,6 +109,9 @@ public class WorkOrderAssignmentServiceImpl implements WorkOrderAssignmentServic
     public void release(Long workOrderId, Long personnelId) {
         // 1. 校验
         WorkOrder workOrder = requireWorkOrder(workOrderId);
+        if ("RESOLVED".equals(workOrder.getStatus())) {
+            throw new IllegalStateException("工单已闭环，无法释放指派");
+        }
         // 🟠 修：personnel 可能已被删（孤儿指派），此时静默释放，不抛异常
         MaintenancePersonnel personnel = personnelMapper.selectById(personnelId);
 
