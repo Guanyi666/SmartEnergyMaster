@@ -93,13 +93,40 @@
                 <span class="score-label">{{ c.matchScore }} 分</span>
               </div>
               <div class="match-action">
-                <el-button type="primary" size="default" :disabled="c.currentWorkload >= c.maxWorkload" @click="assign(c)">
-                  {{ c.currentWorkload >= c.maxWorkload ? '已满载' : '指派' }}
-                </el-button>
+                <template v-if="c.currentWorkload >= c.maxWorkload">
+                  <el-popconfirm
+                    title="该人员已满载，强制指派将使其超负荷工作"
+                    confirm-button-text="确认强制指派"
+                    cancel-button-text="取消"
+                    @confirm="assign(c)"
+                  >
+                    <template #reference>
+                      <el-button type="warning" size="default">强制指派</el-button>
+                    </template>
+                  </el-popconfirm>
+                </template>
+                <el-button v-else type="primary" size="default" @click="assign(c)">指派</el-button>
               </div>
             </div>
 
-            <div v-if="!matchResult?.candidates?.length" class="empty-tip">无匹配人员</div>
+            <!-- 无匹配人员时的兜底操作 -->
+            <div v-if="matchResult && !matchResult.candidates?.length" class="fallback-panel">
+              <el-alert
+                title="未找到匹配的维修人员"
+                :description="`当前没有在岗人员满足所需技能：${(matchResult.requiredSkills || []).join('、') || '未知'}。您可以：`"
+                type="warning"
+                show-icon
+                :closable="false"
+              />
+              <div class="fallback-actions">
+                <el-button type="primary" :icon="Aim" @click="showAllPersonnel">
+                  查看全部在岗人员
+                </el-button>
+                <el-button @click="showAllPersonnel">
+                  手动选择并指派
+                </el-button>
+              </div>
+            </div>
           </div>
         </template>
       </div>
@@ -140,7 +167,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Refresh, Aim } from '@element-plus/icons-vue'
-import { getWorkOrderList, autoMatch, assignWorkOrder, getDispatchBoard } from '../api/workorder'
+import { getWorkOrderList, autoMatch, assignWorkOrder, getDispatchBoard, listPersonnel } from '../api/workorder'
 import { skillLevelLabel, skillLevelTone } from '../utils/skillLevel'
 import { getFaultTypeMeta, getPriorityMeta } from '../utils/status'
 
@@ -186,6 +213,38 @@ const selectOrder = async (o) => {
     matchResult.value = res
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '匹配推荐加载失败')
+  }
+}
+
+// 无匹配人员时的兜底：显示全部在岗人员（不限技能匹配）
+const showAllPersonnel = async () => {
+  try {
+    const res = await listPersonnel({ pageNum: 1, pageSize: 50, onDuty: true })
+    const all = (res.records || []).map(p => ({
+      personnelId: p.id,
+      employeeNo: p.employeeNo,
+      name: p.name,
+      avatarColor: p.avatarColor,
+      specializations: p.specializations || [],
+      skillLevel: p.skillLevel,
+      currentWorkload: p.currentWorkload || 0,
+      maxWorkload: p.maxWorkload || 5,
+      workloadRate: p.maxWorkload > 0 ? Math.round((p.currentWorkload || 0) * 100 / p.maxWorkload) : 0,
+      matchScore: 0,
+      matchedSkills: []
+    }))
+    // 已在工单上的排除
+    const existing = matchResult.value?.candidates || []
+    const existingIds = new Set(existing.map(c => c.personnelId))
+    const fresh = all.filter(c => !existingIds.has(c.personnelId))
+    matchResult.value = {
+      workOrderId: currentOrderId.value,
+      faultType: currentOrder.value?.faultType,
+      requiredSkills: matchResult.value?.requiredSkills || [],
+      candidates: [...existing, ...fresh]
+    }
+  } catch (e) {
+    ElMessage.error('加载人员列表失败')
   }
 }
 
@@ -520,6 +579,20 @@ onMounted(() => {
   text-align: center;
   color: rgba(148, 163, 184, 0.5);
   font-size: 12px;
+}
+
+/* 无匹配人员兜底面板 */
+.fallback-panel {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fallback-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
 }
 
 @media (max-width: 1200px) {

@@ -291,7 +291,7 @@
                   <p v-if="order.description">{{ order.description }}</p>
                   <div class="timeline-meta">
                     <span>工单号：{{ order.orderNo }}</span>
-                    <span>优先级：{{ order.priority }}</span>
+                    <span>优先级：{{ priorityLabel(order.priority) }}</span>
                     <span>负责人：{{ order.assignee }}</span>
                     <StatusPill :status="order.status" />
                   </div>
@@ -317,6 +317,9 @@ import {
   getWorkOrders, updateDevice, updateWorkOrderStatus
 } from '../api'
 import { usePollingTask } from '../composables/usePollingTask'
+import { getPriorityMeta } from '../utils/status'
+
+const priorityLabel = (p) => getPriorityMeta(p).label
 
 const devices = ref([])
 const workOrders = ref([])

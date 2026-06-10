@@ -9,7 +9,6 @@
         </p>
       </div>
       <div class="header-tools">
-        <el-button :icon="Refresh" @click="refreshNow">立即刷新</el-button>
         <el-button type="primary" :icon="Plus" @click="goDispatch">智能调度</el-button>
       </div>
     </div>
@@ -111,7 +110,7 @@
       :order="currentOrder"
       @confirm="confirmHandle"
       @resolve="markResolved"
-      @refresh="refreshNow"
+      @refresh="onRefresh"
     />
   </div>
 </template>
@@ -120,7 +119,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Refresh, Plus } from '@element-plus/icons-vue'
+import { Plus } from '@element-plus/icons-vue'
 import StatBadge from '../components/StatBadge.vue'
 import WorkOrderCard from '../components/WorkOrderCard.vue'
 import WorkOrderDetailDrawer from '../components/WorkOrderDetailDrawer.vue'
@@ -159,6 +158,15 @@ const loadKanban = async () => {
   }
 }
 const { start: startPolling, run: refreshNow } = usePollingTask(loadKanban, 5000)
+
+// 指派调整后刷新详情：重新拉取列表后同步更新 currentOrder 引用
+const onRefresh = async () => {
+  await refreshNow()
+  if (currentOrder.value) {
+    const updated = allOrders.value.find(o => o.id === currentOrder.value.id)
+    if (updated) currentOrder.value = updated
+  }
+}
 
 // ---- 拖拽 ----
 const dragOver = ref(null)
@@ -231,7 +239,11 @@ const confirmHandle = async (o) => {
 
 const markResolved = async (o) => {
   try {
-    await ElMessageBox.confirm(`确认 ${o.orderNo} 已修复？`, '闭环确认', { type: 'success' })
+    await ElMessageBox.confirm(`确认 ${o.orderNo} 已修复？`, '闭环确认', {
+      type: 'success',
+      confirmButtonText: '确认闭环',
+      cancelButtonText: '取消'
+    })
     await patchWorkOrderStatus(o.id, { status: 'RESOLVED' })
     ElMessage.success('工单已闭环')
     drawerOpen.value = false
