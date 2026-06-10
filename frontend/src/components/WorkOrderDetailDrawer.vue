@@ -54,7 +54,7 @@
               <strong>{{ a.name }}</strong>
               <span class="emp-no">{{ a.employeeNo }}</span>
               <span class="role-tag" :class="`role-${(a.role || 'PRIMARY').toLowerCase()}`">
-                {{ a.role || 'PRIMARY' }}
+                {{ getRoleLabel(a.role) }}
               </span>
             </div>
             <div class="row-actions" v-if="order.status !== 'RESOLVED'">
@@ -243,6 +243,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Close, Cpu, Location, DataLine, Clock, InfoFilled, Check, CircleCheck, Refresh, Warning, Loading, SuccessFilled, User, Plus } from '@element-plus/icons-vue'
 import { listPersonnel, releaseOneAssignment, replaceAssignment, batchAssignWorkOrder } from '../api/workorder'
 import { skillLevelLabel } from '../utils/skillLevel'
+import { getPriorityMeta, getFaultTypeMeta, getRoleLabel } from '../utils/status'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -257,8 +258,7 @@ const visible = computed({
 
 const close = () => emit('update:modelValue', false)
 
-const PRIORITY_LABELS = { CRITICAL: '紧急', HIGH: '高', MEDIUM: '中', LOW: '低' }
-const priorityLabel = (p) => PRIORITY_LABELS[p] || p || '高'
+const priorityLabel = (p) => getPriorityMeta(p).label
 
 const STATUS_LABELS = { PENDING: '待处理', IN_PROGRESS: '处理中', RESOLVED: '已完成' }
 const statusLabel = (s) => STATUS_LABELS[s] || s || '—'

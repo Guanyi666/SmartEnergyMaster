@@ -81,7 +81,82 @@ public class DashboardServiceImpl implements DashboardService {
         summary.setFocusDeviceName(focusDevice != null ? focusDevice.getDeviceName() : null);
         summary.setDispatchAdvice(getDispatchAdvice(focusDevice != null ? focusDevice.getDeviceCode() : null));
         summary.setForecast(forecastService.getForecast(focusDevice != null ? focusDevice.getDeviceCode() : null));
+
+        // ── 能效指标计算 ──
+        // 碳排放强度：kg CO2 / kWh（越低越环保）
+        if (totalUsage.compareTo(BigDecimal.ZERO) > 0) {
+            summary.setCarbonIntensity(totalCo2.divide(totalUsage, 2, java.math.RoundingMode.HALF_UP));
+        } else {
+            summary.setCarbonIntensity(BigDecimal.ZERO);
+        }
+
+        // 电弧炉负荷率：当前功率 / 额定最大功率(150kW) × 100%
+        if (focusDevice != null && focusDevice.getUsageKwh() != null) {
+            BigDecimal eafLoad = focusDevice.getUsageKwh().multiply(new BigDecimal("100"))
+                    .divide(new BigDecimal("150"), 1, java.math.RoundingMode.HALF_UP);
+            summary.setEafLoadRate(eafLoad);
+        } else {
+            summary.setEafLoadRate(BigDecimal.ZERO);
+        }
+
+        // 设备综合利用率：运行中(含IDLE) / 总设备数 × 100%
+        long totalDevices = devices.size();
+        if (totalDevices > 0) {
+            summary.setEquipmentUtilization(
+                    new BigDecimal(runningCount).multiply(new BigDecimal("100"))
+                            .divide(new BigDecimal(totalDevices), 1, java.math.RoundingMode.HALF_UP));
+        } else {
+            summary.setEquipmentUtilization(BigDecimal.ZERO);
+        }
+
+        // 吨钢电耗估算：电弧炉典型值 ~400 kWh/吨钢
+        // 基于电弧炉实际功率反推：功率(kW) / 0.4 = 每小时钢产量(kg/h) ≈ 功率 / 400 (吨/h)
+        // 实际吨钢电耗 = 当前功率 × 1h / (当前功率 / 400) ≈ 400 kWh/吨（理想值）
+        // 用负荷率调整：负荷率越低，吨钢电耗越高（空载损耗占比大）
+        BigDecimal eafPower = (focusDevice != null && focusDevice.getUsageKwh() != null)
+                ? focusDevice.getUsageKwh() : BigDecimal.valueOf(80);
+        BigDecimal loadFactor = eafPower.divide(BigDecimal.valueOf(150), 3, java.math.RoundingMode.HALF_UP);
+        // 吨钢电耗 = 基准400 / 负荷率修正。负荷率100%→400kWh/t，负荷率50%→800kWh/t（空载损耗大）
+        if (loadFactor.compareTo(BigDecimal.valueOf(0.05)) > 0) {
+            summary.setEstimatedKwhPerTon(
+                    BigDecimal.valueOf(400).divide(loadFactor, 0, java.math.RoundingMode.HALF_UP));
+        } else {
+            summary.setEstimatedKwhPerTon(BigDecimal.ZERO);
+        }
+
+        // 节能建议
+        summary.setEfficiencyTip(buildEfficiencyTip(summary));
+
         return summary;
+    }
+
+    /** 根据当前运行状态生成节能建议 */
+    private String buildEfficiencyTip(DashboardSummaryVO s) {
+        StringBuilder tip = new StringBuilder();
+        BigDecimal loadRate = s.getEafLoadRate();
+        String priceTier = s.getCurrentPriceTier();
+
+        if (loadRate != null && loadRate.compareTo(BigDecimal.valueOf(30)) < 0) {
+            tip.append("电弧炉负荷率偏低（").append(loadRate).append("%），空载损耗占比大。");
+            if ("VALLEY".equals(priceTier) || "DEEP_VALLEY".equals(priceTier)) {
+                tip.append("当前谷电时段，建议加大产能以摊薄吨钢电耗。");
+            } else {
+                tip.append("建议在谷电窗口集中排产以降低吨钢电耗。");
+            }
+        } else if (loadRate != null && loadRate.compareTo(BigDecimal.valueOf(80)) > 0) {
+            tip.append("电弧炉接近满负荷（").append(loadRate).append("%），运行效率良好。");
+            if ("PEAK".equals(priceTier) || "CRITICAL_PEAK".equals(priceTier)) {
+                tip.append("但当前峰电时段，建议评估是否可将非关键负荷推迟到谷电时段。");
+            }
+        } else {
+            tip.append("电弧炉运行在正常区间。建议维持当前策略，关注分时电价变化。");
+        }
+
+        if (s.getOfflineDeviceCount() > 1) {
+            tip.append(" 另有").append(s.getOfflineDeviceCount()).append("台设备离线，建议检查是否影响产能。");
+        }
+
+        return tip.toString();
     }
 
     @Override

@@ -30,9 +30,12 @@ CREATE TABLE device (
 
 INSERT INTO device (device_code, device_name, device_type, status, location, maintainer, description)
 VALUES
-    ('EAF-01', 'Electric Arc Furnace 01', 'ARC_FURNACE', 'RUNNING', 'Steel Workshop A', 'Zhang', 'Core high-load equipment'),
-    ('PUMP-01', 'Cooling Pump 01', 'PUMP', 'STOPPED', 'Utility Station', 'Li', 'Cooling system key pump group'),
-    ('COMP-01', 'Air Compressor A', 'COMPRESSOR', 'STOPPED', 'Power Station', 'Wang', 'Compressed air main equipment');
+    ('EAF-01', '1号电弧炉', 'ARC_FURNACE', 'RUNNING', '炼钢一车间', '张工', '核心高耗能设备——废钢熔化与初步合金化'),
+    ('PUMP-01', '循环水泵', 'PUMP', 'STOPPED', '公辅站', '李工', '冷却系统关键泵组——向电弧炉及连铸机提供冷却水'),
+    ('COMP-01', '空压机A', 'COMPRESSOR', 'STOPPED', '动力站', '王工', '压缩空气主设备——气动阀门与仪表风气源'),
+    ('LF-01', '钢包精炼炉', 'LADLE_FURNACE', 'STOPPED', '炼钢一车间', '赵工', '钢水二次精炼——合金化、脱硫、成分与温度调整'),
+    ('CC-01', '1号连铸机', 'CONTINUOUS_CASTER', 'STOPPED', '连铸跨', '钱工', '钢水连续浇铸成坯——弧形连铸机'),
+    ('DC-01', '主除尘系统', 'DUST_COLLECTOR', 'STOPPED', '环保站', '孙工', '电弧炉烟气捕集与布袋除尘——环保合规');
 
 CREATE TABLE sensor_data (
     id BIGSERIAL NOT NULL,

@@ -71,26 +71,16 @@
 import { computed } from 'vue'
 import { Cpu } from '@element-plus/icons-vue'
 
+import { getFaultTypeMeta, getPriorityMeta } from '../utils/status'
+
 const props = defineProps({
   order: { type: Object, required: true }
 })
 defineEmits(['click'])
 
-const PRIORITY_LABELS = {
-  CRITICAL: '紧急',
-  HIGH: '高',
-  MEDIUM: '中',
-  LOW: '低'
-}
-const priorityLabel = (p) => PRIORITY_LABELS[p] || p || '高'
-
-const FAULT_EMOJI = {
-  MECHANICAL_JAM: '🔥',
-  COOLING_INTERRUPT: '❄️',
-  ELECTRICAL_OVERLOAD: '⚡',
-  SENSOR_DRIFT: '📡'
-}
-const faultEmoji = (f) => FAULT_EMOJI[f] || '⚙️'
+const priorityLabel = (p) => getPriorityMeta(p).label
+const faultEmoji = (f) => getFaultTypeMeta(f).emoji
+const faultLabel = (f) => getFaultTypeMeta(f).label
 
 const formatNum = (v) => (v == null ? '—' : Number(v).toFixed(1))
 

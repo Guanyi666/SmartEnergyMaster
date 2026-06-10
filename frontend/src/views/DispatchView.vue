@@ -26,7 +26,7 @@
           >
             <div class="order-head">
               <span class="order-no">{{ o.orderNo }}</span>
-              <span class="prio" :class="`prio-${(o.priority || 'HIGH').toLowerCase()}`">{{ o.priority }}</span>
+              <span class="prio" :class="`prio-${(o.priority || 'HIGH').toLowerCase()}`">{{ priorityLabel(o.priority) }}</span>
             </div>
             <div class="order-title">
               <span class="emoji">{{ faultEmoji(o.faultType) }}</span>
@@ -142,6 +142,7 @@ import { ElMessage } from 'element-plus'
 import { Refresh, Aim } from '@element-plus/icons-vue'
 import { getWorkOrderList, autoMatch, assignWorkOrder, getDispatchBoard } from '../api/workorder'
 import { skillLevelLabel, skillLevelTone } from '../utils/skillLevel'
+import { getFaultTypeMeta, getPriorityMeta } from '../utils/status'
 
 const route = useRoute()
 
@@ -152,11 +153,9 @@ const board = ref({})
 
 const currentOrder = computed(() => pendingOrders.value.find(o => o.id === currentOrderId.value))
 
-const FAULT_EMOJI = {
-  MECHANICAL_JAM: '🔥', COOLING_INTERRUPT: '❄️',
-  ELECTRICAL_OVERLOAD: '⚡', SENSOR_DRIFT: '📡'
-}
-const faultEmoji = (f) => FAULT_EMOJI[f] || '⚙️'
+const faultEmoji = (f) => getFaultTypeMeta(f).emoji
+const faultLabel = (f) => getFaultTypeMeta(f).label
+const priorityLabel = (p) => getPriorityMeta(p).label
 
 const scoreColor = (s) => {
   if (s >= 80) return [['#3bff9f', '#52c8ff']]
