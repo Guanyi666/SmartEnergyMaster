@@ -51,10 +51,23 @@
                 <el-tag :type="row.isActive ? 'success' : 'info'" size="small">{{ row.isActive ? '是' : '否' }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="180" fixed="right">
+            <el-table-column label="操作" width="100" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" @click.stop="openSopDialog(row)">编辑</el-button>
-                <el-button link type="danger" @click.stop="handleDeleteSop(row)">删除</el-button>
+                <span class="btn-group-wide">
+                  <el-button link type="primary" size="small" @click.stop="openSopDialog(row)">编辑</el-button>
+                  <el-button link type="danger" size="small" @click.stop="handleDeleteSop(row)">删除</el-button>
+                </span>
+                <span class="btn-group-narrow">
+                  <el-dropdown trigger="click" @command="(cmd) => { if(cmd==='edit') openSopDialog(row); if(cmd==='delete') handleDeleteSop(row) }">
+                    <el-button link type="primary" size="small">操作 ▾</el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="edit">编辑</el-dropdown-item>
+                        <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </span>
               </template>
             </el-table-column>
           </el-table>
@@ -99,10 +112,23 @@
               <template #default="{ row }">{{ row.durationMinutes || '--' }} 分钟</template>
             </el-table-column>
             <el-table-column prop="occurredAt" label="发生时间" min-width="170" />
-            <el-table-column label="操作" width="160" fixed="right">
+            <el-table-column label="操作" width="100" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" @click.stop="openCaseDialog(row)">编辑</el-button>
-                <el-button link type="danger" @click.stop="handleDeleteCase(row)">删除</el-button>
+                <span class="btn-group-wide">
+                  <el-button link type="primary" size="small" @click.stop="openCaseDialog(row)">编辑</el-button>
+                  <el-button link type="danger" size="small" @click.stop="handleDeleteCase(row)">删除</el-button>
+                </span>
+                <span class="btn-group-narrow">
+                  <el-dropdown trigger="click" @command="(cmd) => { if(cmd==='edit') openCaseDialog(row); if(cmd==='delete') handleDeleteCase(row) }">
+                    <el-button link type="primary" size="small">操作 ▾</el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="edit">编辑</el-dropdown-item>
+                        <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </span>
               </template>
             </el-table-column>
           </el-table>
@@ -686,9 +712,28 @@ onMounted(refreshAll)
 }
 .filter-panel {
   padding: 18px 20px;
+  overflow-x: auto;
+}
+.filter-panel :deep(.el-form) {
+  flex-wrap: wrap;
 }
 .table-panel {
   padding: 18px 20px;
+  overflow-x: auto;
+}
+
+.btn-group-narrow { display: none; }
+
+@media (max-width: 900px) {
+  .btn-group-wide   { display: none; }
+  .btn-group-narrow { display: inline-block; }
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  :deep(.el-dialog) {
+    max-width: 95vw !important;
+  }
 }
 .empty-tip {
   padding: 32px 0;
