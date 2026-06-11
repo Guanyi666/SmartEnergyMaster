@@ -437,6 +437,17 @@ watch(() => props.modelValue, (v) => {
     replaceNote.value = ''
   }
 })
+
+// 🆕 监听 order.id 变化（轮询刷新 / 切换不同工单）时重置子对话框状态
+//   避免开着批量指派/替换对话框时，背后工单数据已被替换导致子状态错位
+watch(() => props.order?.id, () => {
+  selectedIds.value = new Set()
+  batchSearch.value = ''
+  newPersonnelId.value = null
+  replaceNote.value = ''
+  // 候选人缓存保留（人员列表跨工单复用），但清掉替换目标
+  replacingTarget.value = null
+})
 </script>
 
 <style>

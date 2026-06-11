@@ -44,6 +44,9 @@ public class WorkOrderVO {
     @Schema(description = "处理人")
     private String assignee;
 
+    @Schema(description = "工单来源：AUTO（故障自动生成） / MANUAL（操作员手动创建）")
+    private String source;
+
     @Schema(description = "故障源数据时间")
     private OffsetDateTime sourceTime;
 

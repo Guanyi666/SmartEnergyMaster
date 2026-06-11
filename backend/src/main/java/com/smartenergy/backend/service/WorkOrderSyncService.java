@@ -1,6 +1,5 @@
 package com.smartenergy.backend.service;
 
-import com.smartenergy.backend.dto.WorkOrderStatusRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,25 +27,20 @@ public class WorkOrderSyncService {
     private final WorkOrderService workOrderService;
 
     /**
-     * 同步 work_order.assignee 老字段（合并到 backend 后改为本地调用）
+     * 同步 work_order.assignee 老字段
      *
-     * @param workOrderId   工单 ID
-     * @param currentStatus 当前 status（保持不变）
-     * @param fullNameList  完整活跃指派人姓名列表
-     *                      - null  → 8080 端把 assignee 字段清空
-     *                      - 非空  → 写入（>64 字符会被 service 端截断 + "+N"）
+     * 🟢 之前走 workOrderService.updateStatus(...) 完整流程，会触发 syncDeviceStatusAfterOrderUpdate 双重写；
+     *   现在改用专用 updateAssignee() 方法，干净地只改 assignee 字段。
+     *
+     * @param workOrderId  工单 ID
+     * @param fullNameList 完整活跃指派人姓名列表
+     *                     - null  → 清空 assignee
+     *                     - 非空  → 写入（>64 字符预截断 + "+N"）
      */
-    public void sync(Long workOrderId, String currentStatus, List<String> fullNameList) {
-        WorkOrderStatusRequest dto = new WorkOrderStatusRequest();
-        dto.setStatus(currentStatus);
-        dto.setAssignee(formatAssigneeString(fullNameList));
-        // 🟢 关键：assigneeProvided = true 显式告诉 service 端要更新 assignee
-        //   即使 dto.getAssignee() == null（释放场景），service 也会清空字段
-        dto.setAssigneeProvided(true);
-
-        workOrderService.updateStatus(workOrderId, dto);
-        log.debug("[WorkOrderSync] id={} status={} names={}", workOrderId, currentStatus,
-                fullNameList == null ? 0 : fullNameList.size());
+    public void sync(Long workOrderId, List<String> fullNameList) {
+        String formatted = formatAssigneeString(fullNameList);
+        workOrderService.updateAssignee(workOrderId, formatted);
+        log.debug("[WorkOrderSync] id={} names={}", workOrderId, fullNameList == null ? 0 : fullNameList.size());
     }
 
     /**

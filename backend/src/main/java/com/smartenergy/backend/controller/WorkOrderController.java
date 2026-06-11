@@ -1,11 +1,13 @@
 package com.smartenergy.backend.controller;
 
+import com.smartenergy.backend.dto.WorkOrderCreateRequest;
 import com.smartenergy.backend.dto.WorkOrderStatusRequest;
 import com.smartenergy.backend.service.WorkOrderService;
 import com.smartenergy.backend.vo.WorkOrderVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,6 +37,17 @@ public class WorkOrderController {
     }
 
     /**
+     * 🆕 手动创建工单入口（操作员在「维修指挥中心 → 新建工单」对话框调用）
+     * 设备三件套快照由后端从 sensor_data 自动拉取，assignee 显式置 null
+     * （不预填 device.maintainer，避免「张工幽灵指派人」问题）
+     */
+    @PostMapping
+    @Operation(summary = "手动创建工单", description = "操作员手动开单，含设备快照与 SOP 自动匹配")
+    public WorkOrderVO createWorkOrder(@Valid @RequestBody WorkOrderCreateRequest request) {
+        return workOrderService.createWorkOrder(request);
+    }
+
+    /**
      * 🆕 合并 workorder-backend: 改回 DTO 接收
      * 之前用 Map 是为了在 8080 端区分"未传 assignee"和"传 null"，因为跨进程 HTTP 同步需要。
      * 合并后 WorkOrderSyncService 是同模块方法调用，直接构造 DTO 即可，HTTP 入口只需要
@@ -49,7 +62,7 @@ public class WorkOrderController {
     @Operation(summary = "工单状态流转", description = "更新工单状态：PENDING → IN_PROGRESS → RESOLVED。状态变更自动联动设备状态")
     public WorkOrderVO updateStatus(
             @Parameter(description = "工单 ID") @PathVariable Long id,
-            @RequestBody WorkOrderStatusRequest request) {
+            @Valid @RequestBody WorkOrderStatusRequest request) {
         return workOrderService.updateStatus(id, request);
     }
 }

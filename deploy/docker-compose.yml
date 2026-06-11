@@ -18,6 +18,7 @@ services:
       - ./init-sql/08_notification.sql:/docker-entrypoint-initdb.d/06_notification.sql:ro
       - ./init-sql/seed_sop.sql:/docker-entrypoint-initdb.d/07_seed_sop.sql:ro
       - ./init-sql/seed_cases.sql:/docker-entrypoint-initdb.d/08_seed_cases.sql:ro
+      - ./init-sql/09_workorder_audit_fixes.sql:/docker-entrypoint-initdb.d/09_workorder_audit_fixes.sql:ro
     deploy:
       resources:
         limits:

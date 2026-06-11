@@ -24,7 +24,7 @@ public interface WorkOrderQueryMapper {
     @Select("""
         SELECT
             wo.id, wo.order_no, wo.device_id, wo.title, wo.fault_type, wo.description,
-            wo.status, wo.priority, wo.assignee,
+            wo.status, wo.priority, wo.assignee, wo.source,
             wo.source_time, wo.accepted_at, wo.resolved_at,
             wo.latest_temperature, wo.latest_vibration, wo.latest_pressure,
             wo.created_at, wo.updated_at,
@@ -78,7 +78,7 @@ public interface WorkOrderQueryMapper {
     @Select("""
         SELECT
             wo.id, wo.order_no, wo.device_id, wo.title, wo.fault_type, wo.description,
-            wo.status, wo.priority, wo.assignee,
+            wo.status, wo.priority, wo.assignee, wo.source,
             wo.source_time, wo.accepted_at, wo.resolved_at,
             wo.latest_temperature, wo.latest_vibration, wo.latest_pressure,
             wo.created_at, wo.updated_at,

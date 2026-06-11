@@ -5,10 +5,11 @@
       <div>
         <h2 class="page-title">维修指挥中心</h2>
         <p class="page-subtitle">
-          拖拽卡片改 status（直调 8080 现有 API）；每 5s 自动轮询新工单；最后同步：{{ lastSyncLabel }}
+          拖拽卡片仅改 status，指派人由抽屉管理；每 5s 自动轮询新工单；最后同步：{{ lastSyncLabel }}
         </p>
       </div>
       <div class="header-tools">
+        <el-button :icon="Plus" @click="openCreateDialog">新建工单</el-button>
         <el-button type="primary" :icon="Plus" @click="goDispatch">智能调度</el-button>
       </div>
     </div>
@@ -27,8 +28,11 @@
     <div class="kanban-row">
       <!-- PENDING -->
       <div class="kanban-col"
-           :class="{ 'col-dragover': dragOver === 'PENDING' }"
-           @dragover.prevent="dragOver = 'PENDING'"
+           :class="{
+             'col-dragover': dragOver === 'PENDING',
+             'col-locked':  draggingFromResolved
+           }"
+           @dragover.prevent="onDragOver($event, 'PENDING')"
            @dragleave="dragOver = null"
            @drop.prevent="onDrop('PENDING')">
         <div class="col-head head-pending">
@@ -53,8 +57,11 @@
 
       <!-- IN_PROGRESS -->
       <div class="kanban-col"
-           :class="{ 'col-dragover': dragOver === 'IN_PROGRESS' }"
-           @dragover.prevent="dragOver = 'IN_PROGRESS'"
+           :class="{
+             'col-dragover': dragOver === 'IN_PROGRESS',
+             'col-locked':  draggingFromResolved
+           }"
+           @dragover.prevent="onDragOver($event, 'IN_PROGRESS')"
            @dragleave="dragOver = null"
            @drop.prevent="onDrop('IN_PROGRESS')">
         <div class="col-head head-in-progress">
@@ -80,7 +87,7 @@
       <!-- RESOLVED -->
       <div class="kanban-col"
            :class="{ 'col-dragover': dragOver === 'RESOLVED' }"
-           @dragover.prevent="dragOver = 'RESOLVED'"
+           @dragover.prevent="onDragOver($event, 'RESOLVED')"
            @dragleave="dragOver = null"
            @drop.prevent="onDrop('RESOLVED')">
         <div class="col-head head-resolved">
@@ -112,6 +119,100 @@
       @resolve="markResolved"
       @refresh="onRefresh"
     />
+
+    <!-- 🆕 新建工单对话框 -->
+    <el-dialog
+      v-model="createDialogOpen"
+      title="新建工单"
+      width="640px"
+      append-to-body
+      @closed="resetCreateForm"
+    >
+      <el-form :model="createForm" label-width="90px">
+        <el-form-item label="设备" required>
+          <el-select
+            v-model="createForm.deviceId"
+            filterable
+            placeholder="选择设备"
+            style="width: 100%"
+            @change="onDeviceChange"
+          >
+            <el-option
+              v-for="d in deviceOptions"
+              :key="d.id"
+              :label="`${d.deviceName} (${d.deviceCode})`"
+              :value="d.id"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="故障类型" required>
+          <el-select v-model="createForm.faultType" placeholder="选择故障类型" style="width: 100%">
+            <el-option
+              v-for="(meta, key) in faultTypeOptions"
+              :key="key"
+              :label="`${meta.emoji} ${meta.label}`"
+              :value="key"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="优先级" required>
+          <el-select v-model="createForm.priority" style="width: 100%">
+            <el-option
+              v-for="(meta, key) in priorityOptions"
+              :key="key"
+              :label="meta.label"
+              :value="key"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="标题" required>
+          <el-input
+            v-model="createForm.title"
+            maxlength="128"
+            show-word-limit
+            placeholder="如：巡检发现轴承异响"
+          />
+        </el-form-item>
+
+        <el-form-item label="故障描述" required>
+          <el-input
+            v-model="createForm.description"
+            type="textarea"
+            :rows="3"
+            maxlength="500"
+            show-word-limit
+            placeholder="描述故障现象、影响范围、初步判断"
+          />
+        </el-form-item>
+
+        <!-- 只读上下文：选中设备后展示当前传感器快照，让操作员确认是这台设备 / 这个工况 -->
+        <el-form-item label="当前快照">
+          <div v-if="sensorSnapshot" class="snapshot-row">
+            <span>🌡 {{ formatSnapshotVal(sensorSnapshot.temperature) }} ℃</span>
+            <span>💧 {{ formatSnapshotVal(sensorSnapshot.pressure) }} kPa</span>
+            <span>📳 {{ formatSnapshotVal(sensorSnapshot.vibration) }} mm/s</span>
+            <span class="snapshot-time">{{ formatSnapshotTime(sensorSnapshot.time) }}</span>
+          </div>
+          <span v-else-if="snapshotLoading" class="snapshot-muted">加载中…</span>
+          <span v-else class="snapshot-muted">暂无传感器数据（创建时将记录为 NULL）</span>
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="createDialogOpen = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="createSubmitting"
+          :disabled="createSubmitting"
+          @click="submitCreate"
+        >
+          创建工单
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -123,7 +224,9 @@ import { Plus } from '@element-plus/icons-vue'
 import StatBadge from '../components/StatBadge.vue'
 import WorkOrderCard from '../components/WorkOrderCard.vue'
 import WorkOrderDetailDrawer from '../components/WorkOrderDetailDrawer.vue'
-import { getDispatchSummary, getWorkOrderList, patchWorkOrderStatus, releaseWorkOrder } from '../api/workorder'
+import { getDispatchSummary, getWorkOrderList, patchWorkOrderStatus, createWorkOrder } from '../api/workorder'
+import { getDevices, getLatestSensor } from '../api'
+import { faultTypeMeta, priorityMeta } from '../utils/status'
 import { usePollingTask } from '../composables/usePollingTask'
 
 const router = useRouter()
@@ -171,35 +274,66 @@ const onRefresh = async () => {
 // ---- 拖拽 ----
 const dragOver = ref(null)
 const draggingOrder = ref(null)
+// 🔒 只存 ID（primitive），不复用整个对象引用，避免 5s 轮询替换 allOrders 后的竞态
+const draggingOrderId = ref(null)
+// 🔒 记录当前拖拽的卡片是否来自已闭环列；用于在 dragover 阶段禁用非法目标
+const draggingFromResolved = ref(false)
+
 const onDragStart = (e, order) => {
   draggingOrder.value = order
+  draggingOrderId.value = order.id
+  draggingFromResolved.value = order.status === 'RESOLVED'
+  // 不暂停轮询：上次迭代的 ID 重取方案已足够防护拖拽-轮询竞态；
+  // 暂停反而会让 onDrop 后 startPolling() 立刻补一次 API + 重排 timer，造成视觉抖动
   e.dataTransfer.effectAllowed = 'move'
   e.dataTransfer.setData('text/plain', String(order.id))
 }
+
+// 拖入列时的统一处理：已闭环的卡不允许拖到 PENDING/IN_PROGRESS 列
+const onDragOver = (e, targetStatus) => {
+  if (draggingFromResolved.value && targetStatus !== 'RESOLVED') {
+    e.dataTransfer.dropEffect = 'none'   // 浏览器显示 not-allowed 光标
+    return
+  }
+  e.dataTransfer.dropEffect = 'move'
+  dragOver.value = targetStatus
+}
+
 const onDrop = async (targetStatus) => {
-  const order = draggingOrder.value
+  // 🔧 用 id 从最新 allOrders 重取对象，杜绝 5s 轮询中途替换数组导致的陈旧引用
+  const orderId = draggingOrderId.value
   dragOver.value = null
   draggingOrder.value = null
-  if (!order || order.status === targetStatus) return
+  draggingOrderId.value = null
+  draggingFromResolved.value = false
+  if (!orderId) return
+  const order = allOrders.value.find(o => o.id === orderId)
+  if (!order) {
+    ElMessage.warning('该工单已不存在（可能刚被删除），操作已取消')
+    return
+  }
+  if (order.status === targetStatus) return
+
+  // 🔒 前端兜底：即使浏览器允许 drop，也要在请求前再校验一次
+  if (order.status === 'RESOLVED' && targetStatus !== 'RESOLVED') {
+    ElMessage.warning('已闭环工单不可重新打开，如需反工请创建新工单')
+    return
+  }
 
   const oldStatus = order.status
 
   try {
     // 🔴 严重问题 #3 修正：拖拽改 status 走 8080 现有 PATCH，不走 8081
     await patchWorkOrderStatus(order.id, { status: targetStatus })
-    ElMessage.success(`已将 ${order.orderNo} 移到${statusLabel(targetStatus)}`)
 
-    // 🆕 任何路径回到 PENDING 都要清空指派人（包括 8080 老字段 assignee）
-    //   后端 release() 已经是幂等的：没活跃指派时也会 PATCH 8080 把 assignee 置空
-    if (targetStatus === 'PENDING') {
-      try {
-        await releaseWorkOrder(order.id)
-        ElMessage.info('已自动清空原指派人')
-      } catch (e) {
-        // 释放失败不阻塞主流程，但要把 8080 的 assignee 也清掉（防御性兜底）
-        console.warn('[Drag→PENDING] releaseWorkOrder 失败，尝试直接 PATCH 8080 清空', e)
-      }
+    // 🟢 Mode A：status 与 assignee 解耦。拖拽仅改 status，assignee 由抽屉显式管理。
+    //   拖回 PENDING 时若仍有指派人，toast 显式提示"已保留"，避免操作员误以为被释放。
+    let msg = `已将 ${order.orderNo} 移到${statusLabel(targetStatus)}`
+    const retained = order.activeAssignments?.length || 0
+    if (targetStatus === 'PENDING' && retained > 0) {
+      msg += `（${retained} 名指派人保留，由抽屉"释放"按钮管理）`
     }
+    ElMessage.success(msg)
 
     await refreshNow()
   } catch (e) {
@@ -212,7 +346,15 @@ const statusLabel = (s) => ({ PENDING: '待处理', IN_PROGRESS: '处理中', RE
 // ---- 详情抽屉 ----
 const drawerOpen = ref(false)
 const currentOrder = ref(null)
-const openDetail = (o) => { currentOrder.value = o; drawerOpen.value = true }
+const openDetail = (o) => {
+  // 🆕 防御性校验：工单应仍在 allOrders（虽然通常从 kanban 点击一定在）
+  if (!allOrders.value.some(x => x.id === o.id)) {
+    ElMessage.warning('该工单不存在或已被删除')
+    return
+  }
+  currentOrder.value = o
+  drawerOpen.value = true
+}
 
 // 🔧 同步 currentOrder：抽屉里执行"指派/替换/释放"后，后端已更新但 currentOrder
 //    还指向打开抽屉时的旧对象，导致 activeList 不刷新；轮询也只刷 allOrders 不刷 currentOrder。
@@ -221,10 +363,106 @@ watch(allOrders, (newList) => {
   if (!currentOrder.value || !Array.isArray(newList)) return
   const id = currentOrder.value.id
   const updated = newList.find(o => o.id === id)
-  if (updated && updated !== currentOrder.value) {
+  // 🆕 兜底：抽屉打开期间，如果 currentOrder 对应的工单已被另一标签页删除
+  //   新列表里查不到 → 关闭抽屉并提示，避免显示陈旧数据
+  if (!updated) {
+    if (drawerOpen.value) {
+      ElMessage.warning(`工单 #${id} 已被删除（可能在另一标签页），抽屉已关闭`)
+      drawerOpen.value = false
+    }
+    currentOrder.value = null
+    return
+  }
+  if (updated !== currentOrder.value) {
     currentOrder.value = updated
   }
 })
+
+// ===== 🆕 新建工单对话框 =====
+const createDialogOpen = ref(false)
+const createSubmitting = ref(false)
+const snapshotLoading = ref(false)
+const deviceOptions = ref([])
+const sensorSnapshot = ref(null)
+
+const faultTypeOptions = faultTypeMeta   // 复用 utils/status.js
+const priorityOptions = priorityMeta
+
+const createForm = ref({
+  deviceId: null,
+  faultType: '',
+  priority: 'MEDIUM',
+  title: '',
+  description: ''
+})
+
+const openCreateDialog = async () => {
+  createDialogOpen.value = true
+  if (deviceOptions.value.length === 0) {
+    try {
+      const res = await getDevices({ page: 1, size: 200 })
+      deviceOptions.value = res.records || []
+    } catch (e) {
+      // http.js 已 toast
+    }
+  }
+}
+
+const onDeviceChange = async (deviceId) => {
+  sensorSnapshot.value = null
+  if (!deviceId) return
+  const device = deviceOptions.value.find(d => d.id === deviceId)
+  if (!device) return
+  snapshotLoading.value = true
+  try {
+    const data = await getLatestSensor(device.deviceCode)
+    sensorSnapshot.value = data
+  } catch (e) {
+    sensorSnapshot.value = null   // http.js 已 toast；让用户看到"暂无"
+  } finally {
+    snapshotLoading.value = false
+  }
+}
+
+const formatSnapshotVal = (v) => (v == null ? '—' : Number(v).toFixed(1))
+const formatSnapshotTime = (iso) => {
+  if (!iso) return ''
+  return new Date(iso).toLocaleString('zh-CN', { hour12: false })
+}
+
+const resetCreateForm = () => {
+  createForm.value = {
+    deviceId: null, faultType: '', priority: 'MEDIUM', title: '', description: ''
+  }
+  sensorSnapshot.value = null
+}
+
+const submitCreate = async () => {
+  // 🔒 防重复提交：函数入口 + 按钮 disabled 双保险
+  if (createSubmitting.value) return
+  const f = createForm.value
+  if (!f.deviceId || !f.faultType || !f.priority || !f.title.trim() || !f.description.trim()) {
+    ElMessage.warning('请填写所有必填项')
+    return
+  }
+  createSubmitting.value = true
+  try {
+    const created = await createWorkOrder({
+      deviceId: f.deviceId,
+      title: f.title.trim(),
+      faultType: f.faultType,
+      priority: f.priority,
+      description: f.description.trim()
+    })
+    ElMessage.success(`工单 ${created.orderNo} 已创建`)
+    createDialogOpen.value = false
+    await refreshNow()        // 看板立即刷出新卡片
+  } catch (e) {
+    // http.js 拦截器已 toast
+  } finally {
+    createSubmitting.value = false
+  }
+}
 
 const confirmHandle = async (o) => {
   try {
@@ -317,12 +555,36 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  position: relative;  /* 给 col-locked::before 水印提供定位锚点 */
+  transition: background 0.2s ease, border-color 0.2s ease, border-style 0.2s ease;
 }
 
 .kanban-col.col-dragover {
   background: rgba(82, 200, 255, 0.08);
   border-color: rgba(82, 200, 255, 0.45);
+}
+
+/* 🔒 当拖动的是已闭环卡片时，目标列（RESOLVED 以外）显示禁止态 */
+.kanban-col.col-locked {
+  background: rgba(244, 114, 182, 0.06);
+  border-color: rgba(244, 114, 182, 0.35);
+  border-style: dashed;
+}
+.kanban-col.col-locked::before {
+  content: '已闭环工单不可拖入';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  color: rgba(244, 114, 182, 0.85);
+  pointer-events: none;
+  letter-spacing: 1.5px;
+  background: rgba(15, 23, 42, 0.55);
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(244, 114, 182, 0.3);
+  z-index: 2;
 }
 
 .col-head {
@@ -385,6 +647,30 @@ onMounted(() => {
   text-align: center;
   color: rgba(148, 163, 184, 0.5);
   font-size: 12px;
+}
+
+/* 🆕 新建工单对话框：当前传感器快照只读展示 */
+.snapshot-row {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 8px;
+  font-size: 13px;
+  color: #e0f2fe;
+  font-family: 'SF Mono', Consolas, monospace;
+}
+.snapshot-row .snapshot-time {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.snapshot-muted {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-style: italic;
 }
 
 @media (max-width: 1200px) {

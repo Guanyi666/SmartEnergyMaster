@@ -1,8 +1,16 @@
 <template>
-  <div class="wo-card" :class="['prio-' + (order.priority || 'HIGH').toLowerCase()]" @click="$emit('click', order)">
-    <!-- 顶部：工单号 + 优先级 chip -->
+  <div class="wo-card"
+       :class="[
+         'prio-' + (order.priority || 'HIGH').toLowerCase(),
+         { 'is-locked': order.status === 'RESOLVED' }
+       ]"
+       @click="$emit('click', order)">
+    <!-- 顶部：工单号 + 优先级 chip + 来源 chip (AUTO/MANUAL) -->
     <div class="wo-head">
       <span class="wo-no">{{ order.orderNo }}</span>
+      <span class="source-chip" :class="`source-${(order.source || 'AUTO').toLowerCase()}`">
+        {{ order.source === 'MANUAL' ? '手动' : '告警' }}
+      </span>
       <span class="prio-chip" :class="['tone-' + (order.priority || 'HIGH').toLowerCase()]">
         {{ priorityLabel(order.priority) }}
       </span>
@@ -85,29 +93,21 @@ const faultLabel = (f) => getFaultTypeMeta(f).label
 const formatNum = (v) => (v == null ? '—' : Number(v).toFixed(1))
 
 // 🆕 二次迭代：层叠头像
-// 优先用后端返回的 activeAssignments（完整列表），无则用老的 assigneeName 单字段
-// 兜底：再退回到 8080 的 assignee 字符串（"李工,赵工"），按分隔符拆分展示历史指派人
+// 优先用后端返回的 activeAssignments（完整列表）；无则回退到 JOIN 的 assigneeName（单字段）
+// ⚠️ 注意：不要再兜底到 work_order.assignee 老字段——它只是同步用的遗留字符串，
+//   故障自动创建工单时会被 device.maintainer（设备主负责人）预填，与真实指派人无关。
+//   此兜底会导致卡片显示"张工"但抽屉显示"尚未指派"的不一致。
+//   行为与 WorkOrderDetailDrawer 对齐：没有活跃指派就老老实实显示"待指派"。
 const activeList = computed(() => {
   if (Array.isArray(props.order.activeAssignments) && props.order.activeAssignments.length > 0) {
     return props.order.activeAssignments
   }
-  // 后备 1：老字段单条指派人（active 列表为空但 JOIN 仍能拿到最早那条）
   if (props.order.assigneeName) {
     return [{
       personnelId: props.order.assigneeId,
       name: props.order.assigneeName,
       avatarColor: null
     }]
-  }
-  // 🆕 后备 2：8080 老字段 assignee（多人时用逗号/顿号/空格分隔）
-  if (props.order.assignee) {
-    const names = String(props.order.assignee)
-      .split(/[,，、\s]+/)
-      .map(s => s.trim())
-      .filter(Boolean)
-    if (names.length) {
-      return names.map(n => ({ personnelId: null, name: n, avatarColor: null }))
-    }
   }
   return []
 })
@@ -167,6 +167,30 @@ const timeAgo = (iso) => {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
+/* 🔒 已闭环工单：不可拖动、视觉降级、抑制 hover 浮起 */
+.wo-card.is-locked {
+  cursor: not-allowed;
+  opacity: 0.82;
+}
+.wo-card.is-locked::after {
+  content: '🔒 已闭环 · 不可拖动';
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  background: rgba(15, 23, 42, 0.7);
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  letter-spacing: 0.5px;
+}
+.wo-card.is-locked:hover {
+  transform: none;
+  border-color: rgba(148, 163, 184, 0.18);   /* 抑制 hover 蓝色边框高亮 */
+  box-shadow: none;
+}
+
 .wo-head {
   display: flex;
   justify-content: space-between;
@@ -192,6 +216,17 @@ const timeAgo = (iso) => {
 .prio-chip.tone-high     { background: rgba(255, 159, 67, 0.2);  color: #ff9f43; }
 .prio-chip.tone-medium   { background: rgba(82, 200, 255, 0.2);  color: #52c8ff; }
 .prio-chip.tone-low      { background: rgba(59, 255, 159, 0.2);   color: #3bff9f; }
+
+/* 🆕 来源 chip：AUTO=告警生成（默认蓝）、MANUAL=手动创建（强调橙） */
+.source-chip {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+  margin-right: 4px;
+}
+.source-chip.source-auto   { background: rgba(82, 200, 255, 0.12); color: #52c8ff; border: 1px solid rgba(82, 200, 255, 0.3); }
+.source-chip.source-manual { background: rgba(255, 159, 67, 0.15); color: #ff9f43; border: 1px solid rgba(255, 159, 67, 0.4); font-weight: 600; }
 
 .wo-device {
   display: flex;

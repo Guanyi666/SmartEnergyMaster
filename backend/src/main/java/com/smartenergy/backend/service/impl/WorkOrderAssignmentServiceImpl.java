@@ -216,7 +216,7 @@ public class WorkOrderAssignmentServiceImpl implements WorkOrderAssignmentServic
         }
         // 同步老字段：传 null 表示清空 assignee（即使 actives 为空也必须同步）
         // 🆕 合并 workorder-backend: 本地调用，不再需要 try/catch
-        workOrderSyncService.sync(workOrderId, workOrder.getStatus(), null);
+        workOrderSyncService.sync(workOrderId, null);
         if (actives.isEmpty()) {
             log.info("[ReleaseAll] workOrderId={} 无活跃指派，仅同步 8080 清空 assignee", workOrderId);
         } else {
@@ -324,14 +324,11 @@ public class WorkOrderAssignmentServiceImpl implements WorkOrderAssignmentServic
         assignmentMapper.insert(a);
     }
 
-    /** personnel.current_workload += delta，delta 必须为 ±1 */
+    /** personnel.current_workload += delta，delta 必须为 ±1
+     *  🔧 改原子 SQL UPDATE（GREATEST 兜底），杜绝并发 assign 时的读改写竞态
+     */
     private void bumpWorkload(Long personnelId, int delta) {
-        MaintenancePersonnel p = personnelMapper.selectById(personnelId);
-        if (p == null) return; // 理论不会发生（前面已校验过）
-        int cw = p.getCurrentWorkload() == null ? 0 : p.getCurrentWorkload();
-        p.setCurrentWorkload(Math.max(0, cw + delta));
-        p.setUpdatedAt(LocalDateTime.now());
-        personnelMapper.updateById(p);
+        personnelMapper.bumpWorkloadAtomic(personnelId, delta);
     }
 
     /**
@@ -351,8 +348,8 @@ public class WorkOrderAssignmentServiceImpl implements WorkOrderAssignmentServic
         }
         // 🆕 合并 workorder-backend: 本地调用，不再走 HTTP/RestTemplate
         //  - 不需要 try/catch（不会有 8080 同步失败的异常）
-        //  - 同一 @Transactional 边界，写 workorder_assignment 失败会一起回滚 updateStatus 写的 work_order.assignee
-        workOrderSyncService.sync(workOrderId, currentStatus,
+        //  - 同一 @Transactional 边界，写 workorder_assignment 失败会一起回滚 updateAssignee 写的 work_order.assignee
+        workOrderSyncService.sync(workOrderId,
                 activeNames.isEmpty() ? null : activeNames);
     }
 }

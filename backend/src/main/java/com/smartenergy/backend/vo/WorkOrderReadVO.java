@@ -46,6 +46,9 @@ public class WorkOrderReadVO {
     @Schema(description = "现有 work_order.assignee 字段（仅展示，与 assigneeName 不同源）")
     private String assignee;
 
+    @Schema(description = "工单来源：AUTO（故障自动生成） / MANUAL（操作员手动创建）")
+    private String source;
+
     @Schema(description = "故障源数据时间")
     private OffsetDateTime sourceTime;
 
