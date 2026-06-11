@@ -68,10 +68,23 @@ ai_models/**/*.onnx
 .env.*.local
 application-prod.yml
 
-# 8. 过程文档（仅本地保留，不纳入版本控制）
+# 8. 过程文档
+# ✅ Markdown/文本文件纳入版本控制（体积小、变更频繁、需保护）
+# ❌ 二进制文档忽略（体积大、不易 diff）
 docs/
 !docs/
-!docs/local-dev-setup-guide.md
+!docs/**/*.md
+!docs/**/*.txt
+docs/**/*.docx
+docs/**/*.xlsx
+docs/**/*.pdf
+docs/**/*.doc
+docs/**/*.ppt
+docs/**/*.pptx
+docs/**/*.png
+docs/**/*.jpg
+docs/**/*.gif
+docs/**/*.svg
 !docs/assets/
 !docs/assets/local-env-check.svg
 
