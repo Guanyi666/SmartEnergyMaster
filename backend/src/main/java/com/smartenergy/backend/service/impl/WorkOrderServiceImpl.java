@@ -76,14 +76,26 @@ public class WorkOrderServiceImpl implements WorkOrderService {
             throw new IllegalArgumentException("设备不存在: id=" + req.getDeviceId());
         }
 
-        // 2. 拉设备最新传感器快照（与自动创建路径行为一致，让工单带上下文）
+        // 2. 🆕 幂等保护：同一设备 + 同一故障类型已有活跃工单时拒绝重复创建
+        //    与 AUTO 路径行为一致（依靠 ix_work_order_unique_active_fault partial unique index）
+        Long activeCount = workOrderMapper.selectCount(new QueryWrapper<WorkOrder>()
+                .eq("device_id", device.getId())
+                .eq("fault_type", req.getFaultType())
+                .in("status", "PENDING", "IN_PROGRESS"));
+        if (activeCount != null && activeCount > 0) {
+            throw new IllegalStateException(
+                    String.format("设备 %s 已存在「%s」类型的活跃工单，无需重复创建。如需继续请先闭环已有工单。",
+                            device.getDeviceCode(), req.getFaultType()));
+        }
+
+        // 3. 拉设备最新传感器快照（与自动创建路径行为一致，让工单带上下文）
         //    没有数据时三件套为 NULL，sourceTime 退化为当前时间
         SensorData latest = sensorDataMapper.selectOne(new QueryWrapper<SensorData>()
                 .eq("device_id", device.getId())
                 .orderByDesc("time")
                 .last("LIMIT 1"));
 
-        // 3. 拼装工单
+        // 4. 拼装工单
         WorkOrder wo = new WorkOrder();
         wo.setOrderNo("WO-" + LocalDateTime.now().format(ORDER_NO_FORMATTER) + "-" + device.getId());
         wo.setDeviceId(device.getId());

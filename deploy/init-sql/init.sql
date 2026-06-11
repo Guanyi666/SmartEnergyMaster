@@ -1,3 +1,22 @@
+-- =====================================================================
+-- 🚨 本脚本用于全新部署 / 重建环境。
+--    如果 work_order 表已有数据，会中止执行以防止误删。
+--    日常增量变更请使用 09_workorder_audit_fixes.sql 这类幂等补丁脚本。
+-- =====================================================================
+DO $$
+DECLARE
+    row_count BIGINT;
+BEGIN
+    SELECT COUNT(*) INTO row_count FROM information_schema.tables
+        WHERE table_name = 'work_order' AND table_schema = 'public';
+    IF row_count > 0 THEN
+        SELECT COUNT(*) INTO row_count FROM work_order;
+        IF row_count > 0 THEN
+            RAISE EXCEPTION 'work_order 表已有 % 条数据，拒绝重建。如需重建请先手动备份并 DROP。', row_count;
+        END IF;
+    END IF;
+END $$;
+
 DROP TABLE IF EXISTS work_order CASCADE;
 DROP TABLE IF EXISTS sensor_data CASCADE;
 DROP TABLE IF EXISTS device CASCADE;
@@ -177,6 +196,7 @@ CREATE TABLE IF NOT EXISTS maintenance_sop (
 
 CREATE INDEX IF NOT EXISTS ix_sop_device_fault ON maintenance_sop (device_type, fault_type);
 CREATE INDEX IF NOT EXISTS ix_sop_active ON maintenance_sop (is_active);
+CREATE INDEX IF NOT EXISTS ix_sop_steps ON maintenance_sop USING GIN (steps);
 
 -- 2. 维修案例
 CREATE TABLE IF NOT EXISTS repair_case (
@@ -225,11 +245,13 @@ CREATE TABLE IF NOT EXISTS spare_part (
     supplier VARCHAR(128),
     location VARCHAR(128),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_spare_part_stock CHECK (quantity >= 0 AND safety_stock >= 0)
 );
 
 CREATE INDEX IF NOT EXISTS idx_spare_part_code ON spare_part(part_code);
 CREATE INDEX IF NOT EXISTS idx_spare_part_quantity ON spare_part(quantity);
+CREATE INDEX IF NOT EXISTS idx_spare_part_low_stock ON spare_part (quantity, safety_stock);
 
 -- 5. 备件领用记录
 CREATE TABLE IF NOT EXISTS spare_part_usage (
@@ -240,7 +262,8 @@ CREATE TABLE IF NOT EXISTS spare_part_usage (
     user_name VARCHAR(64),
     note VARCHAR(256),
     used_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_spare_part_usage_quantity CHECK (quantity > 0)
 );
 
 CREATE INDEX IF NOT EXISTS idx_spare_part_usage_part ON spare_part_usage(part_id);
