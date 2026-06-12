@@ -1,54 +1,109 @@
 package com.smartenergy.backend.controller;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartenergy.backend.annotation.DistributedLock;
 import com.smartenergy.backend.annotation.RateLimit;
 import com.smartenergy.backend.dto.SensorDataDTO;
 import com.smartenergy.backend.entity.SensorData;
 import com.smartenergy.backend.service.SensorDataService;
+import com.smartenergy.backend.vo.PageVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/sensor")
 @RequiredArgsConstructor
-@Tag(name = "传感器数据", description = "传感器数据上报与查询")
+@Tag(name = "Sensor Data", description = "Sensor data upload and query APIs")
 public class SensorDataController {
 
     private final SensorDataService sensorDataService;
+    private final ObjectMapper objectMapper;
+    private final Validator validator;
 
     @PostMapping("/upload")
-    @Operation(summary = "上报传感器数据", description = "接收设备遥测数据（功耗、温度、振动、压力、CO₂排放、电价时段等），数据上传后自动触发故障检测")
+    @Operation(summary = "Upload sensor data", description = "Accepts either one JSON object or a JSON array.")
     @RateLimit(name = "upload", limit = 100, window = 1, dimension = RateLimit.Dimension.SPEL,
-            key = "#sensorDataDTO.deviceCode", message = "设备上报频率超限")
-    @DistributedLock(name = "upload", key = "#sensorDataDTO.deviceCode", waitMillis = 200, leaseMillis = 3000)
-    public ResponseEntity<String> uploadSensorData(@Validated @RequestBody SensorDataDTO sensorDataDTO) {
-        sensorDataService.uploadData(sensorDataDTO);
-        return ResponseEntity.ok("数据接收成功");
+            key = "#p0.toString().hashCode()", message = "Sensor upload rate limit exceeded")
+    @DistributedLock(name = "upload", key = "#p0.toString().hashCode()", waitMillis = 200, leaseMillis = 5000,
+            message = "Same sensor payload is being processed")
+    public ResponseEntity<String> uploadSensorData(@RequestBody JsonNode payload) {
+        List<SensorDataDTO> sensorDataList = parsePayload(payload);
+        sensorDataService.uploadBatch(sensorDataList);
+        return ResponseEntity.ok("Sensor data received");
     }
 
     @GetMapping("/latest/{deviceCode}")
-    @Operation(summary = "查询最新数据", description = "返回指定设备最近一条传感器记录")
+    @Operation(summary = "Get latest sensor data", description = "Returns the latest sensor record for a device.")
     public ResponseEntity<?> getLatestData(
-            @Parameter(description = "设备编码") @PathVariable String deviceCode) {
+            @Parameter(description = "Device code") @PathVariable String deviceCode) {
         SensorData data = sensorDataService.getLatestData(deviceCode);
         if (data == null) {
-            return ResponseEntity.ok("暂无该设备数据");
+            return ResponseEntity.ok("No sensor data for this device");
         }
         return ResponseEntity.ok(data);
     }
 
     @GetMapping("/history/{deviceCode}")
-    @Operation(summary = "查询历史数据", description = "返回指定设备在指定时间窗口内的时序数据，供前端绘制趋势图")
-    public ResponseEntity<List<SensorData>> getHistoryData(
-            @Parameter(description = "设备编码") @PathVariable String deviceCode,
-            @Parameter(description = "查询最近 N 小时的数据") @RequestParam(defaultValue = "24") int hours) {
+    @Operation(summary = "Get sensor history", description = "Returns sensor history in a time window. Add page/size for pagination.")
+    public ResponseEntity<?> getHistoryData(
+            @Parameter(description = "Device code") @PathVariable String deviceCode,
+            @Parameter(description = "Last N hours") @RequestParam(defaultValue = "24") int hours,
+            @Parameter(description = "Page number, starts from 1") @RequestParam(required = false) Long page,
+            @Parameter(description = "Page size") @RequestParam(required = false) Long size) {
+        if (page != null || size != null) {
+            PageVO<SensorData> result = sensorDataService.getHistoryData(
+                    deviceCode,
+                    hours,
+                    page == null ? 1L : page,
+                    size == null ? 50L : size);
+            return ResponseEntity.ok(result);
+        }
         return ResponseEntity.ok(sensorDataService.getHistoryData(deviceCode, hours));
+    }
+
+    private List<SensorDataDTO> parsePayload(JsonNode payload) {
+        if (payload == null || payload.isNull()) {
+            throw new IllegalArgumentException("Sensor payload cannot be empty");
+        }
+
+        List<SensorDataDTO> result = new ArrayList<>();
+        if (payload.isArray()) {
+            payload.forEach(node -> result.add(toDto(node)));
+        } else if (payload.isObject()) {
+            result.add(toDto(payload));
+        } else {
+            throw new IllegalArgumentException("Sensor payload must be a JSON object or array");
+        }
+
+        if (result.isEmpty()) {
+            throw new IllegalArgumentException("Sensor payload cannot be empty");
+        }
+        return result;
+    }
+
+    private SensorDataDTO toDto(JsonNode node) {
+        SensorDataDTO dto = objectMapper.convertValue(node, SensorDataDTO.class);
+        Set<ConstraintViolation<SensorDataDTO>> violations = validator.validate(dto);
+        if (!violations.isEmpty()) {
+            throw new IllegalArgumentException(violations.iterator().next().getMessage());
+        }
+        return dto;
     }
 }

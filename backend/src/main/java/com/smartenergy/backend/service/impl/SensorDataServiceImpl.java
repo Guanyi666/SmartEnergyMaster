@@ -1,6 +1,7 @@
 package com.smartenergy.backend.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.smartenergy.backend.cache.CacheKeys;
 import com.smartenergy.backend.cache.CacheService;
 import com.smartenergy.backend.dto.SensorDataDTO;
@@ -12,6 +13,7 @@ import com.smartenergy.backend.service.DeviceService;
 import com.smartenergy.backend.service.SensorDataService;
 import com.smartenergy.backend.service.WorkOrderService;
 import com.smartenergy.backend.utils.DeviceStatusHelper;
+import com.smartenergy.backend.vo.PageVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -53,6 +55,17 @@ public class SensorDataServiceImpl implements SensorDataService {
     }
 
     @Override
+    @Transactional
+    public void uploadBatch(List<SensorDataDTO> sensorDataDTOList) {
+        if (sensorDataDTOList == null || sensorDataDTOList.isEmpty()) {
+            throw new IllegalArgumentException("sensor payload cannot be empty");
+        }
+        for (SensorDataDTO sensorDataDTO : sensorDataDTOList) {
+            uploadData(sensorDataDTO);
+        }
+    }
+
+    @Override
     public SensorData getLatestData(String deviceCode) {
         return cacheService.getOrLoad(CacheKeys.deviceLatest(deviceCode), CacheKeys.DEVICE_LATEST_TTL, () -> {
             Device device = deviceMapper.selectOne(new QueryWrapper<Device>().eq("device_code", deviceCode));
@@ -67,6 +80,20 @@ public class SensorDataServiceImpl implements SensorDataService {
     }
 
     @Override
+    public List<SensorData> getRecentData(String deviceCode, int limit) {
+        Device device = deviceMapper.selectOne(new QueryWrapper<Device>().eq("device_code", deviceCode));
+        if (device == null) {
+            throw new IllegalArgumentException("找不到设备编号 " + deviceCode);
+        }
+        List<SensorData> desc = sensorDataMapper.selectList(new QueryWrapper<SensorData>()
+                .eq("device_id", device.getId())
+                .orderByDesc("time")
+                .last("LIMIT " + limit));
+        java.util.Collections.reverse(desc);   // 转为时间升序
+        return desc;
+    }
+
+    @Override
     public List<SensorData> getHistoryData(String deviceCode, int hours) {
         Device device = deviceMapper.selectOne(new QueryWrapper<Device>().eq("device_code", deviceCode));
         if (device == null) {
@@ -78,6 +105,25 @@ public class SensorDataServiceImpl implements SensorDataService {
                 .eq("device_id", device.getId())
                 .ge("time", startTime)
                 .orderByAsc("time"));
+    }
+
+    @Override
+    public PageVO<SensorData> getHistoryData(String deviceCode, int hours, long page, long size) {
+        Device device = deviceMapper.selectOne(new QueryWrapper<Device>().eq("device_code", deviceCode));
+        if (device == null) {
+            throw new IllegalArgumentException("device not found: " + deviceCode);
+        }
+
+        long safePage = Math.max(1L, page);
+        long safeSize = Math.min(Math.max(1L, size), 500L);
+        OffsetDateTime startTime = OffsetDateTime.now().minusHours(Math.max(1, hours));
+        Page<SensorData> result = sensorDataMapper.selectPage(
+                new Page<>(safePage, safeSize),
+                new QueryWrapper<SensorData>()
+                        .eq("device_id", device.getId())
+                        .ge("time", startTime)
+                        .orderByAsc("time"));
+        return PageVO.of(result);
     }
 
     private void analyzeAndTriggerAlarm(Device device, SensorData data) {

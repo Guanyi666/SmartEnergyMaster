@@ -40,6 +40,28 @@
         <div class="advice-card" :class="`advice-${(summary.dispatchAdvice?.level || 'INFO').toLowerCase()}`">
           <strong>{{ summary.dispatchAdvice?.title || '暂无建议' }}</strong>
           <p>{{ summary.dispatchAdvice?.content || '等待实时数据接入。' }}</p>
+          <div v-if="summary.dispatchAdvice?.suggestedAction" class="advice-meta">
+            <div><span>建议动作</span><strong>{{ summary.dispatchAdvice.suggestedAction }}</strong></div>
+            <div><span>预估收益</span><strong>{{ summary.dispatchAdvice.estimatedSaving }}</strong></div>
+          </div>
+          <div v-if="summary.dispatchAdvice && summary.dispatchAdvice.level !== 'INFO'" class="advice-actions">
+            <el-button type="success" size="small" @click="decideAdvice('CONFIRM')">采纳建议</el-button>
+            <el-button size="small" @click="decideAdvice('REJECT')">忽略本次</el-button>
+          </div>
+        </div>
+
+        <h3 class="card-title section-title">未来能耗预测</h3>
+        <div class="forecast-card">
+          <div class="forecast-chips">
+            <div v-for="point in summary.forecast || []" :key="point.minutesAhead" class="forecast-chip">
+              <span>+{{ point.minutesAhead }}min</span>
+              <strong>{{ point.mean?.toFixed(2) }} kWh</strong>
+              <em>[{{ point.lower?.toFixed(1) }} ~ {{ point.upper?.toFixed(1) }}]</em>
+            </div>
+            <div v-if="!(summary.forecast || []).length" class="muted">预测服务暂未就绪。</div>
+          </div>
+          <ForecastChart v-if="(summary.forecast || []).length" :history="forecastHistory"
+            :forecast="summary.forecast" :height="150" :history-shown="12" compact />
         </div>
 
         <h3 class="card-title section-title">待处理维修工单</h3>
@@ -88,7 +110,8 @@ import MetricCard from '../components/MetricCard.vue'
 import StatusPill from '../components/StatusPill.vue'
 import GaugeChart from '../components/GaugeChart.vue'
 import AlertTicker from '../components/AlertTicker.vue'
-import { getActiveAlerts, getDashboardSummary, getDevices, getLatestSensor, updateWorkOrderStatus } from '../api'
+import ForecastChart from '../components/ForecastChart.vue'
+import { getActiveAlerts, getDashboardSummary, getDevices, getLatestSensor, getSensorHistory, postDispatchDecision, updateWorkOrderStatus } from '../api'
 import { usePollingTask } from '../composables/usePollingTask'
 import { getPriceTierMeta } from '../utils/status'
 
@@ -96,6 +119,7 @@ const summary = ref({})
 const devices = ref([])
 const latestData = ref({})
 const alerts = ref([])
+const forecastHistory = ref([])
 const focusDeviceCode = ref('EAF-01')
 
 const focusDevice = computed(() => devices.value.find((device) => device.deviceCode === focusDeviceCode.value))
@@ -104,21 +128,28 @@ const priceMeta = computed(() => getPriceTierMeta(summary.value.currentPriceTier
 const formatNumber = (value) => (value ?? value === 0 ? Number(value).toFixed(2) : '--')
 
 const loadAll = async () => {
-  const [summaryResult, devicesResult, latestResult, alertsResult] = await Promise.all([
+  const [summaryResult, devicesResult, latestResult, alertsResult, historyResult] = await Promise.all([
     getDashboardSummary(focusDeviceCode.value),
-    getDevices(),
+    getDevices({ size: 999 }),
     getLatestSensor(focusDeviceCode.value),
-    getActiveAlerts(8)
+    getActiveAlerts(8),
+    getSensorHistory(focusDeviceCode.value, 3)
   ])
 
   summary.value = summaryResult
-  devices.value = devicesResult
+  devices.value = devicesResult.records || devicesResult
   latestData.value = typeof latestResult === 'string' ? {} : latestResult
   alerts.value = alertsResult
+  forecastHistory.value = Array.isArray(historyResult) ? historyResult : []
 
   if (!focusDevice.value && devices.value.length) {
     focusDeviceCode.value = devices.value[0].deviceCode
   }
+}
+
+const decideAdvice = async (decision) => {
+  const res = await postDispatchDecision({ deviceCode: focusDeviceCode.value, decision })
+  ElMessage.success(res?.message || (decision === 'CONFIRM' ? '已采纳建议' : '已忽略'))
 }
 
 const { start: startPolling, run: refreshNow } = usePollingTask(loadAll, 5000)
@@ -175,6 +206,67 @@ onMounted(async () => {
   margin: 10px 0 0;
   color: var(--text-secondary);
   line-height: 1.7;
+}
+
+.advice-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.advice-meta span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.advice-meta strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.advice-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.forecast-card {
+  padding: 14px 16px;
+  border-radius: 16px;
+  margin-bottom: 20px;
+  background: rgba(15, 23, 42, 0.62);
+  border: 1px solid rgba(245, 158, 11, 0.22);
+}
+
+.forecast-chips {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.forecast-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.forecast-chip span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.forecast-chip strong {
+  color: #f59e0b;
+  font-size: 16px;
+}
+
+.forecast-chip em {
+  color: var(--text-secondary);
+  font-style: normal;
+  font-size: 11px;
 }
 
 .advice-warn {

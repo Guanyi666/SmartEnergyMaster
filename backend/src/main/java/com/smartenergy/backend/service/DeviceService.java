@@ -3,12 +3,13 @@ package com.smartenergy.backend.service;
 import com.smartenergy.backend.dto.DeviceUpsertRequest;
 import com.smartenergy.backend.entity.Device;
 import com.smartenergy.backend.vo.DeviceOverviewVO;
-
-import java.util.List;
+import com.smartenergy.backend.vo.PageVO;
 
 public interface DeviceService {
 
-    List<DeviceOverviewVO> listDevices();
+    PageVO<DeviceOverviewVO> listDevices(int page, int size, String type, String status, String keyword);
+
+    DeviceOverviewVO getDeviceOverview(Integer id);
 
     Device createDevice(DeviceUpsertRequest request);
 

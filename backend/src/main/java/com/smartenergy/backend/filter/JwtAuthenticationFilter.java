@@ -19,55 +19,66 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 /**
+ * JWT 认证过滤器 — 校验 Token 签名 + 过期时间，装配 SecurityContext。
+ *
+ * JWT 密钥由 {@link com.smartenergy.backend.config.JwtConfig} 统一管理，
+ * 确保签发端（UserServiceImpl）和校验端使用同一密钥。
+ *
  * @author Duan Guanyi
- * @version 1.0.0
- * @date 2026/3/18
+ * @version 1.2.0
  */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Autowired
-    private UserDetailsService userDetailsService; // 注入我们自己写的 UserDetailsServiceImpl
+    private UserDetailsService userDetailsService;
 
-    private static final byte[] JWT_KEY = "SmartEnergyMasterSecretKey".getBytes();
+    @Autowired
+    private com.smartenergy.backend.config.JwtConfig jwtConfig;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
-        // 1. 从请求头提取 Authorization 字段
-        String header = request.getHeader("Authorization");
-        String token = null;
+        String token = extractToken(request);
 
-        // 规范：前端传 Token 时需要加上 "Bearer " 前缀
-        if (StringUtils.hasText(header) && header.startsWith("Bearer ")) {
-            token = header.substring(7);
-        }
+        if (StringUtils.hasText(token)) {
+            try {
+                if (JWTUtil.verify(token, jwtConfig.getKeyBytes())) {
+                    JWT jwt = JWTUtil.parseToken(token);
 
-        // 2. 校验 Token
-        if (StringUtils.hasText(token) && JWTUtil.verify(token, JWT_KEY)) {
-            // 解析 Token 中的 payload
-            JWT jwt = JWTUtil.parseToken(token);
-            String username = (String) jwt.getPayload("username");
+                    // 校验过期时间（Hutool JWTUtil.verify 不自动检查自定义 expire_time）
+                    Object expObj = jwt.getPayload("expire_time");
+                    long expireTime = expObj instanceof Number ? ((Number) expObj).longValue() : 0L;
+                    if (expireTime == 0L || expireTime < System.currentTimeMillis()) {
+                        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token 已过期，请重新登录");
+                        return;
+                    }
 
-            // 如果上下文中还没有认证信息，则进行手动装配
-            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-
-                // 去数据库加载用户的权限信息
-                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-
-                // 构造合法的身份认证令牌
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails, null, userDetails.getAuthorities());
-
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-                // 将令牌存入安全上下文，Spring Security 就知道这个请求是合法用户发出的了
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                    String username = (String) jwt.getPayload("username");
+                    if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                                userDetails, null, userDetails.getAuthorities());
+                        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(authToken);
+                    }
+                }
+            } catch (Exception e) {
+                // 签名错误 / 格式异常 / 解析失败 → 401
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token 无效");
+                return;
             }
         }
 
-        // 3. 放行请求，继续执行后续 Filter 或 Controller
         filterChain.doFilter(request, response);
+    }
+
+    private String extractToken(HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        if (StringUtils.hasText(header) && header.startsWith("Bearer ")) {
+            return header.substring(7);
+        }
+        return null;
     }
 }

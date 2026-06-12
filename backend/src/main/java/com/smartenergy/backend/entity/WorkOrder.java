@@ -43,6 +43,9 @@ public class WorkOrder {
     @Schema(description = "处理人")
     private String assignee;
 
+    @Schema(description = "工单来源：AUTO（故障自动生成） / MANUAL（操作员手动创建）")
+    private String source;
+
     @Schema(description = "故障源数据时间")
     private OffsetDateTime sourceTime;
 
@@ -52,7 +55,7 @@ public class WorkOrder {
     @Schema(description = "解决时间")
     private LocalDateTime resolvedAt;
 
-    @Schema(description = "触发时温度（℃）")
+    @Schema(description = "触发时温度（°C）")
     private BigDecimal latestTemperature;
 
     @Schema(description = "触发时振动（mm/s）")
@@ -60,6 +63,9 @@ public class WorkOrder {
 
     @Schema(description = "触发时压力（kPa）")
     private BigDecimal latestPressure;
+
+    @Schema(description = "关联 SOP 编号（自动匹配）")
+    private Long sopId;
 
     @Schema(description = "创建时间")
     private LocalDateTime createdAt;

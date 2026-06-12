@@ -42,6 +42,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/sensor/upload").permitAll()
                         .requestMatchers("/api/sensor/latest/**", "/api/sensor/history/**").permitAll()
+                        // 🆕 合并 workorder-backend: 删除了 PATCH /api/work-orders/*/status 的 permitAll
+                        //   原因：8081 合并后不再有跨进程 HTTP 调用，"信任区"前提消失
+                        //   改由 8080 内部的 WorkOrderSyncService 本地同步，无 HTTP 入口
+                        // 🆕 /api/workorder/** 不在白名单，自动走 anyRequest().authenticated() 走 JWT
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
@@ -54,7 +58,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(List.of("http://localhost:*", "http://127.0.0.1:*"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

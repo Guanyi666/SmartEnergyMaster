@@ -2,7 +2,7 @@
   <div class="login-shell">
     <div class="login-card glass-panel">
       <div class="login-head">
-        <p class="login-mark">SMART ENERGY COMMAND</p>
+        <p class="login-mark">智能能源指挥中心</p>
         <h1>智驭能效平台</h1>
         <span>工业现场实时监控与工单闭环中心</span>
       </div>
@@ -37,8 +37,8 @@
       </el-form>
 
       <div class="login-tip">
-        <span>演示账号：admin</span>
-        <span>密码：admin123</span>
+        <span>演示账号：admin（管理员）/ E001（维修工程师）</span>
+        <span>密码：admin=admin123 / E001=123456</span>
       </div>
     </div>
   </div>
@@ -62,7 +62,7 @@ const modeOptions = [
 
 const loginForm = reactive({
   username: 'admin',
-  password: 'admin123'
+  password: 'admin123'  // admin 实际密码（保留 deploy/init-sql 原值不动）
 })
 
 const registerForm = reactive({
@@ -81,7 +81,13 @@ const handleLogin = async () => {
   try {
     await authStore.login(loginForm)
     ElMessage.success('登录成功')
-    router.push('/dashboard')
+    // ★ 登录后按角色 redirect：MAINTENANCE_ENGINEER 进维修中心
+    const role = authStore.user?.role
+    if (role === 'MAINTENANCE_ENGINEER') {
+      router.push('/maintenance')
+    } else {
+      router.push('/dashboard')
+    }
   } finally {
     loading.value = false
   }
@@ -166,5 +172,8 @@ const handleRegister = async () => {
   justify-content: space-between;
   margin-top: 20px;
   font-size: 13px;
+  flex-direction: column;
+  gap: 4px;
+  text-align: center;
 }
 </style>

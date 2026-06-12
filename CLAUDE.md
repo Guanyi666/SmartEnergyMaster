@@ -37,7 +37,7 @@ SmartEnergyMaster/
 ### 1. 用户认证与权限
 - 用户注册（`POST /api/auth/register`）：新用户默认角色为 `OPERATOR`
 - 用户登录（`POST /api/auth/login`）：验证用户名密码，返回 JWT Token（24h 有效）
-- 内置管理员账号：`admin / 123456`（通过 `DataInitializer` 在启动时自动创建）
+- 内置管理员账号：`admin / admin123`（通过 `DataInitializer` 在启动时自动创建；Docker 部署时由 `init.sql` 预置同一密码）
 - Spring Security 拦截除白名单外的所有请求，白名单包括：`/api/auth/**`、`/api/sensor/upload`、`/api/sensor/latest/**`、`/api/sensor/history/**`
 - 前端路由守卫：未登录自动跳转 `/login`，已登录访问 `/login` 自动跳转 `/dashboard`
 
@@ -308,7 +308,7 @@ App.vue
 - `sensor_data` 是 TimescaleDB **超表**（按 `time` 列），支持按时间分片的时序查询
 - 复合索引 `ix_sensor_data_device_time` 覆盖 `(device_id, time DESC)`，优化按设备查询最新数据的性能
 - `work_order` 表建有 `(status, created_at DESC)` 索引
-- `sys_user` 表通过 `DataInitializer` 在启动时自动创建 `admin/123456`（BCrypt 加密），仅当用户不存在时插入
+- `sys_user` 表通过 `DataInitializer` 在启动时自动创建 `admin/admin123`（BCrypt 加密），仅当用户不存在时插入
 - `sensor_data.device_id` 级联删除，工单不受设备删除影响
 
 ### 数据仿真模型
