@@ -3,7 +3,7 @@
     <div class="page-header">
       <div>
         <h2 class="page-title">工单详情</h2>
-        <p class="page-subtitle">工单 ID: {{ workOrderId }}</p>
+        <p class="page-subtitle">工单序号：{{ workOrderId }}</p>
       </div>
       <el-button @click="$router.back()">返回</el-button>
     </div>
@@ -35,11 +35,11 @@
             </div>
             <div class="metric">
               <span class="m-label">压力</span>
-              <span class="m-value">{{ formatNum(order.latestPressure) }}<i>kPa</i></span>
+              <span class="m-value">{{ formatNum(order.latestPressure) }}<i>千帕</i></span>
             </div>
             <div class="metric">
               <span class="m-label">振动</span>
-              <span class="m-value">{{ formatNum(order.latestVibration) }}<i>mm/s</i></span>
+              <span class="m-value">{{ formatNum(order.latestVibration) }}<i>毫米/秒</i></span>
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 import LoginView from '../views/LoginView.vue'
 import { useAuthStore } from '../stores/auth'
+import { defaultHomeForRole } from '../utils/role'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -18,58 +19,111 @@ const router = createRouter({
       children: [
         {
           path: '',
-          redirect: '/dashboard'
+          redirect: () => defaultHomeForRole(JSON.parse(localStorage.getItem('smart-energy-user') || 'null')?.role)
         },
         {
           path: '/dashboard',
           name: 'dashboard',
-          component: () => import('../views/DashboardView.vue')
+          component: () => import('../views/DashboardView.vue'),
+          meta: { roles: ['OPERATOR', 'DEVICE_MANAGER', 'MANAGER', 'ADMIN'] }
+        },
+        {
+          path: '/scheduler',
+          name: 'scheduler',
+          component: () => import('../views/SchedulerView.vue'),
+          meta: { roles: ['OPERATOR', 'MANAGER', 'ADMIN'] }
         },
         {
           path: '/analysis',
           name: 'analysis',
-          component: () => import('../views/AnalysisView.vue')
+          component: () => import('../views/AnalysisView.vue'),
+          meta: { roles: ['OPERATOR', 'DEVICE_MANAGER', 'MANAGER', 'ADMIN'] }
         },
         {
           path: '/devices',
           name: 'devices',
-          component: () => import('../views/DevicesView.vue')
+          component: () => import('../views/DevicesView.vue'),
+          meta: { roles: ['DEVICE_MANAGER', 'OPERATOR', 'ADMIN'] }
         },
         // Epic 07：维修知识库 & 备件管理
         {
           path: '/knowledge',
           name: 'knowledge',
-          component: () => import('../views/KnowledgeView.vue')
+          component: () => import('../views/KnowledgeView.vue'),
+          meta: { roles: ['MAINTENANCE_ENGINEER', 'DEVICE_MANAGER', 'ADMIN'] }
         },
         {
           path: '/spare-parts',
           name: 'spare-parts',
-          component: () => import('../views/SparePartsView.vue')
+          component: () => import('../views/SparePartsView.vue'),
+          meta: { roles: ['DEVICE_MANAGER', 'ADMIN'] }
+        },
+        {
+          path: '/maintenance/spare-parts',
+          name: 'maintenance-spare-parts',
+          component: () => import('../views/EngineerSparePartsView.vue'),
+          meta: { roles: ['MAINTENANCE_ENGINEER', 'ADMIN'] }
+        },
+        {
+          path: '/maintenance/transfer-requests',
+          name: 'transfer-requests',
+          component: () => import('../views/TransferRequestsView.vue'),
+          meta: { roles: ['DEVICE_MANAGER', 'ADMIN'] }
         },
         // Epic 05 维修模块（按需加载，含 meta.roles 角色拦截）
         {
           path: '/maintenance',
           name: 'maintenance',
-          component: () => import('../views/MaintenanceCenterView.vue'),
+          component: () => import('../views/MaintenanceView.vue'),
           meta: { roles: ['MAINTENANCE_ENGINEER', 'ADMIN'] }
+        },
+        {
+          path: '/operations/orders',
+          name: 'operations-orders',
+          component: () => import('../views/MaintenanceCenterView.vue'),
+          meta: { roles: ['OPERATOR', 'DEVICE_MANAGER', 'ADMIN'] }
         },
         {
           path: '/maintenance/personnel',
           name: 'maintenance-personnel',
           component: () => import('../views/PersonnelView.vue'),
-          meta: { roles: ['MAINTENANCE_ENGINEER', 'ADMIN', 'MANAGER'] }
+          meta: { roles: ['DEVICE_MANAGER', 'ADMIN', 'MANAGER'] }
         },
         {
           path: '/maintenance/dispatch',
           name: 'maintenance-dispatch',
           component: () => import('../views/DispatchView.vue'),
-          meta: { roles: ['MAINTENANCE_ENGINEER', 'ADMIN', 'MANAGER'] }
+          meta: { roles: ['DEVICE_MANAGER', 'ADMIN', 'MANAGER'] }
         },
         {
           path: '/maintenance/orders/:id',
           name: 'maintenance-order-detail',
           component: () => import('../views/WorkOrderDetailView.vue'),
           meta: { roles: ['MAINTENANCE_ENGINEER', 'ADMIN'], hideInMenu: true }
+        },
+        {
+          path: '/admin',
+          name: 'admin',
+          component: () => import('../views/AdminView.vue'),
+          meta: { roles: ['MANAGER', 'ADMIN'] }
+        },
+        {
+          path: '/admin/users',
+          name: 'users',
+          component: () => import('../views/UsersView.vue'),
+          meta: { roles: ['HR_MANAGER', 'ADMIN'] }
+        },
+        {
+          path: '/admin/config',
+          name: 'config',
+          component: () => import('../views/ConfigView.vue'),
+          meta: { roles: ['ADMIN'] }
+        },
+        {
+          path: '/audit-log',
+          name: 'audit-log',
+          component: () => import('../views/AuditLogView.vue'),
+          meta: { roles: ['ADMIN'] }
         }
       ]
     }
@@ -88,7 +142,7 @@ router.beforeEach((to) => {
 
   // 2. 已登录访问 /login：根据角色选默认落地页
   if (to.path === '/login' && token) {
-    return user?.role === 'MAINTENANCE_ENGINEER' ? '/maintenance' : '/dashboard'
+    return defaultHomeForRole(user?.role)
   }
 
   // 3. 角色拦截
@@ -97,7 +151,7 @@ router.beforeEach((to) => {
     if (!user) return '/login'
     if (!required.includes(user.role)) {
       // 未授权：回该用户主落地页
-      return user.role === 'MAINTENANCE_ENGINEER' ? '/maintenance' : '/dashboard'
+      return defaultHomeForRole(user.role)
     }
   }
 })

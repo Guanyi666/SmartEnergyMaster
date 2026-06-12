@@ -15,6 +15,7 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
+import com.smartenergy.backend.service.LoginSessionService;
 
 import java.io.IOException;
 
@@ -35,6 +36,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Autowired
     private com.smartenergy.backend.config.JwtConfig jwtConfig;
+
+    @Autowired
+    private LoginSessionService loginSessionService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -57,6 +61,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                     String username = (String) jwt.getPayload("username");
                     if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                        if (!loginSessionService.validateAndRefresh(username, token)) {
+                            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "该登录会话已失效，请重新登录");
+                            return;
+                        }
                         UserDetails userDetails = userDetailsService.loadUserByUsername(username);
                         UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                                 userDetails, null, userDetails.getAuthorities());

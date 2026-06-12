@@ -33,6 +33,10 @@ export const getDispatchBoard = () => request.get('/workorder/dispatch-board')
 // ============ 工单状态更新（调用主 WorkOrderController PATCH /status）============
 // 所有 API 统一通过 Vite 代理打到 8080，直接调用 /work-orders/* 即可
 export const patchWorkOrderStatus = (id, payload) => request.patch(`/work-orders/${id}/status`, payload)
+export const patchWorkOrderSop = (id, sopId) => request.patch(`/work-orders/${id}/sop`, { sopId })
+export const createTransferRequest = (id, payload) => request.post(`/work-orders/${id}/transfer-requests`, payload)
+export const listTransferRequests = (params) => request.get('/work-orders/transfer-requests', { params })
+export const reviewTransferRequest = (id, payload) => request.patch(`/work-orders/transfer-requests/${id}/review`, payload)
 
 // 🆕 手动创建工单（操作员在维修指挥中心对话框提交 → POST /work-orders）
 export const createWorkOrder = (payload) => request.post('/work-orders', payload)

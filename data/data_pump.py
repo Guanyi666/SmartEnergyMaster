@@ -1,4 +1,5 @@
 import argparse
+import os
 import random
 import time
 from datetime import datetime, timedelta, timezone
@@ -12,7 +13,7 @@ try:
 except ImportError:
     fetch_ucirepo = None
 
-API_URL = "http://localhost:8080/api/sensor/upload"
+API_URL = os.getenv("SENSOR_API_URL", "http://localhost:8080/api/sensor/upload")
 DEFAULT_SLEEP_INTERVAL = 3
 DEFAULT_HISTORY_HOURS = 24
 DEFAULT_FAULT_RATE = 0.012

@@ -3,13 +3,13 @@
     <div class="page-header">
       <div>
         <h2 class="page-title">维修知识体系</h2>
-        <p class="page-subtitle">SOP 标准操作规程、维修案例与知识图谱的统一入口，沉淀维修经验供工程师查阅。</p>
+        <p class="page-subtitle">标准维修流程、维修案例与知识图谱的统一入口，沉淀维修经验供工程师查阅。</p>
       </div>
     </div>
 
     <el-tabs v-model="activeTab" class="knowledge-tabs">
       <!-- Tab 1: SOP -->
-      <el-tab-pane label="SOP 标准操作规程" name="sop">
+      <el-tab-pane label="标准维修流程" name="sop">
         <div class="glass-panel filter-panel">
           <el-form inline @submit.prevent>
             <el-form-item label="设备类型">
@@ -25,14 +25,14 @@
             </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="loadSops">查询</el-button>
-              <el-button type="success" @click="openSopDialog()">+ 新增 SOP</el-button>
+              <el-button type="success" @click="openSopDialog()">新增标准流程</el-button>
             </el-form-item>
           </el-form>
         </div>
 
         <div class="glass-panel table-panel section-spacer">
           <el-table :data="sops" @row-click="openSop">
-            <el-table-column label="SOP 编号" min-width="240">
+            <el-table-column label="流程编号" min-width="240">
             <template #default="{ row }">{{ formatSopCode(row.sopCode) }}</template>
           </el-table-column>
           <el-table-column label="设备类型" min-width="100">
@@ -71,7 +71,7 @@
               </template>
             </el-table-column>
           </el-table>
-          <div v-if="!sops.length" class="empty-tip">暂无 SOP 数据，点击"+ 新增 SOP"开始登记。</div>
+          <div v-if="!sops.length" class="empty-tip">暂无标准流程数据，点击“新增标准流程”开始登记。</div>
         </div>
       </el-tab-pane>
 
@@ -143,7 +143,7 @@
             <el-form-item label="中心节点">
               <el-input v-model="graphCenter" clearable placeholder="如 电弧炉，留空显示全图" style="width: 260px" />
             </el-form-item>
-            <el-form-item label="BFS 深度">
+            <el-form-item label="图谱层级">
               <el-select v-model="graphDepth" style="width: 120px">
                 <el-option :value="1" label="1 跳" />
                 <el-option :value="2" label="2 跳" />
@@ -158,7 +158,7 @@
           <div class="legend-row">
             <span class="legend-item"><i class="dot" style="background:#52c8ff"></i>设备类型</span>
             <span class="legend-item"><i class="dot" style="background:#ff9f43"></i>故障类型</span>
-            <span class="legend-item"><i class="dot" style="background:#3bff9f"></i>SOP</span>
+            <span class="legend-item"><i class="dot" style="background:#3bff9f"></i>标准流程</span>
             <span class="legend-item"><i class="dot" style="background:#c084fc"></i>案例</span>
             <span class="legend-item"><i class="dot" style="background:#f472b6"></i>根因</span>
             <span class="legend-tip muted">支持鼠标拖拽、滚轮缩放、节点悬停查看详情</span>
@@ -166,18 +166,18 @@
         </div>
         <div class="glass-panel section-spacer">
           <KnowledgeGraph v-if="activeTab === 'graph'" :graph-data="graphData" height="560px" />
-          <div v-if="!graphData.nodes.length" class="empty-tip">暂无图谱数据，请先灌入 SOP/案例。</div>
+          <div v-if="!graphData.nodes.length" class="empty-tip">暂无图谱数据，请先录入标准流程或案例。</div>
         </div>
       </el-tab-pane>
     </el-tabs>
 
     <!-- SOP 详情弹窗（只读） -->
-    <el-dialog v-model="sopDialog" :title="selectedSop ? selectedSop.title : 'SOP 详情'" width="780px" top="6vh">
+    <el-dialog v-model="sopDialog" :title="selectedSop ? selectedSop.title : '标准流程详情'" width="780px" top="6vh">
       <div v-if="selectedSop" class="detail-content">
         <div class="detail-meta">
-          <el-tag>{{ selectedSop.sopCode }}</el-tag>
-          <el-tag type="info">{{ selectedSop.deviceType }}</el-tag>
-          <el-tag type="warning">{{ selectedSop.faultType }}</el-tag>
+          <el-tag>{{ formatSopCode(selectedSop.sopCode) }}</el-tag>
+          <el-tag type="info">{{ deviceLabel(selectedSop.deviceType) }}</el-tag>
+          <el-tag type="warning">{{ faultLabel(selectedSop.faultType) }}</el-tag>
           <el-tag type="success">预计 {{ selectedSop.estimatedMinutes }} 分钟</el-tag>
           <el-tag>v{{ selectedSop.version }}</el-tag>
         </div>
@@ -216,8 +216,8 @@
       <div v-if="selectedCase" class="detail-content">
         <div class="detail-meta">
           <el-tag>{{ selectedCase.caseCode }}</el-tag>
-          <el-tag type="info">{{ selectedCase.deviceType }}</el-tag>
-          <el-tag type="warning">{{ selectedCase.faultType }}</el-tag>
+          <el-tag type="info">{{ deviceLabel(selectedCase.deviceType) }}</el-tag>
+          <el-tag type="warning">{{ faultLabel(selectedCase.faultType) }}</el-tag>
           <el-tag v-if="selectedCase.technician">处理人 {{ selectedCase.technician }}</el-tag>
           <el-tag v-if="selectedCase.durationMinutes" type="success">耗时 {{ selectedCase.durationMinutes }} 分钟</el-tag>
         </div>
@@ -237,12 +237,12 @@
     </el-dialog>
 
     <!-- SOP 新增/编辑弹窗（CRUD） -->
-    <el-dialog v-model="sopFormDialog" :title="sopForm.id ? '编辑 SOP' : '新增 SOP'" width="860px" top="5vh">
+    <el-dialog v-model="sopFormDialog" :title="sopForm.id ? '编辑标准流程' : '新增标准流程'" width="860px" top="5vh">
       <el-form :model="sopForm" label-width="110px">
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="SOP 编号">
-              <el-input v-model="sopForm.sopCode" :disabled="Boolean(sopForm.id)" placeholder="如 SOP-电弧炉-机械卡涩-001" />
+            <el-form-item label="流程编号">
+              <el-input v-model="sopForm.sopCode" :disabled="Boolean(sopForm.id)" placeholder="请输入流程编号" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -274,7 +274,7 @@
           </el-col>
           <el-col :span="24">
             <el-form-item label="详细说明">
-              <el-input v-model="sopForm.content" type="textarea" :rows="5" placeholder="Markdown 格式" />
+              <el-input v-model="sopForm.content" type="textarea" :rows="5" placeholder="请输入流程详细内容" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -315,7 +315,7 @@
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="案例编号">
-              <el-input v-model="caseForm.caseCode" :disabled="Boolean(caseForm.id)" placeholder="如 RC-2025-001" />
+              <el-input v-model="caseForm.caseCode" :disabled="Boolean(caseForm.id)" placeholder="请输入案例编号" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -352,7 +352,7 @@
           </el-col>
           <el-col :span="24">
             <el-form-item label="维修过程">
-              <el-input v-model="caseForm.repairProcess" type="textarea" :rows="4" placeholder="Markdown 格式" />
+              <el-input v-model="caseForm.repairProcess" type="textarea" :rows="4" placeholder="请输入维修过程" />
             </el-form-item>
           </el-col>
           <el-col :span="24">
@@ -366,7 +366,7 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="关联工单 ID">
+            <el-form-item label="关联工单序号">
               <el-input-number v-model="caseForm.relatedWorkOrderId" :min="0" :step="1" placeholder="可选" />
             </el-form-item>
           </el-col>
@@ -547,7 +547,7 @@ const openSopDialog = (row) => {
 
 const submitSop = async () => {
   if (!sopForm.sopCode || !sopForm.title || !sopForm.faultType || !sopForm.content) {
-    ElMessage.warning('SOP 编号/标题/故障类型/内容必填')
+    ElMessage.warning('流程编号、标题、故障类型和内容必填')
     return
   }
   const payload = {
@@ -568,10 +568,10 @@ const submitSop = async () => {
   try {
     if (sopForm.id) {
       await updateSop(sopForm.id, payload)
-      ElMessage.success('SOP 已更新（版本号 +1）')
+      ElMessage.success('标准流程已更新，版本号已递增')
     } else {
       await createSop(payload)
-      ElMessage.success('SOP 已创建')
+      ElMessage.success('标准流程已创建')
     }
     sopFormDialog.value = false
     await loadSops()
@@ -582,9 +582,9 @@ const submitSop = async () => {
 
 const handleDeleteSop = async (row) => {
   try {
-    await ElMessageBox.confirm('确认删除 SOP ' + row.sopCode + ' ？关联工单仍会保留，但不会再自动匹配。', '删除确认', { type: 'warning' })
+    await ElMessageBox.confirm('确认删除标准流程 ' + formatSopCode(row.sopCode) + '？关联工单仍会保留，但不会再自动匹配。', '删除确认', { type: 'warning' })
     await deleteSop(row.id)
-    ElMessage.success('SOP 已删除')
+    ElMessage.success('标准流程已删除')
     await loadSops()
   } catch (err) {
     if (err !== 'cancel' && err !== 'close') {

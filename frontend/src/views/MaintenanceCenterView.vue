@@ -5,7 +5,7 @@
       <div>
         <h2 class="page-title">维修指挥中心</h2>
         <p class="page-subtitle">
-          拖拽卡片仅改 status，指派人由抽屉管理；每 5s 自动轮询新工单；最后同步：{{ lastSyncLabel }}
+          拖拽卡片仅改变状态，指派人由详情抽屉管理；每 5 秒自动刷新新工单；最后同步：{{ lastSyncLabel }}
         </p>
       </div>
       <div class="header-tools">
@@ -192,12 +192,12 @@
         <el-form-item label="当前快照">
           <div v-if="sensorSnapshot" class="snapshot-row">
             <span>🌡 {{ formatSnapshotVal(sensorSnapshot.temperature) }} ℃</span>
-            <span>💧 {{ formatSnapshotVal(sensorSnapshot.pressure) }} kPa</span>
-            <span>📳 {{ formatSnapshotVal(sensorSnapshot.vibration) }} mm/s</span>
+            <span>压力 {{ formatSnapshotVal(sensorSnapshot.pressure) }} 千帕</span>
+            <span>振动 {{ formatSnapshotVal(sensorSnapshot.vibration) }} 毫米/秒</span>
             <span class="snapshot-time">{{ formatSnapshotTime(sensorSnapshot.time) }}</span>
           </div>
           <span v-else-if="snapshotLoading" class="snapshot-muted">加载中…</span>
-          <span v-else class="snapshot-muted">暂无传感器数据（创建时将记录为 NULL）</span>
+          <span v-else class="snapshot-muted">暂无传感器数据（创建时将记录为空值）</span>
         </el-form-item>
       </el-form>
 

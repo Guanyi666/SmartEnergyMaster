@@ -23,7 +23,7 @@
           />
         </el-form-item>
         <el-form-item label="设备类型">
-          <el-select v-model="searchForm.type" placeholder="全部" clearable style="width: 160px">
+          <el-select v-model="searchForm.type" placeholder="全部" clearable style="width: 160px" :disabled="isDepartmentManager">
             <el-option label="电弧炉" value="ARC_FURNACE" />
             <el-option label="变压器" value="TRANSFORMER" />
             <el-option label="空压机" value="COMPRESSOR" />
@@ -209,7 +209,7 @@
             <div class="detail-metrics">
               <div class="metric-chip">
                 <span>功率</span>
-                <strong>{{ formatNumber(deviceDetail.usageKwh) }} kWh</strong>
+                <strong>{{ formatNumber(deviceDetail.usageKwh) }} 千瓦时</strong>
               </div>
               <div class="metric-chip">
                 <span>碳排放</span>
@@ -221,11 +221,11 @@
               </div>
               <div class="metric-chip">
                 <span>振动</span>
-                <strong>{{ formatNumber(deviceDetail.vibration) }} mm/s</strong>
+                <strong>{{ formatNumber(deviceDetail.vibration) }} 毫米/秒</strong>
               </div>
               <div class="metric-chip">
                 <span>压力</span>
-                <strong>{{ formatNumber(deviceDetail.pressure) }} kPa</strong>
+                <strong>{{ formatNumber(deviceDetail.pressure) }} 千帕</strong>
               </div>
               <div class="metric-chip">
                 <span>电价区间</span>
@@ -318,8 +318,20 @@ import {
 } from '../api'
 import { usePollingTask } from '../composables/usePollingTask'
 import { getPriorityMeta } from '../utils/status'
+import { useAuthStore } from '../stores/auth'
 
 const priorityLabel = (p) => getPriorityMeta(p).label
+const auth = useAuthStore()
+const departmentTypeMap = {
+  '炼钢设备科': 'ARC_FURNACE',
+  '公辅设备科': 'PUMP',
+  '动力设备科': 'COMPRESSOR',
+  '连铸设备科': 'CONTINUOUS_CASTER',
+  '环保设备科': 'DUST_COLLECTOR',
+  '精炼设备科': 'LADLE_FURNACE'
+}
+const managedDeviceType = departmentTypeMap[auth.user?.department] || ''
+const isDepartmentManager = auth.user?.role === 'DEVICE_MANAGER' && Boolean(managedDeviceType)
 
 const devices = ref([])
 const workOrders = ref([])
@@ -400,7 +412,7 @@ const handleSearch = () => {
 
 const handleReset = () => {
   searchForm.keyword = ''
-  searchForm.type = ''
+  searchForm.type = managedDeviceType
   searchForm.status = ''
   pagination.page = 1
   refreshNow()
@@ -508,6 +520,7 @@ const orderTimelineColor = (status) => {
 }
 
 onMounted(async () => {
+  if (isDepartmentManager) searchForm.type = managedDeviceType
   await startPolling()
 })
 </script>

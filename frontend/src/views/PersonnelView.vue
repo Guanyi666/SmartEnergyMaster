@@ -82,7 +82,7 @@
     <el-dialog v-model="dialogOpen" :title="form.id ? '编辑人员' : '新增人员'" width="520px">
       <el-form :model="form" label-width="96px" :rules="formRules" ref="formRef">
         <el-form-item label="工号" prop="employeeNo">
-          <el-input v-model="form.employeeNo" :disabled="Boolean(form.id)" placeholder="E001" />
+          <el-input v-model="form.employeeNo" :disabled="Boolean(form.id)" placeholder="请输入工号" />
         </el-form-item>
         <el-form-item label="姓名" prop="name">
           <el-input v-model="form.name" />

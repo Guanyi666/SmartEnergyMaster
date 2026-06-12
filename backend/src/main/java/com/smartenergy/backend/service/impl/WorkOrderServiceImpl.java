@@ -8,6 +8,7 @@ import com.smartenergy.backend.entity.SensorData;
 import com.smartenergy.backend.entity.WorkOrder;
 import com.smartenergy.backend.mapper.DeviceMapper;
 import com.smartenergy.backend.mapper.SensorDataMapper;
+import com.smartenergy.backend.mapper.MaintenanceSOPMapper;
 import com.smartenergy.backend.mapper.WorkOrderMapper;
 import com.smartenergy.backend.service.DeviceService;
 import com.smartenergy.backend.service.MaintenanceSOPService;
@@ -37,6 +38,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     private final DeviceService deviceService;
     private final MaintenanceSOPService sopService;
     private final SparePartService sparePartService;
+    private final MaintenanceSOPMapper maintenanceSOPMapper;
 
     @Override
     @Transactional
@@ -198,6 +200,25 @@ public class WorkOrderServiceImpl implements WorkOrderService {
             syncDeviceStatusAfterOrderUpdate(workOrder.getDeviceId(), targetStatus);
         }
         return toVO(workOrderMapper.selectById(id));
+    }
+
+    @Override
+    @Transactional
+    public WorkOrderVO updateSop(Long id, Long sopId) {
+        WorkOrder workOrder = workOrderMapper.selectById(id);
+        if (workOrder == null) {
+            throw new IllegalArgumentException("工单不存在: " + id);
+        }
+        if ("RESOLVED".equals(workOrder.getStatus())) {
+            throw new IllegalStateException("已完成工单不能更换维修流程");
+        }
+        if (maintenanceSOPMapper.selectById(sopId) == null) {
+            throw new IllegalArgumentException("维修流程不存在: " + sopId);
+        }
+        workOrder.setSopId(sopId);
+        workOrder.setUpdatedAt(LocalDateTime.now());
+        workOrderMapper.updateById(workOrder);
+        return toVO(workOrder);
     }
 
     @Override

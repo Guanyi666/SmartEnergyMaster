@@ -131,7 +131,7 @@
           <el-input-number v-model="usageForm.quantity" :min="1" :max="usageForm.maxQuantity" :step="1" />
         </el-form-item>
         <el-form-item label="关联工单">
-          <el-input v-model="usageForm.workOrderId" placeholder="可选，工单 ID" />
+          <el-input v-model="usageForm.workOrderId" placeholder="可选，工单序号" />
         </el-form-item>
         <el-form-item label="领用人">
           <el-input v-model="usageForm.userName" placeholder="如 张工" />

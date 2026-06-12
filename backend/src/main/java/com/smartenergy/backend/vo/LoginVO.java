@@ -21,4 +21,10 @@ public class LoginVO {
 
     @Schema(description = "角色（ADMIN / OPERATOR）", example = "ADMIN")
     private String role;
+
+    @Schema(description = "姓名")
+    private String nickname;
+
+    @Schema(description = "所属部门")
+    private String department;
 }

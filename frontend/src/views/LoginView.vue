@@ -37,8 +37,8 @@
       </el-form>
 
       <div class="login-tip">
-        <span>演示账号：admin（管理员）/ E001（维修工程师）</span>
-        <span>密码：admin=admin123 / E001=123456</span>
+        <span>可使用管理员账号或维修工程师账号体验对应功能</span>
+        <span>默认账号与密码请查阅部署使用说明</span>
       </div>
     </div>
   </div>
@@ -49,6 +49,7 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
+import { defaultHomeForRole } from '../utils/role'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -82,12 +83,7 @@ const handleLogin = async () => {
     await authStore.login(loginForm)
     ElMessage.success('登录成功')
     // ★ 登录后按角色 redirect：MAINTENANCE_ENGINEER 进维修中心
-    const role = authStore.user?.role
-    if (role === 'MAINTENANCE_ENGINEER') {
-      router.push('/maintenance')
-    } else {
-      router.push('/dashboard')
-    }
+    router.push(defaultHomeForRole(authStore.user?.role))
   } finally {
     loading.value = false
   }

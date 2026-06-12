@@ -29,7 +29,7 @@ const renderChart = () => {
   const fc = props.forecast || []
   const lastActual = n ? Number(recent[n - 1].usageKwh) : null
 
-  const labels = [...recent.map((r) => fmtTime(r.time)), ...fc.map((f) => `+${f.minutesAhead}min`)]
+  const labels = [...recent.map((r) => fmtTime(r.time)), ...fc.map((f) => `${f.minutesAhead}分钟后`)]
 
   // 实际（实线）：历史段有值，预测段为 null
   const actual = [...recent.map((r) => Number(r.usageKwh)), ...fc.map(() => null)]

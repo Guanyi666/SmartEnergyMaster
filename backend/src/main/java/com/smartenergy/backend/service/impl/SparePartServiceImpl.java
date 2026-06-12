@@ -109,13 +109,13 @@ public class SparePartServiceImpl implements SparePartService {
         if (request.getQuantity() <= 0) {
             throw new IllegalArgumentException("领用数量必须大于 0");
         }
-        if (part.getQuantity() < request.getQuantity()) {
-            throw new IllegalArgumentException("库存不足：当前 " + part.getQuantity() + " " + part.getUnit() + "，申请 " + request.getQuantity());
+        LocalDateTime now = LocalDateTime.now();
+        if (partMapper.deductStock(part.getId(), request.getQuantity(), now) == 0) {
+            SparePart current = requirePart(part.getId());
+            throw new IllegalArgumentException("库存不足：当前 " + current.getQuantity() + " "
+                    + current.getUnit() + "，申请 " + request.getQuantity());
         }
-        // 扣减库存
-        part.setQuantity(part.getQuantity() - request.getQuantity());
-        part.setUpdatedAt(LocalDateTime.now());
-        partMapper.updateById(part);
+        part = requirePart(part.getId());
 
         // 写领用记录
         SparePartUsage usage = new SparePartUsage();
@@ -124,20 +124,32 @@ public class SparePartServiceImpl implements SparePartService {
         usage.setQuantity(request.getQuantity());
         usage.setUserName(request.getUserName());
         usage.setNote(request.getNote());
-        usage.setUsedAt(LocalDateTime.now());
-        usage.setCreatedAt(LocalDateTime.now());
+        usage.setUsedAt(now);
+        usage.setCreatedAt(now);
         usageMapper.insert(usage);
 
         return toUsageVO(usage, part);
     }
 
     @Override
-    public List<SparePartUsageVO> listUsages(Long partId, int limit) {
+    @Transactional
+    public List<SparePartUsageVO> recordUsages(List<SparePartUsageRequest> requests) {
+        if (requests == null || requests.isEmpty()) {
+            throw new IllegalArgumentException("请至少选择一种配件");
+        }
+        return requests.stream().map(this::recordUsage).toList();
+    }
+
+    @Override
+    public List<SparePartUsageVO> listUsages(Long partId, String userName, int limit) {
         QueryWrapper<SparePartUsage> wrapper = new QueryWrapper<SparePartUsage>()
                 .orderByDesc("used_at")
                 .last("LIMIT " + Math.max(1, limit));
         if (partId != null) {
             wrapper.eq("part_id", partId);
+        }
+        if (StringUtils.hasText(userName)) {
+            wrapper.eq("user_name", userName);
         }
         return usageMapper.selectList(wrapper).stream()
                 .map(u -> toUsageVO(u, partMapper.selectById(u.getPartId())))

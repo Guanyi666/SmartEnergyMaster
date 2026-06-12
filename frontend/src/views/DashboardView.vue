@@ -11,8 +11,8 @@
     </div>
 
     <div class="grid-three">
-      <MetricCard label="全厂总有功功率" :value="formatNumber(summary.totalUsageKwh)" unit="kWh" note="当前接入设备聚合值" color="#52c8ff" />
-      <MetricCard label="当前累计碳排放" :value="formatNumber(summary.totalCo2Emission)" unit="tCO2" note="按实时采集数据估算" color="#3bff9f" />
+      <MetricCard label="全厂总有功功率" :value="formatNumber(summary.totalUsageKwh)" unit="千瓦时" note="当前接入设备聚合值" color="#52c8ff" />
+      <MetricCard label="当前累计碳排放" :value="formatNumber(summary.totalCo2Emission)" unit="吨二氧化碳" note="按实时采集数据估算" color="#3bff9f" />
       <MetricCard label="当前电价区间" :value="priceMeta.label" note="根据焦点设备当前时段自动切换" :color="priceMeta.color" />
     </div>
 
@@ -31,12 +31,12 @@
         </div>
         <div class="gauge-grid">
           <GaugeChart :value="Number(latestData.temperature || 0)" title="温度" unit="°C" :max="1400" color="#ff9f43" />
-          <GaugeChart :value="Number(latestData.pressure || 0)" title="压力" unit="kPa" :max="220" color="#52c8ff" />
+          <GaugeChart :value="Number(latestData.pressure || 0)" title="压力" unit="千帕" :max="220" color="#52c8ff" />
         </div>
       </div>
 
       <div class="glass-panel side-panel">
-        <h3 class="card-title">AI 智能调度建议</h3>
+        <h3 class="card-title">智能调度建议</h3>
         <div class="advice-card" :class="`advice-${(summary.dispatchAdvice?.level || 'INFO').toLowerCase()}`">
           <strong>{{ summary.dispatchAdvice?.title || '暂无建议' }}</strong>
           <p>{{ summary.dispatchAdvice?.content || '等待实时数据接入。' }}</p>
@@ -54,8 +54,8 @@
         <div class="forecast-card">
           <div class="forecast-chips">
             <div v-for="point in summary.forecast || []" :key="point.minutesAhead" class="forecast-chip">
-              <span>+{{ point.minutesAhead }}min</span>
-              <strong>{{ point.mean?.toFixed(2) }} kWh</strong>
+              <span>{{ point.minutesAhead }} 分钟后</span>
+              <strong>{{ point.mean?.toFixed(2) }} 千瓦时</strong>
               <em>[{{ point.lower?.toFixed(1) }} ~ {{ point.upper?.toFixed(1) }}]</em>
             </div>
             <div v-if="!(summary.forecast || []).length" class="muted">预测服务暂未就绪。</div>
@@ -87,7 +87,7 @@
         <span class="muted">支持运行中、停机、离线、故障待处理、维修中等状态</span>
       </div>
       <div class="device-strip-grid">
-        <div v-for="device in devices" :key="device.id" class="device-tile" @click="selectDevice(device.deviceCode)">
+        <div v-for="device in devices" :key="device.id" class="device-tile" @click="openDeviceDetail(device)">
           <div class="tile-top">
             <strong>{{ device.deviceName }}</strong>
             <StatusPill :status="device.status" />
@@ -100,6 +100,8 @@
         </div>
       </div>
     </div>
+
+    <DeviceDetailDialog v-model="detailVisible" :device="detailDevice" />
   </div>
 </template>
 
@@ -111,6 +113,7 @@ import StatusPill from '../components/StatusPill.vue'
 import GaugeChart from '../components/GaugeChart.vue'
 import AlertTicker from '../components/AlertTicker.vue'
 import ForecastChart from '../components/ForecastChart.vue'
+import DeviceDetailDialog from '../components/DeviceDetailDialog.vue'
 import { getActiveAlerts, getDashboardSummary, getDevices, getLatestSensor, getSensorHistory, postDispatchDecision, updateWorkOrderStatus } from '../api'
 import { usePollingTask } from '../composables/usePollingTask'
 import { getPriceTierMeta } from '../utils/status'
@@ -121,6 +124,8 @@ const latestData = ref({})
 const alerts = ref([])
 const forecastHistory = ref([])
 const focusDeviceCode = ref('EAF-01')
+const detailVisible = ref(false)
+const detailDevice = ref(null)
 
 const focusDevice = computed(() => devices.value.find((device) => device.deviceCode === focusDeviceCode.value))
 const priceMeta = computed(() => getPriceTierMeta(summary.value.currentPriceTier))
@@ -157,6 +162,12 @@ const { start: startPolling, run: refreshNow } = usePollingTask(loadAll, 5000)
 const selectDevice = async (deviceCode) => {
   focusDeviceCode.value = deviceCode
   await refreshNow()
+}
+
+const openDeviceDetail = async (device) => {
+  await selectDevice(device.deviceCode)
+  detailDevice.value = device
+  detailVisible.value = true
 }
 
 const changeOrderStatus = async (order, status) => {

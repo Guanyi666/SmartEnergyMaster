@@ -43,7 +43,7 @@
         <div v-if="!currentOrder" class="placeholder glass-panel">
           <el-icon :size="40"><Aim /></el-icon>
           <p>从左侧选一个待派工单</p>
-          <p class="sub">系统会按技能匹配 + 等级 + 负载推荐 Top 3</p>
+          <p class="sub">系统会按技能匹配、等级和负载推荐前三名</p>
         </div>
 
         <template v-else>

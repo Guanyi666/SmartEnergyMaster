@@ -31,7 +31,7 @@ const categoryColors = {
 const categoryLabels = {
   device_type: '设备类型',
   fault_type: '故障类型',
-  sop: 'SOP',
+  sop: '标准流程',
   case: '案例',
   cause: '根因'
 }
@@ -46,7 +46,7 @@ const buildOption = (data) => {
           const desc = params.data.description ? '<br/>' + params.data.description : ''
           return '<strong>' + params.data.name + '</strong><br/>类别: ' + cat + desc
         }
-        return params.data.source + ' -> ' + params.data.target + '<br/>关系: ' + (params.data.label || '')
+        return params.data.source + ' 到 ' + params.data.target + '<br/>关系：' + (params.data.label || '')
       }
     },
     legend: [{

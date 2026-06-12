@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { loginApi, registerApi } from '../api'
+import { loginApi, logoutApi, registerApi } from '../api'
 
 const TOKEN_KEY = 'smart-energy-token'
 const USER_KEY = 'smart-energy-user'
@@ -21,7 +21,14 @@ export const useAuthStore = defineStore('auth', {
     async register(payload) {
       return registerApi(payload)
     },
-    logout() {
+    async logout() {
+      try {
+        if (this.token) await logoutApi()
+      } finally {
+        this.clearSession()
+      }
+    },
+    clearSession() {
       this.token = ''
       this.user = null
       localStorage.removeItem(TOKEN_KEY)
