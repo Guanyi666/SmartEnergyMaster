@@ -149,7 +149,9 @@
         <fieldset class="form-section">
           <legend>账号信息</legend>
           <el-form-item label="登录账号" required>
-            <el-input v-model="form.username" :disabled="!!editingId" placeholder="如：E001" />
+            <el-input v-model="form.username" :disabled="!canEditUsername"
+                      placeholder="如：2026030001" maxlength="10" />
+            <div class="account-format-tip">{{ accountFormatHint }}</div>
           </el-form-item>
           <el-form-item label="登录密码" :required="!editingId">
             <el-input v-model="form.password" type="password" show-password
@@ -163,7 +165,7 @@
               <el-option v-for="[v, l] in roles" :key="v" :label="l" :value="v" />
             </el-select>
             <div v-if="isEditingBuiltInAdmin" class="admin-protection-tip">
-              内置管理员 admin 永远只能是系统管理员，且不能被删除。
+              内置管理员 {{ BUILT_IN_ADMIN_ACCOUNT }} 永远只能是系统管理员，且不能被删除。
             </div>
           </el-form-item>
           <el-form-item label="部门">
@@ -224,7 +226,10 @@ import { computed, onMounted, reactive, shallowRef } from 'vue'
 import { ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { createUser, deleteUser, listUsersWithPersonnel, updateUser } from '../api'
+import { useAuthStore } from '../stores/auth'
+import { accountFormatHint, BUILT_IN_ADMIN_ACCOUNT, validateAccount } from '../utils/account'
 
+const auth = useAuthStore()
 const rows = shallowRef([])
 const loading = shallowRef(false)
 const filters = reactive({ keyword: '', role: '', department: '', status: '', isMaintenance: undefined })
@@ -242,8 +247,9 @@ const form = reactive({
   maxWorkload: 5
 })
 const skillOptions = ['电气', '机械', '液压', '仪表', '自动化']
-const isBuiltInAdmin = (user) => user?.username?.toLowerCase() === 'admin'
-const isEditingBuiltInAdmin = computed(() => form.username.toLowerCase() === 'admin' && editingId.value != null)
+const isBuiltInAdmin = (user) => user?.username === BUILT_IN_ADMIN_ACCOUNT
+const isEditingBuiltInAdmin = computed(() => form.username === BUILT_IN_ADMIN_ACCOUNT && editingId.value != null)
+const canEditUsername = computed(() => !editingId.value || (auth.user?.role === 'ADMIN' && !isEditingBuiltInAdmin.value))
 
 const resetForm = () => {
   Object.assign(form, {
@@ -283,6 +289,8 @@ const onSubmit = async () => {
   if (!editingId.value && !form.password) return ElMessage.warning('请输入密码')
   if (!form.nickname) return ElMessage.warning('请输入姓名')
   if (!form.role) return ElMessage.warning('请选择角色')
+  const accountError = validateAccount(form.username, form.role)
+  if (accountError) return ElMessage.warning(accountError)
   if (isEditingBuiltInAdmin.value) form.role = 'ADMIN'
   submitting.value = true
   try {
@@ -311,7 +319,7 @@ const onSubmit = async () => {
   }
 }
 const onDelete = async (row) => {
-  if (isBuiltInAdmin(row)) return ElMessage.warning('内置管理员 admin 不能被删除')
+  if (isBuiltInAdmin(row)) return ElMessage.warning(`内置管理员 ${BUILT_IN_ADMIN_ACCOUNT} 不能被删除`)
   try {
     await ElMessageBox.confirm(`确认删除 ${row.username}？此操作不可恢复`, '删除确认', { type: 'warning' })
     await deleteUser(row.id)
@@ -420,6 +428,7 @@ onMounted(load)
 .value-text { color: var(--text-primary); font-weight: 600; }
 .muted { color: var(--text-secondary); }
 .admin-protection-tip { margin-top: 6px; color: var(--accent-orange); font-size: 12px; }
+.account-format-tip { margin-top: 6px; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
 .form-section {
   border: 1px solid var(--panel-border);
   border-radius: 6px;

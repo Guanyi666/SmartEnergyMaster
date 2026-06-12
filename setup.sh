@@ -16,4 +16,4 @@ docker compose -f deploy/docker-compose.yml --profile simulator ps
 echo
 echo "前端:    http://localhost:${FRONTEND_PORT:-5173}"
 echo "Swagger: http://localhost:${BACKEND_PORT:-8080}/swagger-ui.html"
-echo "账号:    admin / admin123"
+echo "账号:    2026010001 / admin123"

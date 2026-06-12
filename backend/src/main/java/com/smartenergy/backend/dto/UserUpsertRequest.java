@@ -9,7 +9,8 @@ import lombok.Data;
 public class UserUpsertRequest {
 
     @NotBlank(message = "用户名不能为空")
-    @Size(max = 64, message = "用户名不能超过 64 个字符")
+    @Pattern(regexp = "^[12]\\d{3}\\d{2}(?!0000)\\d{4}$",
+            message = "账号格式必须为：入职年份 + 两位身份标识 + 四位顺序号，例如 2026010001")
     private String username;
 
     @Size(max = 72, message = "密码不能超过 72 个字符")

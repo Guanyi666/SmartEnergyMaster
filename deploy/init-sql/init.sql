@@ -32,7 +32,7 @@ CREATE TABLE sys_user (
 );
 
 INSERT INTO sys_user (username, password, role)
-VALUES ('admin', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', 'ADMIN');  -- 明文: admin123
+VALUES ('2026010001', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', 'ADMIN');  -- 明文: admin123
 
 CREATE TABLE device (
     id SERIAL PRIMARY KEY,
@@ -152,7 +152,7 @@ CREATE UNIQUE INDEX ix_assignment_unique_active
 INSERT INTO workorder_maintenance_personnel
     (employee_no, name, phone, specializations, skill_level, certification, max_workload)
 VALUES
-    ('E001', '张工', '13800000001', '["电气","自动化"]',       'EXPERT',       '高级工程师 / 15年', 5),
+    ('2026030001', '张工', '13800000001', '["电气","自动化"]', 'EXPERT',       '高级工程师 / 15年', 5),
     ('E002', '李工', '13800000002', '["机械","液压"]',         'SENIOR',       '机械工程师 / 10年', 4),
     ('E003', '王工', '13800000003', '["电气","机械","液压"]',  'SENIOR',       '复合技师 / 8年',   4),
     ('E004', '赵工', '13800000004', '["仪表","自动化"]',       'INTERMEDIATE', '仪表技师 / 5年',    3),
@@ -160,10 +160,10 @@ VALUES
     ('E006', '周工', '13800000006', '["电气","仪表","自动化"]', 'JUNIOR',       '助理工程师 / 1年',  2)
 ON CONFLICT (employee_no) DO NOTHING;
 
--- 维修工程师登录账号（E001 / 123456）
+-- 维修工程师登录账号（2026030001 / 123456）
 INSERT INTO sys_user (username, password, role)
 VALUES (
-    'E001',
+    '2026030001',
     '$2a$10$QiUD0hIi91K2NzBx8YN/R.4KXD3.0H8A3s1mg2x9Ew.atUPOE6S7q',
     'MAINTENANCE_ENGINEER'
 )

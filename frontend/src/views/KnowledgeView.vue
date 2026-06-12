@@ -429,7 +429,7 @@ const sopForm = reactive({
   requiredParts: '',
   estimatedMinutes: 60,
   isActive: true,
-  createdBy: 'admin'
+  createdBy: '2026010001'
 })
 
 const caseFormDialog = ref(false)
@@ -522,7 +522,7 @@ const openSopDialog = (row) => {
       requiredParts: arrayToText(row.requiredParts),
       estimatedMinutes: row.estimatedMinutes || 60,
       isActive: row.isActive !== false,
-      createdBy: 'admin'
+      createdBy: '2026010001'
     })
   } else {
     Object.assign(sopForm, {
@@ -539,7 +539,7 @@ const openSopDialog = (row) => {
       requiredParts: '',
       estimatedMinutes: 60,
       isActive: true,
-      createdBy: 'admin'
+      createdBy: '2026010001'
     })
   }
   sopFormDialog.value = true

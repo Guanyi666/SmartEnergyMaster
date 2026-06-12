@@ -60,7 +60,7 @@ SELECT NULL, wmp.employee_no, wmp.name, wmp.phone, wmp.email,
 FROM workorder_maintenance_personnel wmp
 ON CONFLICT (employee_no) DO NOTHING;
 
--- 2. 关联 sys_user（用 employee_no 当登录名匹配）—— 只有 E001 能匹配
+-- 2. 关联 sys_user（用 employee_no 当登录账号匹配）—— 默认只有首位维修工程师能匹配
 UPDATE maintenance_personnel mp
 SET user_id = su.id
 FROM sys_user su

@@ -20,7 +20,7 @@ docker compose -f deploy/docker-compose.yml --profile simulator down -v
 Swagger：http://localhost:8080/swagger-ui.html
 
 默认账号：
-admin / admin123
-E001 / 123456
+2026010001 / admin123
+2026030001 / 123456
 
 更多说明见 deploy/README.md。

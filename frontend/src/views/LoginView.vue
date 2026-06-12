@@ -40,8 +40,8 @@ const authStore = useAuthStore()
 const loading = shallowRef(false)
 
 const loginForm = reactive({
-  username: 'admin',
-  password: 'admin123'  // admin 实际密码（保留 deploy/init-sql 原值不动）
+  username: '2026010001',
+  password: 'admin123'
 })
 
 const handleLogin = async () => {

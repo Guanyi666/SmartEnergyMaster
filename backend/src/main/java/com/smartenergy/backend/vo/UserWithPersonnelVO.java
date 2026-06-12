@@ -19,7 +19,7 @@ public class UserWithPersonnelVO {
     @Schema(description = "用户 ID")
     private Integer id;
 
-    @Schema(description = "登录账号（也是 employee_no）", example = "E001")
+    @Schema(description = "登录账号（也是 employee_no）", example = "2026030001")
     private String username;
 
     @Schema(description = "姓名（sys_user.nickname）")

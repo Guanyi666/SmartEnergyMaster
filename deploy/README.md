@@ -33,8 +33,14 @@ docker compose -f deploy/docker-compose.yml --profile simulator up -d --build
 
 - 前端：http://localhost:5173
 - 后端 Swagger：http://localhost:8080/swagger-ui.html
-- 默认管理员：`admin / admin123`
-- 默认维修工程师：`E001 / 123456`
+- 默认管理员：`2026010001 / admin123`
+- 默认维修工程师：`2026030001 / 123456`
+
+已有数据库需要执行账号迁移脚本，新建数据卷会由 Docker 自动执行：
+
+```bash
+docker exec -i smart_energy_db psql -U energy_user -d smart_energy < init-sql/12_account_username_format.sql
+```
 
 数据模拟器会先回填 24 小时历史数据，再每 3 秒上传实时数据。
 

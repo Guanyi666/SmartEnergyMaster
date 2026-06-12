@@ -2,6 +2,7 @@
 import { onMounted, reactive, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { createUser, deleteUser, listUsers, updateUser, updateUserStatus } from '../api'
+import { accountFormatHint, validateAccount } from '../utils/account'
 
 const users = shallowRef([])
 const loading = shallowRef(false)
@@ -42,6 +43,8 @@ const submit = async () => {
     ElMessage.warning('请填写用户名、角色和初始密码')
     return
   }
+  const accountError = validateAccount(form.username, form.role)
+  if (accountError) return ElMessage.warning(accountError)
   editingId.value ? await updateUser(editingId.value, form) : await createUser(form)
   ElMessage.success(editingId.value ? '用户资料已更新' : '新人账号已创建并分配身份')
   dialogVisible.value = false
@@ -109,7 +112,7 @@ onMounted(load)
 
     <el-dialog v-model="dialogVisible" :title="editingId ? '编辑人员资料' : '新人入职建档'" width="600px">
       <el-form label-width="88px">
-        <el-form-item label="账号"><el-input v-model="form.username" /></el-form-item>
+        <el-form-item label="账号"><el-input v-model="form.username" maxlength="10" :placeholder="accountFormatHint" /></el-form-item>
         <el-form-item :label="editingId ? '重置密码' : '初始密码'"><el-input v-model="form.password" type="password" show-password :placeholder="editingId ? '留空则不修改' : '请输入初始密码'" /></el-form-item>
         <el-form-item label="姓名"><el-input v-model="form.nickname" /></el-form-item>
         <el-form-item label="身份"><el-select v-model="form.role" style="width:100%"><el-option v-for="[value, label] in roles" :key="value" :label="label" :value="value" /></el-select></el-form-item>

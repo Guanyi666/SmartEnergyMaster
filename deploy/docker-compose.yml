@@ -23,6 +23,7 @@ services:
       - ./init-sql/09_workorder_audit_fixes.sql:/docker-entrypoint-initdb.d/09_workorder_audit_fixes.sql:ro
       - ./init-sql/10_transfer_requests.sql:/docker-entrypoint-initdb.d/10_transfer_requests.sql:ro
       - ./init-sql/11_db_restructure_v1.sql:/docker-entrypoint-initdb.d/11_db_restructure_v1.sql:ro
+      - ./init-sql/12_account_username_format.sql:/docker-entrypoint-initdb.d/12_account_username_format.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-energy_user} -d ${DB_NAME:-smart_energy}"]
       interval: 10s

@@ -424,8 +424,8 @@ proxy: {
 
 ### 6.2 测试账号
 在 `epic05_maintenance_personnel` 表里手动插入 1 条关联 `sys_user` 记录（或者扩展 DataInitializer 让用户名 = employee_no 即可登录）。
-- `admin / admin123`（现有，ADMIN）→ 登录后到 `/dashboard`
-- `E001 / 123456`（新增，MAINTENANCE_ENGINEER）→ 登录后到 `/maintenance`
+- `2026010001 / admin123`（现有，ADMIN）→ 登录后到 `/dashboard`
+- `2026030001 / 123456`（新增，MAINTENANCE_ENGINEER）→ 登录后到 `/maintenance`
 
 ### 6.3 关键场景
 1. **登录分流**：用 E001 登录 → 跳到 `/maintenance`（Kanban）；用 admin 登录 → 跳到 `/dashboard`

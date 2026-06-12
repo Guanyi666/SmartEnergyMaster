@@ -42,38 +42,64 @@ class UserServiceImplTest {
 
     @Test
     void builtInAdminCannotBeDemoted() {
-        authenticate("admin", "ADMIN");
-        when(sysUserMapper.selectById(1)).thenReturn(user(1, "admin", "ADMIN"));
+        authenticate("2026010001", "ADMIN");
+        when(sysUserMapper.selectById(1)).thenReturn(user(1, "2026010001", "ADMIN"));
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> service().updateUser(1, request("admin", "MAINTENANCE_ENGINEER"))
+                () -> service().updateUser(1, request("2026010001", "MAINTENANCE_ENGINEER"))
         );
 
-        assertEquals("内置管理员 admin 永远只能是系统管理员", exception.getMessage());
+        assertEquals("内置管理员 2026010001 永远只能是系统管理员", exception.getMessage());
     }
 
     @Test
     void adminCanChangeAnotherAdminRole() {
-        authenticate("admin", "ADMIN");
-        SysUser otherAdmin = user(2, "other-admin", "ADMIN");
+        authenticate("2026010001", "ADMIN");
+        SysUser otherAdmin = user(2, "2025010002", "ADMIN");
         when(sysUserMapper.selectById(2)).thenReturn(otherAdmin);
         when(sysUserMapper.exists(any())).thenReturn(false);
 
-        service().updateUser(2, request("other-admin", "OPERATOR"));
+        service().updateUser(2, request("2025050002", "OPERATOR"));
 
         assertEquals("OPERATOR", otherAdmin.getRole());
+        assertEquals("2025050002", otherAdmin.getUsername());
     }
 
     @Test
     void nonAdminCannotChangeAdminRole() {
-        authenticate("hr", "HR_MANAGER");
-        when(sysUserMapper.selectById(2)).thenReturn(user(2, "other-admin", "ADMIN"));
+        authenticate("2026040001", "HR_MANAGER");
+        when(sysUserMapper.selectById(2)).thenReturn(user(2, "2025010002", "ADMIN"));
 
         assertThrows(
                 AccessDeniedException.class,
-                () -> service().updateUser(2, request("other-admin", "OPERATOR"))
+                () -> service().updateUser(2, request("2025050002", "OPERATOR"))
         );
+    }
+
+    @Test
+    void rejectsAccountWhoseMarkerDoesNotMatchRole() {
+        authenticate("2026010001", "ADMIN");
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> service().createUser(requestWithPassword("2026010002", "MANAGER"))
+        );
+
+        assertEquals("账号身份标识与角色不匹配，MANAGER 应使用 02", exception.getMessage());
+    }
+
+    @Test
+    void nonAdminCannotChangeExistingAccount() {
+        authenticate("2026040001", "HR_MANAGER");
+        when(sysUserMapper.selectById(2)).thenReturn(user(2, "2026050001", "OPERATOR"));
+
+        AccessDeniedException exception = assertThrows(
+                AccessDeniedException.class,
+                () -> service().updateUser(2, request("2026050002", "OPERATOR"))
+        );
+
+        assertEquals("只有系统管理员可以修改用户账号", exception.getMessage());
     }
 
     private UserServiceImpl service() {
@@ -112,6 +138,12 @@ class UserServiceImplTest {
         request.setUsername(username);
         request.setRole(role);
         request.setNickname(username);
+        return request;
+    }
+
+    private UserUpsertRequest requestWithPassword(String username, String role) {
+        UserUpsertRequest request = request(username, role);
+        request.setPassword("123456");
         return request;
     }
 }

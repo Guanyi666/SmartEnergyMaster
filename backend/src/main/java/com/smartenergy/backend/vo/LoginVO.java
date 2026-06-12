@@ -16,7 +16,7 @@ public class LoginVO {
     @Schema(description = "JWT Token（24h 有效）", example = "eyJhbGciOiJIUzI1NiJ9...")
     private String token;
 
-    @Schema(description = "用户名", example = "admin")
+    @Schema(description = "账号", example = "2026010001")
     private String username;
 
     @Schema(description = "角色（ADMIN / OPERATOR）", example = "ADMIN")
