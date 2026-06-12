@@ -1,5 +1,6 @@
 package com.smartenergy.backend.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -32,4 +33,7 @@ public class UserUpsertRequest {
 
     @Size(max = 128, message = "邮箱不能超过 128 个字符")
     private String email;
+
+    @Valid
+    private MaintenanceProfileRequest maintenanceProfile;
 }

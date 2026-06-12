@@ -180,12 +180,12 @@
         </fieldset>
 
         <!-- 维修人员信息（仅维修角色显示） -->
-        <fieldset class="form-section" v-if="form.role === 'MAINTENANCE_ENGINEER' || editingId">
+        <fieldset v-if="form.role === 'MAINTENANCE_ENGINEER'" class="form-section">
           <legend>维修人员档案 / 排班</legend>
-          <el-form-item label="姓名（档案）">
+          <el-form-item label="姓名（档案）" required>
             <el-input v-model="form.archiveName" placeholder="维修人员显示名（可与昵称不同）" />
           </el-form-item>
-          <el-form-item label="技能等级">
+          <el-form-item label="技能等级" required>
             <el-select v-model="form.skillLevel" clearable style="width: 100%">
               <el-option label="初级 JUNIOR" value="JUNIOR" />
               <el-option label="中级 INTERMEDIATE" value="INTERMEDIATE" />
@@ -238,6 +238,7 @@ const pagination = reactive({ page: 1, size: 10, total: 0 })
 // v6.1: 编辑对话框
 const dialogVisible = shallowRef(false)
 const editingId = shallowRef(null)
+const originalRole = shallowRef('')
 const submitting = shallowRef(false)
 const form = reactive({
   username: '', password: '', nickname: '', role: 'OPERATOR',
@@ -264,6 +265,7 @@ const resetForm = () => {
 const openCreate = () => {
   resetForm()
   editingId.value = null
+  originalRole.value = ''
   dialogVisible.value = true
 }
 const onEdit = (row) => {
@@ -282,6 +284,7 @@ const onEdit = (row) => {
     maxWorkload: row.maxWorkload || 5
   })
   editingId.value = row.id
+  originalRole.value = row.role
   dialogVisible.value = true
 }
 const onSubmit = async () => {
@@ -291,7 +294,24 @@ const onSubmit = async () => {
   if (!form.role) return ElMessage.warning('请选择角色')
   const accountError = validateAccount(form.username, form.role)
   if (accountError) return ElMessage.warning(accountError)
+  if (form.role === 'MAINTENANCE_ENGINEER' && !form.archiveName) {
+    return ElMessage.warning('请输入维修人员档案姓名')
+  }
+  if (form.role === 'MAINTENANCE_ENGINEER' && !form.skillLevel) {
+    return ElMessage.warning('请选择维修人员技能等级')
+  }
   if (isEditingBuiltInAdmin.value) form.role = 'ADMIN'
+  if (originalRole.value === 'MAINTENANCE_ENGINEER' && form.role !== 'MAINTENANCE_ENGINEER') {
+    try {
+      await ElMessageBox.confirm(
+        '修改为非维修工程师后，将删除该成员的维修人员档案、排班和转派申请。确认继续？',
+        '移除维修身份',
+        { type: 'warning' }
+      )
+    } catch {
+      return
+    }
+  }
   submitting.value = true
   try {
     const payload = {
@@ -301,7 +321,16 @@ const onSubmit = async () => {
       role: form.role,
       department: form.department,
       phone: form.phone,
-      email: form.email
+      email: form.email,
+      maintenanceProfile: form.role === 'MAINTENANCE_ENGINEER' ? {
+        name: form.archiveName,
+        skillLevel: form.skillLevel,
+        specializations: form.specializationsList,
+        certification: form.certification,
+        phone: form.archivePhone,
+        email: form.archiveEmail,
+        maxWorkload: form.maxWorkload
+      } : undefined
     }
     if (editingId.value) {
       await updateUser(editingId.value, payload)

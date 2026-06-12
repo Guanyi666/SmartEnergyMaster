@@ -1,11 +1,18 @@
 package com.smartenergy.backend.service;
 
 import com.smartenergy.backend.config.JwtConfig;
+import com.smartenergy.backend.dto.MaintenanceProfileRequest;
 import com.smartenergy.backend.dto.UserUpsertRequest;
+import com.smartenergy.backend.entity.MaintenancePersonnel;
+import com.smartenergy.backend.entity.MaintenancePersonnelArchive;
 import com.smartenergy.backend.entity.SysUser;
 import com.smartenergy.backend.mapper.SysUserMapper;
 import com.smartenergy.backend.mapper.UserWithPersonnelMapper;
+import com.smartenergy.backend.mapper.MaintenancePersonnelArchiveMapper;
+import com.smartenergy.backend.mapper.MaintenancePersonnelMapper;
+import com.smartenergy.backend.mapper.WorkOrderTransferRequestMapper;
 import com.smartenergy.backend.service.impl.UserServiceImpl;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,6 +29,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -29,6 +37,10 @@ class UserServiceImplTest {
 
     @Mock private SysUserMapper sysUserMapper;
     @Mock private UserWithPersonnelMapper userWithPersonnelMapper;
+    @Mock private MaintenancePersonnelMapper maintenancePersonnelMapper;
+    @Mock private MaintenancePersonnelArchiveMapper maintenancePersonnelArchiveMapper;
+    @Mock private WorkOrderTransferRequestMapper workOrderTransferRequestMapper;
+    @Mock private ObjectMapper objectMapper;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private org.springframework.security.authentication.AuthenticationManager authenticationManager;
     @Mock private JwtConfig jwtConfig;
@@ -102,10 +114,71 @@ class UserServiceImplTest {
         assertEquals("只有系统管理员可以修改用户账号", exception.getMessage());
     }
 
+    @Test
+    void becomingMaintenanceEngineerCreatesProfileAndSchedule() throws Exception {
+        authenticate("2026010001", "ADMIN");
+        SysUser operator = user(2, "2026050001", "OPERATOR");
+        when(sysUserMapper.selectById(2)).thenReturn(operator);
+        when(sysUserMapper.exists(any())).thenReturn(false);
+        when(objectMapper.writeValueAsString(any())).thenReturn("[\"电气\"]");
+
+        UserUpsertRequest request = request("2026030002", "MAINTENANCE_ENGINEER");
+        request.setMaintenanceProfile(maintenanceProfile());
+        service().updateUser(2, request);
+
+        verify(maintenancePersonnelMapper).insert(any(MaintenancePersonnel.class));
+        verify(maintenancePersonnelArchiveMapper).insert(any(MaintenancePersonnelArchive.class));
+        assertEquals("MAINTENANCE_ENGINEER", operator.getRole());
+    }
+
+    @Test
+    void leavingMaintenanceEngineerDeletesProfileAndSchedule() {
+        authenticate("2026010001", "ADMIN");
+        SysUser engineer = user(2, "2026030002", "MAINTENANCE_ENGINEER");
+        MaintenancePersonnel schedule = new MaintenancePersonnel();
+        schedule.setId(10L);
+        schedule.setCurrentWorkload(0);
+        MaintenancePersonnelArchive archive = new MaintenancePersonnelArchive();
+        archive.setId(11L);
+        when(sysUserMapper.selectById(2)).thenReturn(engineer);
+        when(sysUserMapper.exists(any())).thenReturn(false);
+        when(maintenancePersonnelMapper.selectOne(any())).thenReturn(schedule);
+        when(maintenancePersonnelArchiveMapper.selectOne(any())).thenReturn(archive);
+
+        service().updateUser(2, request("2026050002", "OPERATOR"));
+
+        verify(maintenancePersonnelArchiveMapper).deleteById(11L);
+        verify(maintenancePersonnelMapper).deleteById(10L);
+        assertEquals("OPERATOR", engineer.getRole());
+    }
+
+    @Test
+    void cannotRemoveMaintenanceRoleWhileWorkOrdersAreActive() {
+        authenticate("2026010001", "ADMIN");
+        SysUser engineer = user(2, "2026030002", "MAINTENANCE_ENGINEER");
+        MaintenancePersonnel schedule = new MaintenancePersonnel();
+        schedule.setId(10L);
+        schedule.setCurrentWorkload(1);
+        when(sysUserMapper.selectById(2)).thenReturn(engineer);
+        when(sysUserMapper.exists(any())).thenReturn(false);
+        when(maintenancePersonnelMapper.selectOne(any())).thenReturn(schedule);
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> service().updateUser(2, request("2026050002", "OPERATOR"))
+        );
+
+        assertEquals("该维修工程师仍有处理中工单，请先完成或转派工单后再修改身份", exception.getMessage());
+    }
+
     private UserServiceImpl service() {
         return new UserServiceImpl(
                 sysUserMapper,
                 userWithPersonnelMapper,
+                maintenancePersonnelMapper,
+                maintenancePersonnelArchiveMapper,
+                workOrderTransferRequestMapper,
+                objectMapper,
                 passwordEncoder,
                 authenticationManager,
                 jwtConfig,
@@ -145,5 +218,14 @@ class UserServiceImplTest {
         UserUpsertRequest request = request(username, role);
         request.setPassword("123456");
         return request;
+    }
+
+    private MaintenanceProfileRequest maintenanceProfile() {
+        MaintenanceProfileRequest profile = new MaintenanceProfileRequest();
+        profile.setName("张工");
+        profile.setSkillLevel("SENIOR");
+        profile.setSpecializations(List.of("电气"));
+        profile.setMaxWorkload(5);
+        return profile;
     }
 }

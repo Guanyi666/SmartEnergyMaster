@@ -3,12 +3,20 @@ package com.smartenergy.backend.service.impl;
 import cn.hutool.jwt.JWT;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartenergy.backend.config.JwtConfig;
 import com.smartenergy.backend.dto.LoginRequest;
+import com.smartenergy.backend.dto.MaintenanceProfileRequest;
 import com.smartenergy.backend.dto.UserUpsertRequest;
+import com.smartenergy.backend.entity.MaintenancePersonnel;
+import com.smartenergy.backend.entity.MaintenancePersonnelArchive;
 import com.smartenergy.backend.entity.SysUser;
+import com.smartenergy.backend.entity.WorkOrderTransferRequest;
+import com.smartenergy.backend.mapper.MaintenancePersonnelArchiveMapper;
+import com.smartenergy.backend.mapper.MaintenancePersonnelMapper;
 import com.smartenergy.backend.mapper.SysUserMapper;
 import com.smartenergy.backend.mapper.UserWithPersonnelMapper;
+import com.smartenergy.backend.mapper.WorkOrderTransferRequestMapper;
 import com.smartenergy.backend.service.AuditLogService;
 import com.smartenergy.backend.service.LoginSessionService;
 import com.smartenergy.backend.service.UserService;
@@ -30,7 +38,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -41,9 +48,14 @@ public class UserServiceImpl implements UserService {
 
     private static final String BUILT_IN_ADMIN_USERNAME = AccountUsernameRules.BUILT_IN_ADMIN_USERNAME;
     private static final String ADMIN_ROLE = "ADMIN";
+    private static final String MAINTENANCE_ROLE = "MAINTENANCE_ENGINEER";
 
     private final SysUserMapper sysUserMapper;
     private final UserWithPersonnelMapper userWithPersonnelMapper;
+    private final MaintenancePersonnelMapper maintenancePersonnelMapper;
+    private final MaintenancePersonnelArchiveMapper maintenancePersonnelArchiveMapper;
+    private final WorkOrderTransferRequestMapper workOrderTransferRequestMapper;
+    private final ObjectMapper objectMapper;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtConfig jwtConfig;
@@ -129,6 +141,7 @@ public class UserServiceImpl implements UserService {
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
         sysUserMapper.insert(user);
+        syncMaintenanceProfile(user, null, null, request);
         auditLogService.record("CREATE", "USER", "SYS_USER", String.valueOf(user.getId()),
                 java.util.Map.of("username", user.getUsername(), "role", user.getRole()));
         return toVO(user);
@@ -138,6 +151,8 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public UserVO updateUser(Integer id, UserUpsertRequest request) {
         SysUser user = requireUser(id);
+        String oldUsername = user.getUsername();
+        String oldRole = user.getRole();
         protectBuiltInAdmin(user, request);
         AccountUsernameRules.validate(request.getUsername(), request.getRole());
         requireAdminForAdminRoleChange(user.getRole(), request.getRole());
@@ -155,6 +170,7 @@ public class UserServiceImpl implements UserService {
         }
         user.setUpdatedAt(LocalDateTime.now());
         sysUserMapper.updateById(user);
+        syncMaintenanceProfile(user, oldUsername, oldRole, request);
         auditLogService.record("UPDATE", "USER", "SYS_USER", String.valueOf(user.getId()),
                 java.util.Map.of("username", user.getUsername(), "role", user.getRole()));
         return toVO(user);
@@ -190,6 +206,8 @@ public class UserServiceImpl implements UserService {
             throw new IllegalArgumentException("不能删除当前登录账号");
         }
         requireAdminForAdminRoleChange(user.getRole(), null);
+        removeMaintenanceProfile(findSchedule(user.getId(), user.getUsername()),
+                findArchive(user.getId(), user.getUsername()), user.getRole());
         sysUserMapper.deleteById(id);
         auditLogService.record("DELETE", "USER", "SYS_USER", String.valueOf(id),
                 java.util.Map.of("username", user.getUsername()));
@@ -244,6 +262,111 @@ public class UserServiceImpl implements UserService {
         user.setDepartment(request.getDepartment());
         user.setPhone(request.getPhone());
         user.setEmail(request.getEmail());
+    }
+
+    private void syncMaintenanceProfile(SysUser user, String oldUsername, String oldRole, UserUpsertRequest request) {
+        String username = user.getUsername();
+        String lookupUsername = StringUtils.hasText(oldUsername) ? oldUsername : username;
+        MaintenancePersonnel schedule = findSchedule(user.getId(), lookupUsername);
+        MaintenancePersonnelArchive archive = findArchive(user.getId(), lookupUsername);
+
+        if (!MAINTENANCE_ROLE.equals(user.getRole())) {
+            removeMaintenanceProfile(schedule, archive, oldRole);
+            return;
+        }
+
+        MaintenanceProfileRequest profile = request.getMaintenanceProfile();
+        if (profile == null) {
+            throw new IllegalArgumentException("维修工程师必须填写维修人员档案与排班信息");
+        }
+        LocalDateTime now = LocalDateTime.now();
+
+        if (schedule == null) {
+            schedule = new MaintenancePersonnel();
+            schedule.setCurrentWorkload(0);
+            schedule.setIsOnDuty(true);
+            schedule.setAvatarColor("#52c8ff");
+            schedule.setCreatedAt(now);
+        }
+        schedule.setUserId(user.getId());
+        schedule.setEmployeeNo(username);
+        schedule.setMaxWorkload(profile.getMaxWorkload());
+        schedule.setUpdatedAt(now);
+        if (schedule.getId() == null) {
+            maintenancePersonnelMapper.insert(schedule);
+        } else {
+            maintenancePersonnelMapper.updateById(schedule);
+        }
+
+        if (archive == null) {
+            archive = new MaintenancePersonnelArchive();
+            archive.setCreatedAt(now);
+        }
+        archive.setUserId(user.getId());
+        archive.setEmployeeNo(username);
+        archive.setName(profile.getName());
+        archive.setPhone(profile.getPhone());
+        archive.setEmail(profile.getEmail());
+        archive.setSpecializations(writeSpecializations(profile.getSpecializations()));
+        archive.setSkillLevel(profile.getSkillLevel());
+        archive.setCertification(profile.getCertification());
+        archive.setUpdatedAt(now);
+        if (archive.getId() == null) {
+            maintenancePersonnelArchiveMapper.insert(archive);
+        } else {
+            maintenancePersonnelArchiveMapper.updateById(archive);
+        }
+    }
+
+    private MaintenancePersonnel findSchedule(Integer userId, String username) {
+        QueryWrapper<MaintenancePersonnel> wrapper = new QueryWrapper<>();
+        if (userId != null) {
+            wrapper.eq("user_id", userId);
+        }
+        if (StringUtils.hasText(username)) {
+            if (userId != null) wrapper.or();
+            wrapper.eq("employee_no", username);
+        }
+        return maintenancePersonnelMapper.selectOne(wrapper);
+    }
+
+    private MaintenancePersonnelArchive findArchive(Integer userId, String username) {
+        QueryWrapper<MaintenancePersonnelArchive> wrapper = new QueryWrapper<>();
+        if (userId != null) {
+            wrapper.eq("user_id", userId);
+        }
+        if (StringUtils.hasText(username)) {
+            if (userId != null) wrapper.or();
+            wrapper.eq("employee_no", username);
+        }
+        return maintenancePersonnelArchiveMapper.selectOne(wrapper);
+    }
+
+    private void removeMaintenanceProfile(MaintenancePersonnel schedule, MaintenancePersonnelArchive archive,
+                                          String oldRole) {
+        if (schedule == null && archive == null && !MAINTENANCE_ROLE.equals(oldRole)) {
+            return;
+        }
+        if (schedule != null && schedule.getCurrentWorkload() != null && schedule.getCurrentWorkload() > 0) {
+            throw new IllegalStateException("该维修工程师仍有处理中工单，请先完成或转派工单后再修改身份");
+        }
+        if (archive != null) {
+            maintenancePersonnelArchiveMapper.deleteById(archive.getId());
+        }
+        if (schedule != null) {
+            workOrderTransferRequestMapper.delete(new QueryWrapper<WorkOrderTransferRequest>()
+                    .eq("requester_personnel_id", schedule.getId())
+                    .or().eq("new_personnel_id", schedule.getId()));
+            maintenancePersonnelMapper.deleteById(schedule.getId());
+        }
+    }
+
+    private String writeSpecializations(List<String> specializations) {
+        try {
+            return objectMapper.writeValueAsString(specializations == null ? List.of() : specializations);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("维修人员专长格式不合法", e);
+        }
     }
 
     private UserVO toVO(SysUser user) {
