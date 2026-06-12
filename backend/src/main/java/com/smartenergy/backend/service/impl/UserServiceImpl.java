@@ -5,7 +5,6 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.smartenergy.backend.config.JwtConfig;
 import com.smartenergy.backend.dto.LoginRequest;
-import com.smartenergy.backend.dto.RegisterRequest;
 import com.smartenergy.backend.dto.UserUpsertRequest;
 import com.smartenergy.backend.entity.SysUser;
 import com.smartenergy.backend.mapper.SysUserMapper;
@@ -37,23 +36,6 @@ public class UserServiceImpl implements UserService {
     private final JwtConfig jwtConfig;
     private final AuditLogService auditLogService;
     private final LoginSessionService loginSessionService;
-
-    @Override
-    public void register(RegisterRequest request) {
-        boolean exists = sysUserMapper.exists(new QueryWrapper<SysUser>().eq("username", request.getUsername()));
-        if (exists) {
-            throw new IllegalArgumentException("该用户名已被注册");
-        }
-
-        SysUser newUser = new SysUser();
-        newUser.setUsername(request.getUsername());
-        newUser.setPassword(passwordEncoder.encode(request.getPassword()));
-        newUser.setRole("OPERATOR");
-        newUser.setStatus("ACTIVE");
-        newUser.setCreatedAt(LocalDateTime.now());
-        newUser.setUpdatedAt(LocalDateTime.now());
-        sysUserMapper.insert(newUser);
-    }
 
     @Override
     public LoginVO login(LoginRequest request) {

@@ -11,6 +11,7 @@ target/
 *.iml
 *.iws
 *.ipr
+.claude/
 
 # OS
 .DS_Store

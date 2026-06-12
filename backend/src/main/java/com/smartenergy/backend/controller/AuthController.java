@@ -2,7 +2,6 @@ package com.smartenergy.backend.controller;
 
 import com.smartenergy.backend.annotation.RateLimit;
 import com.smartenergy.backend.dto.LoginRequest;
-import com.smartenergy.backend.dto.RegisterRequest;
 import com.smartenergy.backend.service.UserService;
 import com.smartenergy.backend.vo.LoginVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,17 +19,10 @@ import java.security.Principal;
 @RestController
 @RequestMapping("api/auth")
 @RequiredArgsConstructor
-@Tag(name = "认证管理", description = "用户注册与登录")
+@Tag(name = "认证管理", description = "用户登录与退出")
 public class AuthController {
 
     private final UserService userService;
-
-    @PostMapping("/register")
-    @Operation(summary = "用户注册", description = "注册新用户，默认角色为 OPERATOR")
-    public ResponseEntity<String> register(@Validated @RequestBody RegisterRequest registerRequest) {
-        userService.register(registerRequest);
-        return ResponseEntity.ok("注册成功");
-    }
 
     @PostMapping("/login")
     @Operation(summary = "用户登录", description = "验证用户名密码，返回 JWT Token（24h 有效）")
