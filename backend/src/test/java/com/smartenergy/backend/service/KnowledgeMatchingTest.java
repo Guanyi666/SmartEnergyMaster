@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartenergy.backend.entity.MaintenanceSOP;
 import com.smartenergy.backend.entity.RepairCase;
 import com.smartenergy.backend.mapper.MaintenanceSOPMapper;
+import com.smartenergy.backend.mapper.MaintenanceSOPRequiredPartMapper;
+import com.smartenergy.backend.mapper.MaintenanceSOPStepMapper;
 import com.smartenergy.backend.mapper.RepairCaseMapper;
 import com.smartenergy.backend.service.impl.MaintenanceSOPServiceImpl;
 import com.smartenergy.backend.service.impl.RepairCaseServiceImpl;
@@ -31,12 +33,17 @@ class KnowledgeMatchingTest {
 
     @Mock
     private MaintenanceSOPMapper sopMapper;
+    // v6.2 改造后 MaintenanceSOPServiceImpl 新增的 2 个 mapper（拆 JSON 子表）
+    @Mock
+    private MaintenanceSOPStepMapper sopStepMapper;
+    @Mock
+    private MaintenanceSOPRequiredPartMapper sopRequiredPartMapper;
     @Mock
     private RepairCaseMapper caseMapper;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private MaintenanceSOPServiceImpl sopService() {
-        return new MaintenanceSOPServiceImpl(sopMapper, objectMapper);
+        return new MaintenanceSOPServiceImpl(sopMapper, sopStepMapper, sopRequiredPartMapper, objectMapper);
     }
 
     private RepairCaseServiceImpl caseService() {
@@ -51,10 +58,9 @@ class KnowledgeMatchingTest {
         s.setFaultType(faultType);
         s.setTitle(code);
         s.setContent("# " + code);
-        s.setSteps("[\"步骤 1\"]");
+        // v6.2 改造后：steps/requiredParts 已迁出到子表，这里不再 setSteps/setRequiredParts
         s.setRequiredSkills("[]");
         s.setRequiredTools("[]");
-        s.setRequiredParts("[]");
         s.setEstimatedMinutes(60);
         s.setVersion(version);
         s.setIsActive(true);

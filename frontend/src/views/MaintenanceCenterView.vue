@@ -9,7 +9,7 @@
         </p>
       </div>
       <div class="header-tools">
-        <el-button :icon="Plus" @click="openCreateDialog">新建工单</el-button>
+        <!-- v6.2 改造：删除"+" 新建工单按钮（OPERATOR 在 /devices 页面新建；DEVICE_MANAGER 用本页面"指派/状态变更"功能） -->
         <el-button type="primary" :icon="Plus" @click="goDispatch">智能调度</el-button>
       </div>
     </div>
@@ -220,7 +220,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+// v6.2 改造：移除 Plus icon 引用（新建工单按钮已删）
+// import { Plus } from '@element-plus/icons-vue'
 import StatBadge from '../components/StatBadge.vue'
 import WorkOrderCard from '../components/WorkOrderCard.vue'
 import WorkOrderDetailDrawer from '../components/WorkOrderDetailDrawer.vue'

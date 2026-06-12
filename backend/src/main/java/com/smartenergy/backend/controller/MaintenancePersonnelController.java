@@ -10,11 +10,13 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/workorder/personnel")
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyAuthority('HR_MANAGER', 'DEVICE_MANAGER', 'ADMIN')")  // v6.2 改造：只这 3 个角色能访问人员档案
 @Tag(name = "维修人员", description = "维修人员档案 CRUD + 切岗")
 public class MaintenancePersonnelController {
 

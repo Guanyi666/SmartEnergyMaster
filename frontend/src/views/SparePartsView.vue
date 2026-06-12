@@ -327,6 +327,12 @@ onMounted(() => loadParts())
 .table-panel {
   padding: 18px 20px;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+/* v6.2 改造：5 页面（备件库存）加横向滑动适配屏幕 */
+.table-panel :deep(.el-table) {
+  min-width: 1100px;
+  white-space: nowrap;
 }
 
 @media (max-width: 1200px) {

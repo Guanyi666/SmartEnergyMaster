@@ -131,17 +131,17 @@ const role = computed(() => auth.user?.role)
 const isAdmin = computed(() => role.value === 'ADMIN')
 const isEngineer = computed(() => ['MAINTENANCE_ENGINEER', 'ADMIN'].includes(role.value))
 const isMaintenanceEngineer = computed(() => role.value === 'MAINTENANCE_ENGINEER')
-const canMaintain = computed(() => ['MAINTENANCE_ENGINEER', 'DEVICE_MANAGER', 'ADMIN'].includes(role.value))
+const canMaintain = computed(() => ['MAINTENANCE_ENGINEER', 'ADMIN'].includes(role.value)) // v6.2 移除 DEVICE_MANAGER
 const canManageParts = computed(() => ['DEVICE_MANAGER', 'ADMIN'].includes(role.value))
 const canReviewTransfers = computed(() => ['DEVICE_MANAGER', 'ADMIN'].includes(role.value))
-const canViewControlRoom = computed(() => ['OPERATOR', 'DEVICE_MANAGER', 'MANAGER', 'ADMIN'].includes(role.value))
-const canManageDevices = computed(() => ['OPERATOR', 'DEVICE_MANAGER', 'ADMIN'].includes(role.value))
-const canCreateOrders = computed(() => ['OPERATOR', 'DEVICE_MANAGER', 'ADMIN'].includes(role.value))
-const canSchedule = computed(() => ['OPERATOR', 'MANAGER', 'ADMIN'].includes(role.value))
+const canViewControlRoom = computed(() => ['OPERATOR', 'MANAGER', 'ADMIN'].includes(role.value)) // v6.2 移除 DEVICE_MANAGER
+const canManageDevices = computed(() => ['OPERATOR', 'ADMIN'].includes(role.value)) // v6.2 移除 DEVICE_MANAGER
+const canCreateOrders = computed(() => ['DEVICE_MANAGER', 'ADMIN'].includes(role.value)) // v6.2 移除 OPERATOR
+const canSchedule = computed(() => ['MANAGER', 'ADMIN'].includes(role.value)) // v6.2 移除 OPERATOR
 const canViewAdmin = computed(() => ['MANAGER', 'ADMIN'].includes(role.value))
 const canManageUsers = computed(() => ['HR_MANAGER', 'ADMIN'].includes(role.value))   // 旧：人员身份管理菜单
-const canManagePeople = computed(() => ['HR_MANAGER', 'DEVICE_MANAGER', 'MANAGER', 'ADMIN'].includes(role.value))   // v6：人员管理（合并）
-const canDispatchMaintenance = computed(() => ['DEVICE_MANAGER', 'MANAGER', 'ADMIN'].includes(role.value))
+const canManagePeople = computed(() => ['HR_MANAGER', 'DEVICE_MANAGER', 'ADMIN'].includes(role.value))   // v6.2: 移除 MANAGER
+const canDispatchMaintenance = computed(() => ['DEVICE_MANAGER', 'ADMIN'].includes(role.value)) // v6.2 移除 MANAGER
 const alerts = shallowRef([])
 const loadAlerts = async () => { alerts.value = await getActiveAlerts(8) }
 const { start: startAlertPolling } = usePollingTask(loadAlerts, 10000)
@@ -151,7 +151,7 @@ const ROLE_LABELS = {
   ADMIN: '管理员',
   OPERATOR: '操作员',
   MAINTENANCE_ENGINEER: '维修工程师',
-  DEVICE_MANAGER: '设备管理人员',
+  DEVICE_MANAGER: '工单管理人员',
   MANAGER: '生产经理',
   HR_MANAGER: '人事管理员'
 }

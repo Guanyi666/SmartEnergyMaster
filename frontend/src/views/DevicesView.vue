@@ -8,6 +8,8 @@
       <div class="analysis-tools">
         <el-button @click="refreshNow">立即刷新</el-button>
         <el-button type="primary" @click="openDialog()">新增设备</el-button>
+        <!-- v6.2 改造：OPERATOR 在 3 页面里能新建工单（公共组件） -->
+        <el-button type="success" @click="createOrderOpen = true">+ 新建工单</el-button>
       </div>
     </div>
 
@@ -122,8 +124,9 @@
         </el-table-column>
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="row.status === 'PENDING'" size="small" @click="updateOrder(row, 'IN_PROGRESS')">确认处理</el-button>
-            <el-button v-if="row.status !== 'RESOLVED'" size="small" type="success" @click="updateOrder(row, 'RESOLVED')">已修复</el-button>
+            <!-- v6.2 改造：OPERATOR 失去"维修工单模块的编辑权限"，不能点"确认处理/已修复" -->
+            <el-button v-if="canEditWorkOrder && row.status === 'PENDING'" size="small" @click="updateOrder(row, 'IN_PROGRESS')">确认处理</el-button>
+            <el-button v-if="canEditWorkOrder && row.status !== 'RESOLVED'" size="small" type="success" @click="updateOrder(row, 'RESOLVED')">已修复</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -164,6 +167,9 @@
         <el-button type="primary" @click="submitDevice">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- v6.2 改造：新建工单公共对话框（OPERATOR/DEVICE MANAGER 都能用） -->
+    <WorkOrderCreateDialog v-model="createOrderOpen" @created="onWorkOrderCreated" />
 
     <el-dialog v-model="detailVisible" title="设备详情" width="720px" destroy-on-close>
       <div v-loading="detailLoading" class="detail-body">
@@ -308,9 +314,10 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import StatusPill from '../components/StatusPill.vue'
+import WorkOrderCreateDialog from '../components/WorkOrderCreateDialog.vue'
 import {
   createDevice, deleteDevice, getDevices, getDeviceDetail,
   getDeviceFaultHistory, getDeviceHealthScore,
@@ -322,6 +329,12 @@ import { useAuthStore } from '../stores/auth'
 
 const priorityLabel = (p) => getPriorityMeta(p).label
 const auth = useAuthStore()
+
+// v6.2 改造：OPERATOR 失去"维修工单模块的编辑权限"，不能点"确认处理/已修复"按钮
+const canEditWorkOrder = computed(() => !['OPERATOR'].includes(auth.user?.role))
+// v6.2 改造：新建工单对话框状态（OPERATOR 也能用）
+const createOrderOpen = ref(false)
+const onWorkOrderCreated = () => { loadWorkOrders() }
 const departmentTypeMap = {
   '炼钢设备科': 'ARC_FURNACE',
   '公辅设备科': 'PUMP',
