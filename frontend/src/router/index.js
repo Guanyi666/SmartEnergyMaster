@@ -129,6 +129,11 @@ const router = createRouter({
           name: 'audit-log',
           component: () => import('../views/AuditLogView.vue'),
           meta: { roles: ['ADMIN'] }
+        },
+        {
+          path: '/account-settings',
+          name: 'account-settings',
+          component: () => import('../views/AccountSettingsView.vue')
         }
       ]
     }

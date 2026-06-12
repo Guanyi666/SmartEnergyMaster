@@ -1,6 +1,7 @@
 package com.smartenergy.backend.service;
 
 import com.smartenergy.backend.config.JwtConfig;
+import com.smartenergy.backend.dto.AccountSettingsRequest;
 import com.smartenergy.backend.dto.MaintenanceProfileRequest;
 import com.smartenergy.backend.dto.UserUpsertRequest;
 import com.smartenergy.backend.entity.MaintenancePersonnel;
@@ -27,6 +28,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -169,6 +172,59 @@ class UserServiceImplTest {
         );
 
         assertEquals("该维修工程师仍有处理中工单，请先完成或转派工单后再修改身份", exception.getMessage());
+    }
+
+    @Test
+    void currentUserCanUpdateContactInfoWithoutChangingPassword() {
+        SysUser currentUser = user(2, "2026050001", "OPERATOR");
+        when(sysUserMapper.selectOne(any())).thenReturn(currentUser);
+        AccountSettingsRequest request = new AccountSettingsRequest();
+        request.setPhone("13800138000");
+        request.setEmail("operator@example.com");
+
+        var result = service().updateAccountSettings(currentUser.getUsername(), request);
+
+        assertEquals("13800138000", currentUser.getPhone());
+        assertEquals("operator@example.com", currentUser.getEmail());
+        assertFalse(result.isPasswordChanged());
+        verify(sysUserMapper).updateById(currentUser);
+    }
+
+    @Test
+    void changingPasswordRequiresCorrectCurrentPassword() {
+        SysUser currentUser = user(2, "2026050001", "OPERATOR");
+        currentUser.setPassword("encoded-old-password");
+        when(sysUserMapper.selectOne(any())).thenReturn(currentUser);
+        when(passwordEncoder.matches("wrong-password", currentUser.getPassword())).thenReturn(false);
+        AccountSettingsRequest request = new AccountSettingsRequest();
+        request.setCurrentPassword("wrong-password");
+        request.setNewPassword("new-password");
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> service().updateAccountSettings(currentUser.getUsername(), request)
+        );
+
+        assertEquals("当前密码不正确", exception.getMessage());
+    }
+
+    @Test
+    void currentUserCanChangePassword() {
+        SysUser currentUser = user(2, "2026050001", "OPERATOR");
+        currentUser.setPassword("encoded-old-password");
+        when(sysUserMapper.selectOne(any())).thenReturn(currentUser);
+        when(passwordEncoder.matches("old-password", "encoded-old-password")).thenReturn(true);
+        when(passwordEncoder.matches("new-password", "encoded-old-password")).thenReturn(false);
+        when(passwordEncoder.encode("new-password")).thenReturn("encoded-new-password");
+        AccountSettingsRequest request = new AccountSettingsRequest();
+        request.setCurrentPassword("old-password");
+        request.setNewPassword("new-password");
+
+        var result = service().updateAccountSettings(currentUser.getUsername(), request);
+
+        assertEquals("encoded-new-password", currentUser.getPassword());
+        assertTrue(result.isPasswordChanged());
+        verify(sysUserMapper).updateById(currentUser);
     }
 
     private UserServiceImpl service() {

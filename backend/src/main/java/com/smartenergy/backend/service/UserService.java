@@ -1,7 +1,9 @@
 package com.smartenergy.backend.service;
 
 import com.smartenergy.backend.dto.LoginRequest;
+import com.smartenergy.backend.dto.AccountSettingsRequest;
 import com.smartenergy.backend.dto.UserUpsertRequest;
+import com.smartenergy.backend.vo.AccountSettingsVO;
 import com.smartenergy.backend.vo.PageVO;
 import com.smartenergy.backend.vo.LoginVO;
 import com.smartenergy.backend.vo.UserVO;
@@ -21,6 +23,10 @@ public interface UserService {
     LoginVO login(LoginRequest loginRequest);
 
     void logout(String username, String token);
+
+    AccountSettingsVO getAccountSettings(String username);
+
+    AccountSettingsVO updateAccountSettings(String username, AccountSettingsRequest request);
 
     PageVO<UserVO> listUsers(int page, int size, String keyword, String role, String department, String status);
 

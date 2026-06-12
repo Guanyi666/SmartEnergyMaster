@@ -49,7 +49,7 @@ onMounted(load)
 
     <section class="glass-panel panel">
       <h3>当前库存</h3>
-      <el-table :data="parts" stripe>
+      <el-table class="dark-table" :data="parts" stripe>
         <el-table-column prop="partCode" label="配件编号" min-width="130" />
         <el-table-column prop="name" label="名称" min-width="150" />
         <el-table-column prop="spec" label="规格" min-width="160" />
@@ -66,7 +66,7 @@ onMounted(load)
 
     <section class="glass-panel panel">
       <h3>我的配件申请记录</h3>
-      <el-table :data="usages" stripe>
+      <el-table class="dark-table" :data="usages" stripe>
         <el-table-column prop="usedAt" label="申请时间" min-width="170" />
         <el-table-column prop="partCode" label="配件编号" min-width="130" />
         <el-table-column prop="partName" label="配件名称" min-width="160" />
@@ -105,5 +105,36 @@ onMounted(load)
 
 .low-stock {
   color: #ff5d5d;
+}
+
+.dark-table {
+  --el-table-bg-color: rgba(15, 23, 42, 0.35);
+  --el-table-tr-bg-color: rgba(15, 23, 42, 0.35);
+  --el-table-header-bg-color: rgba(15, 23, 42, 0.88);
+  --el-table-row-hover-bg-color: rgba(51, 65, 85, 0.72);
+  --el-fill-color-lighter: rgba(30, 41, 59, 0.68);
+  --el-table-border-color: rgba(148, 163, 184, 0.22);
+  color: var(--text-primary);
+}
+
+:deep(.dark-table .el-table__inner-wrapper),
+:deep(.dark-table .el-table__body-wrapper),
+:deep(.dark-table tr),
+:deep(.dark-table td.el-table__cell) {
+  background-color: rgba(15, 23, 42, 0.35) !important;
+  color: var(--text-primary);
+}
+
+:deep(.dark-table th.el-table__cell) {
+  background-color: rgba(15, 23, 42, 0.88) !important;
+  color: #cbd5e1;
+}
+
+:deep(.dark-table.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell) {
+  background-color: rgba(30, 41, 59, 0.68) !important;
+}
+
+:deep(.dark-table .el-table__body tr:hover > td.el-table__cell) {
+  background-color: rgba(51, 65, 85, 0.72) !important;
 }
 </style>

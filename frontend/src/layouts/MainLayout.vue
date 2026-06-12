@@ -86,6 +86,10 @@
           <el-icon><DocumentChecked /></el-icon>
           <span>审计日志</span>
         </el-menu-item>
+        <el-menu-item index="/account-settings">
+          <el-icon><User /></el-icon>
+          <span>账号设置</span>
+        </el-menu-item>
       </el-menu>
 
       <div class="sidebar-footer">

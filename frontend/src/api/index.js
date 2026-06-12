@@ -2,6 +2,8 @@ import request from './http'
 
 export const loginApi = (payload) => request.post('/auth/login', payload)
 export const logoutApi = () => request.post('/auth/logout')
+export const getAccountSettings = () => request.get('/account-settings')
+export const updateAccountSettings = (payload) => request.put('/account-settings', payload)
 export const getDashboardSummary = (deviceCode) => request.get('/dashboard/summary', { params: { deviceCode } })
 export const getDispatchAdvice = (deviceCode) => request.get('/dashboard/dispatch-advice', { params: { deviceCode } })
 export const getForecast = (deviceCode) => request.get('/dashboard/forecast', { params: { deviceCode } })

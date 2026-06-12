@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartenergy.backend.config.JwtConfig;
 import com.smartenergy.backend.dto.LoginRequest;
+import com.smartenergy.backend.dto.AccountSettingsRequest;
 import com.smartenergy.backend.dto.MaintenanceProfileRequest;
 import com.smartenergy.backend.dto.UserUpsertRequest;
 import com.smartenergy.backend.entity.MaintenancePersonnel;
@@ -22,6 +23,7 @@ import com.smartenergy.backend.service.LoginSessionService;
 import com.smartenergy.backend.service.UserService;
 import com.smartenergy.backend.utils.AccountUsernameRules;
 import com.smartenergy.backend.vo.LoginVO;
+import com.smartenergy.backend.vo.AccountSettingsVO;
 import com.smartenergy.backend.vo.PageVO;
 import com.smartenergy.backend.vo.UserVO;
 import com.smartenergy.backend.vo.UserWithPersonnelVO;
@@ -99,6 +101,40 @@ public class UserServiceImpl implements UserService {
         if (StringUtils.hasText(username) && StringUtils.hasText(token)) {
             loginSessionService.release(username, token);
         }
+    }
+
+    @Override
+    public AccountSettingsVO getAccountSettings(String username) {
+        return toAccountSettingsVO(requireUser(username), false);
+    }
+
+    @Override
+    @Transactional
+    public AccountSettingsVO updateAccountSettings(String username, AccountSettingsRequest request) {
+        SysUser user = requireUser(username);
+        boolean passwordChanged = StringUtils.hasText(request.getNewPassword());
+        if (passwordChanged) {
+            if (!StringUtils.hasText(request.getCurrentPassword())) {
+                throw new IllegalArgumentException("修改密码时必须输入当前密码");
+            }
+            if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+                throw new IllegalArgumentException("当前密码不正确");
+            }
+            if (request.getNewPassword().length() < 6) {
+                throw new IllegalArgumentException("新密码不能少于 6 个字符");
+            }
+            if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+                throw new IllegalArgumentException("新密码不能与当前密码相同");
+            }
+            user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        }
+        user.setPhone(normalizeOptional(request.getPhone()));
+        user.setEmail(normalizeOptional(request.getEmail()));
+        user.setUpdatedAt(LocalDateTime.now());
+        sysUserMapper.updateById(user);
+        auditLogService.record("UPDATE", "ACCOUNT_SETTINGS", "SYS_USER", String.valueOf(user.getId()),
+                Map.of("username", user.getUsername(), "passwordChanged", passwordChanged));
+        return toAccountSettingsVO(user, passwordChanged);
     }
 
     @Override
@@ -217,6 +253,25 @@ public class UserServiceImpl implements UserService {
         SysUser user = sysUserMapper.selectById(id);
         if (user == null) throw new IllegalArgumentException("用户不存在");
         return user;
+    }
+
+    private SysUser requireUser(String username) {
+        SysUser user = sysUserMapper.selectOne(new QueryWrapper<SysUser>().eq("username", username));
+        if (user == null) throw new IllegalArgumentException("用户不存在");
+        return user;
+    }
+
+    private String normalizeOptional(String value) {
+        return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private AccountSettingsVO toAccountSettingsVO(SysUser user, boolean passwordChanged) {
+        return AccountSettingsVO.builder()
+                .username(user.getUsername())
+                .phone(user.getPhone())
+                .email(user.getEmail())
+                .passwordChanged(passwordChanged)
+                .build();
     }
 
     private void protectBuiltInAdmin(SysUser user, UserUpsertRequest request) {

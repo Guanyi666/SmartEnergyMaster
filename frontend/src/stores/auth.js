@@ -30,6 +30,11 @@ export const useAuthStore = defineStore('auth', {
       this.user = null
       localStorage.removeItem(TOKEN_KEY)
       localStorage.removeItem(USER_KEY)
+    },
+    updateContactInfo({ phone, email }) {
+      if (!this.user) return
+      this.user = { ...this.user, phone, email }
+      localStorage.setItem(USER_KEY, JSON.stringify(this.user))
     }
   }
 })
