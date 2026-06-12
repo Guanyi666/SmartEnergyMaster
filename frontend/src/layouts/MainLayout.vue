@@ -66,19 +66,17 @@
           <span>经理决策仪表盘</span>
         </el-menu-item>
 
-        <el-menu-item v-if="canManageUsers" index="/admin/users">
+        <!-- v6 改造：人员管理合并（账号 + 维修人员），旧 /admin/users 和 /maintenance/personnel 都跳此路由 -->
+        <el-menu-item v-if="canManagePeople" index="/admin/people">
           <el-icon><UserFilled /></el-icon>
-          <span>人员身份管理</span>
+          <span>人员管理</span>
         </el-menu-item>
 
-        <el-sub-menu v-if="canDispatchMaintenance" index="maintenance-sub">
-          <template #title>
-            <el-icon><User /></el-icon>
-            <span>人员调度</span>
-          </template>
-          <el-menu-item index="/maintenance/personnel">维修人员</el-menu-item>
-          <el-menu-item index="/maintenance/dispatch">智能调度</el-menu-item>
-        </el-sub-menu>
+        <!-- v6 改造：人员调度只剩"智能调度"（维修人员名单已合并到 /admin/people） -->
+        <el-menu-item v-if="canDispatchMaintenance" index="/maintenance/dispatch">
+          <el-icon><Tickets /></el-icon>
+          <span>智能调度</span>
+        </el-menu-item>
 
         <el-menu-item v-if="isAdmin" index="/admin/config">
           <el-icon><Operation /></el-icon>
@@ -111,7 +109,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, shallowRef } from 'vue'
+import { computed, onMounted, onBeforeUnmount, shallowRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Monitor, TrendCharts, Setting, Reading, Box, Tools, User, Tickets, Calendar, DataAnalysis, UserFilled, Operation, DocumentChecked, Switch } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth'
@@ -137,7 +135,8 @@ const canManageDevices = computed(() => ['OPERATOR', 'DEVICE_MANAGER', 'ADMIN'].
 const canCreateOrders = computed(() => ['OPERATOR', 'DEVICE_MANAGER', 'ADMIN'].includes(role.value))
 const canSchedule = computed(() => ['OPERATOR', 'MANAGER', 'ADMIN'].includes(role.value))
 const canViewAdmin = computed(() => ['MANAGER', 'ADMIN'].includes(role.value))
-const canManageUsers = computed(() => ['HR_MANAGER', 'ADMIN'].includes(role.value))
+const canManageUsers = computed(() => ['HR_MANAGER', 'ADMIN'].includes(role.value))   // 旧：人员身份管理菜单
+const canManagePeople = computed(() => ['HR_MANAGER', 'DEVICE_MANAGER', 'MANAGER', 'ADMIN'].includes(role.value))   // v6：人员管理（合并）
 const canDispatchMaintenance = computed(() => ['DEVICE_MANAGER', 'MANAGER', 'ADMIN'].includes(role.value))
 const alerts = shallowRef([])
 const loadAlerts = async () => { alerts.value = await getActiveAlerts(8) }
@@ -160,7 +159,28 @@ const logout = async () => {
   router.push('/login')
 }
 
-onMounted(startAlertPolling)
+// v5 改造：监听 beforeunload，关闭页面/刷新/关闭 tab 时自动 logout
+// 用 sendBeacon 而不是 fetch：sendBeacon 不会阻塞页面关闭，请求能可靠发出
+// 注意：sendBeacon 不能设 Authorization header，所以后端 logout 同时支持从 body 取 token+username
+const handleBeforeUnload = () => {
+  if (auth.token && auth.user?.username) {
+    try {
+      const payload = JSON.stringify({ token: auth.token, username: auth.user.username })
+      const blob = new Blob([payload], { type: 'application/json' })
+      navigator.sendBeacon('/api/auth/logout', blob)
+    } catch (e) {
+      // 静默失败：关闭页面时不打扰用户
+    }
+  }
+}
+
+onMounted(() => {
+  startAlertPolling()
+  window.addEventListener('beforeunload', handleBeforeUnload)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload)
+})
 </script>
 
 <style scoped>

@@ -3,6 +3,8 @@ package com.smartenergy.backend.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.smartenergy.backend.entity.WorkOrder;
 import com.smartenergy.backend.entity.MaintenancePersonnel;
+import com.smartenergy.backend.entity.MaintenancePersonnelArchive;
+import com.smartenergy.backend.mapper.MaintenancePersonnelArchiveMapper;
 import com.smartenergy.backend.mapper.WorkOrderMapper;
 import com.smartenergy.backend.mapper.MaintenancePersonnelMapper;
 import com.smartenergy.backend.service.DispatchDashboardService;
@@ -30,6 +32,7 @@ import java.util.Map;
 public class DispatchDashboardServiceImpl implements DispatchDashboardService {
 
     private final MaintenancePersonnelMapper personnelMapper;
+    private final MaintenancePersonnelArchiveMapper archiveMapper;
     private final WorkOrderMapper workOrderMapper;
     private final MaintenancePersonnelService personnelService;
     private final JdbcTemplate jdbcTemplate;
@@ -77,7 +80,11 @@ public class DispatchDashboardServiceImpl implements DispatchDashboardService {
             List<MaintenancePersonnel> allOnDuty = personnelMapper.selectList(
                     new QueryWrapper<MaintenancePersonnel>().eq("is_on_duty", true));
             for (MaintenancePersonnel p : allOnDuty) {
-                List<String> skills = parseSpecializations(p.getSpecializations());
+                // v4: specializations 在 maintenance_personnel 表
+                MaintenancePersonnelArchive archive = archiveMapper.selectOne(
+                        new QueryWrapper<MaintenancePersonnelArchive>().eq("employee_no", p.getEmployeeNo()));
+                String specsJson = archive == null ? null : archive.getSpecializations();
+                List<String> skills = parseSpecializations(specsJson);
                 for (String s : skills) {
                     skillCoverage.merge(s, 1L, Long::sum);
                 }
@@ -104,10 +111,11 @@ public class DispatchDashboardServiceImpl implements DispatchDashboardService {
     public DispatchBoardVO board() {
         DispatchBoardVO vo = new DispatchBoardVO();
 
-        // 查所有在岗人员
+        // 查所有在岗人员（v4 改造后 skill_level 已不在 workorder_maintenance_personnel，
+        // 这里只按 employee_no 排，技能等级排序在应用层按 KNOWN_SKILLS 顺序分组自然实现）
         List<MaintenancePersonnel> all = personnelMapper.selectList(
                 new QueryWrapper<MaintenancePersonnel>().eq("is_on_duty", true)
-                        .orderByAsc("skill_level", "employee_no"));
+                        .orderByAsc("employee_no"));
 
         // 按技能分组
         Map<String, List<MaintenancePersonnel>> grouped = new LinkedHashMap<>();
@@ -115,8 +123,11 @@ public class DispatchDashboardServiceImpl implements DispatchDashboardService {
             grouped.put(skill, new ArrayList<>());
         }
         for (MaintenancePersonnel p : all) {
-            // specializations 现在是 String JSON，应用层解析
-            List<String> skills = parseSpecializations(p.getSpecializations());
+            // v4: 从 archive 读 specializations
+            MaintenancePersonnelArchive archive = archiveMapper.selectOne(
+                    new QueryWrapper<MaintenancePersonnelArchive>().eq("employee_no", p.getEmployeeNo()));
+            String specsJson = archive == null ? null : archive.getSpecializations();
+            List<String> skills = parseSpecializations(specsJson);
             for (String s : skills) {
                 grouped.computeIfAbsent(s, k -> new ArrayList<>()).add(p);
             }

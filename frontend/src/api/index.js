@@ -20,6 +20,7 @@ export const getWorkOrders = (status) => request.get('/work-orders', { params: {
 export const updateWorkOrderStatus = (id, payload) => request.patch(`/work-orders/${id}/status`, payload)
 export const getActiveAlerts = (limit = 5) => request.get('/work-orders/active-alerts', { params: { limit } })
 export const listUsers = (params) => request.get('/users', { params })
+export const listUsersWithPersonnel = (params) => request.get('/users/with-personnel', { params })
 export const createUser = (payload) => request.post('/users', payload)
 export const updateUser = (id, payload) => request.put(`/users/${id}`, payload)
 export const updateUserStatus = (id, status) => request.patch(`/users/${id}/status`, null, { params: { status } })

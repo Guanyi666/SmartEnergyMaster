@@ -84,10 +84,11 @@ const router = createRouter({
           meta: { roles: ['OPERATOR', 'DEVICE_MANAGER', 'ADMIN'] }
         },
         {
-          path: '/maintenance/personnel',
-          name: 'maintenance-personnel',
-          component: () => import('../views/PersonnelView.vue'),
-          meta: { roles: ['DEVICE_MANAGER', 'ADMIN', 'MANAGER'] }
+          // v6 改造：人员管理合并到统一路由（兼容旧 /admin/users 和 /maintenance/personnel）
+          path: '/admin/people',
+          name: 'people',
+          component: () => import('../views/PeopleManagementView.vue'),
+          meta: { roles: ['HR_MANAGER', 'DEVICE_MANAGER', 'MANAGER', 'ADMIN'] }
         },
         {
           path: '/maintenance/dispatch',
@@ -108,10 +109,14 @@ const router = createRouter({
           meta: { roles: ['MANAGER', 'ADMIN'] }
         },
         {
+          // v6 改造：保留旧 URL 兼容，都跳到新页面
           path: '/admin/users',
-          name: 'users',
-          component: () => import('../views/UsersView.vue'),
-          meta: { roles: ['HR_MANAGER', 'ADMIN'] }
+          redirect: '/admin/people'
+        },
+        {
+          // v6 改造：保留旧 URL 兼容
+          path: '/maintenance/personnel',
+          redirect: '/admin/people'
         },
         {
           path: '/admin/config',

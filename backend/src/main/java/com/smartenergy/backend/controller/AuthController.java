@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestHeader;
 import java.security.Principal;
+import java.util.Map;
 
 @RestController
 @RequestMapping("api/auth")
@@ -32,14 +33,29 @@ public class AuthController {
         return ResponseEntity.ok(userService.login(loginRequest));
     }
 
+    /**
+     * v5 改造：logout 同时支持从 Authorization header 和 body 取 token。
+     * - 原因：前端 beforeunload 配合 navigator.sendBeacon 调 logout，
+     *   sendBeacon 无法设 Authorization header，所以需要从 body 传 token + username
+     */
     @PostMapping("/logout")
     @Operation(summary = "退出登录", description = "释放当前账号的在线会话")
     public ResponseEntity<String> logout(
             Principal principal,
-            @RequestHeader(value = "Authorization", required = false) String authorization) {
-        String token = authorization != null && authorization.startsWith("Bearer ")
-                ? authorization.substring(7) : "";
-        userService.logout(principal == null ? null : principal.getName(), token);
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody(required = false) Map<String, String> body) {
+        String token = null;
+        if (authorization != null && authorization.startsWith("Bearer ")) {
+            token = authorization.substring(7);
+        } else if (body != null && body.get("token") != null) {
+            token = body.get("token");
+        }
+        // username：优先用 Principal（来自 SecurityContext 鉴权），fallback 到 body
+        String username = principal != null ? principal.getName() : null;
+        if (username == null && body != null) {
+            username = body.get("username");
+        }
+        userService.logout(username, token);
         return ResponseEntity.ok("退出成功");
     }
 }

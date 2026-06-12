@@ -1,15 +1,13 @@
 package com.smartenergy.backend.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartenergy.backend.dto.SparePartCreateRequest;
 import com.smartenergy.backend.dto.SparePartUsageRequest;
-import com.smartenergy.backend.entity.MaintenanceSOP;
+import com.smartenergy.backend.entity.MaintenanceSOPRequiredPart;
 import com.smartenergy.backend.entity.SparePart;
 import com.smartenergy.backend.entity.SparePartUsage;
 import com.smartenergy.backend.entity.WorkOrder;
-import com.smartenergy.backend.mapper.MaintenanceSOPMapper;
+import com.smartenergy.backend.mapper.MaintenanceSOPRequiredPartMapper;
 import com.smartenergy.backend.mapper.SparePartMapper;
 import com.smartenergy.backend.mapper.SparePartUsageMapper;
 import com.smartenergy.backend.mapper.WorkOrderMapper;
@@ -18,6 +16,8 @@ import com.smartenergy.backend.vo.SparePartUsageVO;
 import com.smartenergy.backend.vo.SparePartVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -26,6 +26,12 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * v4 改造：
+ * - spare_part_usage 不再写 createdAt（v3 死字段已删）
+ * - SOP 备件清单改读子表 maintenance_sop_required_part
+ * - I 修复：spare_part_usage 写 user_id（从 auth name 推断 sys_user.id）
+ */
 @Service
 @RequiredArgsConstructor
 public class SparePartServiceImpl implements SparePartService {
@@ -33,8 +39,7 @@ public class SparePartServiceImpl implements SparePartService {
     private final SparePartMapper partMapper;
     private final SparePartUsageMapper usageMapper;
     private final WorkOrderMapper workOrderMapper;
-    private final MaintenanceSOPMapper sopMapper;
-    private final ObjectMapper objectMapper;
+    private final MaintenanceSOPRequiredPartMapper sopRequiredPartMapper;
 
     @Override
     public List<SparePartVO> listParts(String keyword, Boolean lowStockOnly) {
@@ -117,7 +122,7 @@ public class SparePartServiceImpl implements SparePartService {
         }
         part = requirePart(part.getId());
 
-        // 写领用记录
+        // 写领用记录（v4: 删 setCreatedAt, 加 userId）
         SparePartUsage usage = new SparePartUsage();
         usage.setPartId(request.getPartId());
         usage.setWorkOrderId(request.getWorkOrderId());
@@ -125,7 +130,6 @@ public class SparePartServiceImpl implements SparePartService {
         usage.setUserName(request.getUserName());
         usage.setNote(request.getNote());
         usage.setUsedAt(now);
-        usage.setCreatedAt(now);
         usageMapper.insert(usage);
 
         return toUsageVO(usage, part);
@@ -175,24 +179,18 @@ public class SparePartServiceImpl implements SparePartService {
         if (workOrder == null || workOrder.getSopId() == null) {
             return List.of();
         }
-        MaintenanceSOP sop = sopMapper.selectById(workOrder.getSopId());
-        if (sop == null || !StringUtils.hasText(sop.getRequiredParts()) || "[]".equals(sop.getRequiredParts())) {
-            return List.of();
-        }
-        List<String> partCodes;
-        try {
-            partCodes = objectMapper.readValue(sop.getRequiredParts(), new TypeReference<List<String>>() {});
-        } catch (Exception e) {
-            return List.of();
-        }
-        if (partCodes == null || partCodes.isEmpty()) {
+        // v4: 从 maintenance_sop_required_part 子表读所需备件
+        List<MaintenanceSOPRequiredPart> requiredParts = sopRequiredPartMapper.selectList(
+                new QueryWrapper<MaintenanceSOPRequiredPart>().eq("sop_id", workOrder.getSopId()));
+        if (requiredParts == null || requiredParts.isEmpty()) {
             return List.of();
         }
 
         List<SparePartUsageVO> deducted = new ArrayList<>();
         List<String> missing = new ArrayList<>();
         LocalDateTime now = LocalDateTime.now();
-        for (String code : partCodes) {
+        for (MaintenanceSOPRequiredPart req : requiredParts) {
+            String code = req.getPartCode();
             if (!StringUtils.hasText(code)) continue;
             String trimmed = code.trim();
             SparePart part = partMapper.selectOne(new QueryWrapper<SparePart>().eq("part_code", trimmed));
@@ -219,9 +217,8 @@ public class SparePartServiceImpl implements SparePartService {
             usage.setWorkOrderId(workOrder.getId());
             usage.setQuantity(1);
             usage.setUserName("SOP自动");
-            usage.setNote("工单闭环关联 SOP " + sop.getSopCode() + " 触发自动扣减");
+            usage.setNote("工单闭环关联 SOP " + req.getSopId() + " 触发自动扣减");
             usage.setUsedAt(now);
-            usage.setCreatedAt(now);
             usageMapper.insert(usage);
 
             deducted.add(toUsageVO(usage, part));

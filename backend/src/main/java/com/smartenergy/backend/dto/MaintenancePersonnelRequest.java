@@ -48,4 +48,7 @@ public class MaintenancePersonnelRequest {
     @Min(value = 1, message = "max_workload 至少为 1")
     @Schema(description = "最大并行处理数", example = "5")
     private Integer maxWorkload;
+
+    @Schema(description = "关联 sys_user.id（v4 新增，可空）")
+    private Integer userId;
 }

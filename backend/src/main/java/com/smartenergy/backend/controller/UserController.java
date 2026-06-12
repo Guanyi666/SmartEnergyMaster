@@ -4,6 +4,7 @@ import com.smartenergy.backend.dto.UserUpsertRequest;
 import com.smartenergy.backend.service.UserService;
 import com.smartenergy.backend.vo.PageVO;
 import com.smartenergy.backend.vo.UserVO;
+import com.smartenergy.backend.vo.UserWithPersonnelVO;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,23 @@ public class UserController {
                                @RequestParam(required = false) String department,
                                @RequestParam(required = false) String status) {
         return userService.listUsers(page, size, keyword, role, department, status);
+    }
+
+    /**
+     * v6 改造：人员管理合并列表
+     * 权限：HR_MANAGER / DEVICE_MANAGER / MANAGER / ADMIN（v6 决策：取并集）
+     */
+    @GetMapping("/with-personnel")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'HR_MANAGER', 'DEVICE_MANAGER', 'MANAGER')")
+    public PageVO<UserWithPersonnelVO> listWithPersonnel(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String role,
+            @RequestParam(required = false) String department,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Boolean isMaintenance) {
+        return userService.listUsersWithPersonnel(page, size, keyword, role, department, status, isMaintenance);
     }
 
     @PostMapping

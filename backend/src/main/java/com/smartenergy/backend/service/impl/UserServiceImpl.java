@@ -8,12 +8,14 @@ import com.smartenergy.backend.dto.LoginRequest;
 import com.smartenergy.backend.dto.UserUpsertRequest;
 import com.smartenergy.backend.entity.SysUser;
 import com.smartenergy.backend.mapper.SysUserMapper;
+import com.smartenergy.backend.mapper.UserWithPersonnelMapper;
 import com.smartenergy.backend.service.AuditLogService;
 import com.smartenergy.backend.service.LoginSessionService;
 import com.smartenergy.backend.service.UserService;
 import com.smartenergy.backend.vo.LoginVO;
 import com.smartenergy.backend.vo.PageVO;
 import com.smartenergy.backend.vo.UserVO;
+import com.smartenergy.backend.vo.UserWithPersonnelVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -25,12 +27,17 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
     private final SysUserMapper sysUserMapper;
+    private final UserWithPersonnelMapper userWithPersonnelMapper;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtConfig jwtConfig;
@@ -180,6 +187,116 @@ public class UserServiceImpl implements UserService {
     private UserVO toVO(SysUser user) {
         UserVO vo = new UserVO();
         BeanUtils.copyProperties(user, vo);
+        return vo;
+    }
+
+    /**
+     * v6: 人员管理合并列表
+     * 流程：1) 查 sys_user（分页+筛选）→ 2) 批量查 maintenance_personnel + workorder_maintenance_personnel → 3) 组装 VO
+     */
+    @Override
+    public PageVO<UserWithPersonnelVO> listUsersWithPersonnel(int page, int size, String keyword,
+                                                              String role, String department, String status,
+                                                              Boolean isMaintenance) {
+        Page<SysUser> pageReq = new Page<>(Math.max(1, page), Math.min(Math.max(1, size), 100));
+        QueryWrapper<SysUser> wrapper = new QueryWrapper<>();
+        if (StringUtils.hasText(keyword)) {
+            wrapper.and(w -> w.like("username", keyword).or().like("nickname", keyword)
+                    .or().like("phone", keyword).or().like("email", keyword));
+        }
+        if (StringUtils.hasText(role)) wrapper.eq("role", role);
+        if (StringUtils.hasText(department)) wrapper.eq("department", department);
+        if (StringUtils.hasText(status)) wrapper.eq("status", status);
+        wrapper.orderByDesc("created_at");
+
+        Page<SysUser> result = sysUserMapper.selectPage(pageReq, wrapper);
+        List<SysUser> users = result.getRecords();
+        if (users.isEmpty()) {
+            PageVO<UserWithPersonnelVO> vo = new PageVO<>();
+            vo.setPage((int) result.getCurrent());
+            vo.setSize((int) result.getSize());
+            vo.setTotal(result.getTotal());
+            vo.setRecords(List.of());
+            return vo;
+        }
+
+        // 批量查档案和排班
+        List<Integer> userIds = users.stream().map(SysUser::getId).toList();
+        Map<Integer, Map<String, Object>> archiveMap = userWithPersonnelMapper
+                .selectArchivesByUserIds(userIds).stream()
+                .collect(Collectors.toMap(
+                        m -> ((Number) m.get("user_id")).intValue(),
+                        m -> m,
+                        (a, b) -> a));
+        Map<Integer, Map<String, Object>> scheduleMap = userWithPersonnelMapper
+                .selectSchedulesByUserIds(userIds).stream()
+                .collect(Collectors.toMap(
+                        m -> ((Number) m.get("user_id")).intValue(),
+                        m -> m,
+                        (a, b) -> a));
+
+        // 组装 VO
+        List<UserWithPersonnelVO> records = users.stream().map(user -> {
+            UserWithPersonnelVO vo = new UserWithPersonnelVO();
+            // sys_user 字段
+            vo.setId(user.getId());
+            vo.setUsername(user.getUsername());
+            vo.setNickname(user.getNickname());
+            vo.setRole(user.getRole());
+            vo.setDepartment(user.getDepartment());
+            vo.setPhone(user.getPhone());
+            vo.setEmail(user.getEmail());
+            vo.setStatus(user.getStatus());
+            vo.setLastLoginAt(user.getLastLoginAt());
+            vo.setCreatedAt(user.getCreatedAt());
+
+            // 档案
+            Map<String, Object> archive = archiveMap.get(user.getId());
+            if (archive != null) {
+                vo.setEmployeeNo((String) archive.get("employee_no"));
+                vo.setArchiveName((String) archive.get("name"));
+                vo.setArchivePhone((String) archive.get("phone"));
+                vo.setArchiveEmail((String) archive.get("email"));
+                vo.setSpecializations((String) archive.get("specializations"));
+                vo.setSkillLevel((String) archive.get("skill_level"));
+                vo.setCertification((String) archive.get("certification"));
+            }
+
+            // 排班
+            Map<String, Object> schedule = scheduleMap.get(user.getId());
+            if (schedule != null) {
+                vo.setAvatarColor((String) schedule.get("avatar_color"));
+                Object cw = schedule.get("current_workload");
+                Object mw = schedule.get("max_workload");
+                vo.setCurrentWorkload(cw == null ? 0 : ((Number) cw).intValue());
+                vo.setMaxWorkload(mw == null ? 0 : ((Number) mw).intValue());
+                Object duty = schedule.get("is_on_duty");
+                vo.setIsOnDuty(duty == null ? Boolean.FALSE : (Boolean) duty);
+                // 计算负载率
+                if (vo.getMaxWorkload() != null && vo.getMaxWorkload() > 0
+                        && vo.getCurrentWorkload() != null) {
+                    int rate = (int) Math.round(vo.getCurrentWorkload() * 100.0 / vo.getMaxWorkload());
+                    vo.setWorkloadRate(rate);
+                } else {
+                    vo.setWorkloadRate(0);
+                }
+            }
+
+            // 标志：是否是维修人员
+            boolean isMaint = "MAINTENANCE_ENGINEER".equals(user.getRole())
+                    || archive != null
+                    || schedule != null;
+            vo.setIsMaintenance(isMaint);
+
+            return vo;
+        }).filter(vo -> isMaintenance == null || isMaintenance.equals(vo.getIsMaintenance()))
+                .collect(Collectors.toList());
+
+        PageVO<UserWithPersonnelVO> vo = new PageVO<>();
+        vo.setPage((int) result.getCurrent());
+        vo.setSize((int) result.getSize());
+        vo.setTotal(result.getTotal());
+        vo.setRecords(records);
         return vo;
     }
 }

@@ -4,21 +4,30 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
+/**
+ * 维修人员完整视图（v4 P0-1 新增）。
+ * Service 层通过两个 Mapper 分别查 workorder_maintenance_personnel 和 maintenance_personnel，
+ * 然后用 BeanUtils.copyProperties 组装到本 VO。
+ *
+ * 包含：
+ * - 排班业务字段（来自 MaintenancePersonnel）
+ * - 员工档案字段（来自 MaintenancePersonnelArchive）
+ */
 @Data
-@Schema(description = "维修人员档案响应 VO")
-public class MaintenancePersonnelVO {
+@Schema(description = "维修人员完整视图（双表 JOIN）")
+public class MaintenancePersonnelFullVO {
 
     @Schema(description = "主键 ID")
     private Long id;
 
-    @Schema(description = "关联 sys_user.id（v4 新增）")
+    @Schema(description = "关联 sys_user.id")
     private Integer userId;
 
     @Schema(description = "工号")
     private String employeeNo;
 
+    // ===== 来自 maintenance_personnel（员工档案）=====
     @Schema(description = "姓名")
     private String name;
 
@@ -28,17 +37,18 @@ public class MaintenancePersonnelVO {
     @Schema(description = "邮箱")
     private String email;
 
-    @Schema(description = "头像底色")
-    private String avatarColor;
-
-    @Schema(description = "技能标签数组")
-    private List<String> specializations;
+    @Schema(description = "技能标签 JSON 字符串", hidden = true)
+    private String specializations;
 
     @Schema(description = "技能等级")
     private String skillLevel;
 
     @Schema(description = "证书描述")
     private String certification;
+
+    // ===== 来自 workorder_maintenance_personnel（排班业务档案）=====
+    @Schema(description = "头像底色")
+    private String avatarColor;
 
     @Schema(description = "当前在处理工单数")
     private Integer currentWorkload;
@@ -48,9 +58,6 @@ public class MaintenancePersonnelVO {
 
     @Schema(description = "是否在岗")
     private Boolean isOnDuty;
-
-    @Schema(description = "负载率（百分比，已 *100 取整）", example = "60")
-    private Integer workloadRate;
 
     @Schema(description = "创建时间")
     private LocalDateTime createdAt;

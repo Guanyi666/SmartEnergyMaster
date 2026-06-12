@@ -7,8 +7,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartenergy.backend.dto.MaintenancePersonnelRequest;
 import com.smartenergy.backend.dto.PageQuery;
 import com.smartenergy.backend.entity.MaintenancePersonnel;
+import com.smartenergy.backend.entity.MaintenancePersonnelArchive;
+import com.smartenergy.backend.mapper.MaintenancePersonnelArchiveMapper;
 import com.smartenergy.backend.mapper.MaintenancePersonnelMapper;
 import com.smartenergy.backend.service.MaintenancePersonnelService;
+import com.smartenergy.backend.vo.MaintenancePersonnelFullVO;
 import com.smartenergy.backend.vo.MaintenancePersonnelVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +24,12 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * v4 改造：双 Mapper 模式（personnelMapper + personnelArchiveMapper）。
+ * - 排班字段（avatarColor/currentWorkload/maxWorkload/isOnDuty）走 workorder_maintenance_personnel
+ * - 员工档案字段（name/phone/email/specializations/skillLevel/certification）走 maintenance_personnel
+ * - 两者通过 user_id 关联 sys_user 形成完整视图
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -30,6 +39,7 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
     private static final TypeReference<List<String>> LIST_TYPE = new TypeReference<>() {};
 
     private final MaintenancePersonnelMapper personnelMapper;
+    private final MaintenancePersonnelArchiveMapper archiveMapper;
 
     @Override
     public Page<MaintenancePersonnelVO> list(PageQuery pageQuery, String specialization,
@@ -46,7 +56,6 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
         if (onDuty != null) {
             wrapper.eq("is_on_duty", onDuty);
         }
-        // specializations 是 JSONB，应用层做 contains 过滤（人员量 < 100 性能可接受）
         wrapper.orderByAsc("employee_no");
 
         Page<MaintenancePersonnel> result = personnelMapper.selectPage(page, wrapper);
@@ -83,20 +92,34 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
         if (exist != null && exist > 0) {
             throw new IllegalArgumentException("工号已存在: " + req.getEmployeeNo());
         }
+        LocalDateTime now = LocalDateTime.now();
+
+        // v4: 写排班表（workorder_maintenance_personnel）
         MaintenancePersonnel entity = new MaintenancePersonnel();
-        BeanUtils.copyProperties(req, entity);
-        if (!StringUtils.hasText(entity.getAvatarColor())) {
+        entity.setEmployeeNo(req.getEmployeeNo());
+        entity.setUserId(req.getUserId());
+        if (!StringUtils.hasText(req.getAvatarColor())) {
             entity.setAvatarColor("#52c8ff");
+        } else {
+            entity.setAvatarColor(req.getAvatarColor());
         }
-        entity.setSpecializations(serializeList(req.getSpecializations()));
         entity.setCurrentWorkload(0);
+        entity.setMaxWorkload(req.getMaxWorkload());
         if (entity.getIsOnDuty() == null) {
             entity.setIsOnDuty(true);
         }
-        entity.setCreatedAt(LocalDateTime.now());
-        entity.setUpdatedAt(LocalDateTime.now());
+        entity.setCreatedAt(now);
+        entity.setUpdatedAt(now);
         personnelMapper.insert(entity);
-        log.info("[Personnel] 创建: employeeNo={}, name={}", entity.getEmployeeNo(), entity.getName());
+
+        // v4: 同步写档案表（maintenance_personnel）
+        MaintenancePersonnelArchive archive = upsertArchiveByEmployeeNo(req.getEmployeeNo(),
+                req.getName(), req.getPhone(), req.getEmail(),
+                serializeList(req.getSpecializations()),
+                req.getSkillLevel(), req.getCertification(),
+                req.getUserId(), now);
+
+        log.info("[Personnel] 创建: employeeNo={}, name={}", entity.getEmployeeNo(), archive.getName());
         return toVO(entity);
     }
 
@@ -107,22 +130,29 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
         if (entity == null) {
             throw new IllegalArgumentException("人员不存在: id=" + id);
         }
+        LocalDateTime now = LocalDateTime.now();
+
         // employeeNo 不允许修改
-        entity.setName(req.getName());
-        entity.setPhone(req.getPhone());
-        entity.setEmail(req.getEmail());
         if (StringUtils.hasText(req.getAvatarColor())) {
             entity.setAvatarColor(req.getAvatarColor());
         }
-        if (req.getSpecializations() != null) {
-            entity.setSpecializations(serializeList(req.getSpecializations()));
+        if (req.getMaxWorkload() != null) {
+            entity.setMaxWorkload(req.getMaxWorkload());
         }
-        entity.setSkillLevel(req.getSkillLevel());
-        entity.setCertification(req.getCertification());
-        entity.setMaxWorkload(req.getMaxWorkload());
-        entity.setUpdatedAt(LocalDateTime.now());
+        if (req.getUserId() != null) {
+            entity.setUserId(req.getUserId());
+        }
+        entity.setUpdatedAt(now);
         personnelMapper.updateById(entity);
-        log.info("[Personnel] 更新: id={}, name={}", id, entity.getName());
+
+        // 同步写档案表
+        MaintenancePersonnelArchive archive = upsertArchiveByEmployeeNo(entity.getEmployeeNo(),
+                req.getName(), req.getPhone(), req.getEmail(),
+                serializeList(req.getSpecializations()),
+                req.getSkillLevel(), req.getCertification(),
+                req.getUserId(), now);
+
+        log.info("[Personnel] 更新: id={}, name={}", id, archive.getName());
         return toVO(entity);
     }
 
@@ -139,6 +169,7 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
             );
         }
         personnelMapper.deleteById(id);
+        // 注意：v4 不级联删除 archive（按 user_id 关联的档案独立维护）
         log.info("[Personnel] 删除: id={}, employeeNo={}", entity.getEmployeeNo());
     }
 
@@ -161,8 +192,18 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
         if (entity == null) return null;
         MaintenancePersonnelVO vo = new MaintenancePersonnelVO();
         BeanUtils.copyProperties(entity, vo);
-        // specializations 是 JSON 字符串，转换为 List<String> 供前端
-        vo.setSpecializations(parseList(entity.getSpecializations()));
+        // v4: 查 archive 补全员工档案字段
+        MaintenancePersonnelArchive archive = archiveMapper.selectOne(new QueryWrapper<MaintenancePersonnelArchive>()
+                .eq("employee_no", entity.getEmployeeNo()));
+        if (archive != null) {
+            vo.setName(archive.getName());
+            vo.setPhone(archive.getPhone());
+            vo.setEmail(archive.getEmail());
+            vo.setSpecializations(parseList(archive.getSpecializations()));
+            vo.setSkillLevel(archive.getSkillLevel());
+            vo.setCertification(archive.getCertification());
+            vo.setUserId(archive.getUserId());
+        }
         // 计算负载率
         if (entity.getMaxWorkload() != null && entity.getMaxWorkload() > 0
                 && entity.getCurrentWorkload() != null) {
@@ -174,6 +215,36 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
             vo.setWorkloadRate(0);
         }
         return vo;
+    }
+
+    /** 同步 upsert archive 表 */
+    private MaintenancePersonnelArchive upsertArchiveByEmployeeNo(String employeeNo, String name,
+                                                                  String phone, String email,
+                                                                  String specializations,
+                                                                  String skillLevel, String certification,
+                                                                  Integer userId, LocalDateTime now) {
+        if (!StringUtils.hasText(employeeNo)) return null;
+        MaintenancePersonnelArchive archive = archiveMapper.selectOne(new QueryWrapper<MaintenancePersonnelArchive>()
+                .eq("employee_no", employeeNo));
+        if (archive == null) {
+            archive = new MaintenancePersonnelArchive();
+            archive.setEmployeeNo(employeeNo);
+            archive.setCreatedAt(now);
+        }
+        if (StringUtils.hasText(name)) archive.setName(name);
+        if (phone != null) archive.setPhone(phone);
+        if (email != null) archive.setEmail(email);
+        if (specializations != null) archive.setSpecializations(specializations);
+        if (StringUtils.hasText(skillLevel)) archive.setSkillLevel(skillLevel);
+        if (certification != null) archive.setCertification(certification);
+        if (userId != null) archive.setUserId(userId);
+        archive.setUpdatedAt(now);
+        if (archive.getId() == null) {
+            archiveMapper.insert(archive);
+        } else {
+            archiveMapper.updateById(archive);
+        }
+        return archive;
     }
 
     // ===== JSON 辅助方法 =====

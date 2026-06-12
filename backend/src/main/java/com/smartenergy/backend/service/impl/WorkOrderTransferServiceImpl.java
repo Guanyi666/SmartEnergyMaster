@@ -6,10 +6,12 @@ import com.smartenergy.backend.dto.TransferRequestReviewRequest;
 import com.smartenergy.backend.dto.WorkOrderReplaceRequest;
 import com.smartenergy.backend.entity.Device;
 import com.smartenergy.backend.entity.MaintenancePersonnel;
+import com.smartenergy.backend.entity.MaintenancePersonnelArchive;
 import com.smartenergy.backend.entity.WorkOrder;
 import com.smartenergy.backend.entity.WorkOrderAssignment;
 import com.smartenergy.backend.entity.WorkOrderTransferRequest;
 import com.smartenergy.backend.mapper.DeviceMapper;
+import com.smartenergy.backend.mapper.MaintenancePersonnelArchiveMapper;
 import com.smartenergy.backend.mapper.MaintenancePersonnelMapper;
 import com.smartenergy.backend.mapper.WorkOrderAssignmentMapper;
 import com.smartenergy.backend.mapper.WorkOrderMapper;
@@ -36,6 +38,7 @@ public class WorkOrderTransferServiceImpl implements WorkOrderTransferService {
     private final WorkOrderMapper workOrderMapper;
     private final WorkOrderAssignmentMapper assignmentMapper;
     private final MaintenancePersonnelMapper personnelMapper;
+    private final MaintenancePersonnelArchiveMapper archiveMapper;
     private final DeviceMapper deviceMapper;
     private final WorkOrderAssignmentService assignmentService;
 
@@ -168,14 +171,22 @@ public class WorkOrderTransferServiceImpl implements WorkOrderTransferService {
         MaintenancePersonnel requester = personnelMapper.selectById(entity.getRequesterPersonnelId());
         if (requester != null) {
             vo.setRequesterEmployeeNo(requester.getEmployeeNo());
-            vo.setRequesterName(requester.getName());
+            vo.setRequesterName(nameOf(requester));
         }
         if (entity.getNewPersonnelId() != null) {
             MaintenancePersonnel newPersonnel = personnelMapper.selectById(entity.getNewPersonnelId());
             if (newPersonnel != null) {
-                vo.setNewPersonnelName(newPersonnel.getName());
+                vo.setNewPersonnelName(nameOf(newPersonnel));
             }
         }
         return vo;
+    }
+
+    /** v4: 从 archive 查人员姓名（personnel.getName() 已删） */
+    private String nameOf(MaintenancePersonnel p) {
+        if (p == null) return null;
+        MaintenancePersonnelArchive archive = archiveMapper.selectOne(
+                new QueryWrapper<MaintenancePersonnelArchive>().eq("employee_no", p.getEmployeeNo()));
+        return archive == null ? null : archive.getName();
     }
 }

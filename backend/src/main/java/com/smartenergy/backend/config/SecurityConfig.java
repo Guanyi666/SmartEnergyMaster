@@ -42,6 +42,8 @@ public class SecurityConfig {
                         .requestMatchers("/v3/api-docs/**", "/swagger-resources/**", "/webjars/**").permitAll()
                         // 仅登录接口允许匿名访问，账号由人事管理员或系统管理员创建
                         .requestMatchers("/api/auth/login").permitAll()
+                        // v5: logout 也允许匿名，因为 sendBeacon 不能设 Authorization header
+                        .requestMatchers("/api/auth/logout").permitAll()
                         .requestMatchers("/api/sensor/upload").permitAll()
                         .requestMatchers("/api/sensor/latest/**", "/api/sensor/history/**").permitAll()
                         // 🆕 合并 workorder-backend: 删除了 PATCH /api/work-orders/*/status 的 permitAll

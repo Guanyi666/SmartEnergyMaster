@@ -5,6 +5,7 @@ import com.smartenergy.backend.dto.UserUpsertRequest;
 import com.smartenergy.backend.vo.PageVO;
 import com.smartenergy.backend.vo.LoginVO;
 import com.smartenergy.backend.vo.UserVO;
+import com.smartenergy.backend.vo.UserWithPersonnelVO;
 
 /**
  * @author Duan Guanyi
@@ -30,4 +31,11 @@ public interface UserService {
     UserVO updateStatus(Integer id, String status);
 
     void deleteUser(Integer id);
+
+    /**
+     * v6: 人员管理合并列表（sys_user LEFT JOIN maintenance_personnel + workorder_maintenance_personnel）
+     */
+    PageVO<UserWithPersonnelVO> listUsersWithPersonnel(int page, int size, String keyword,
+                                                       String role, String department, String status,
+                                                       Boolean isMaintenance);
 }
