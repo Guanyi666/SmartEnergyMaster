@@ -32,8 +32,15 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void seedDefaultUser() {
-        boolean exists = sysUserMapper.exists(new QueryWrapper<SysUser>().eq("username", "admin"));
-        if (exists) {
+        SysUser existingAdmin = sysUserMapper.selectOne(new QueryWrapper<SysUser>().eq("username", "admin"));
+        if (existingAdmin != null) {
+            boolean needsRepair = !"ADMIN".equals(existingAdmin.getRole()) || !"ACTIVE".equals(existingAdmin.getStatus());
+            if (needsRepair) {
+                existingAdmin.setRole("ADMIN");
+                existingAdmin.setStatus("ACTIVE");
+                existingAdmin.setUpdatedAt(LocalDateTime.now());
+                sysUserMapper.updateById(existingAdmin);
+            }
             return;
         }
 
@@ -41,6 +48,9 @@ public class DataInitializer implements CommandLineRunner {
         admin.setUsername("admin");
         admin.setPassword(passwordEncoder.encode(defaultAdminPassword));
         admin.setRole("ADMIN");
+        admin.setStatus("ACTIVE");
+        admin.setCreatedAt(LocalDateTime.now());
+        admin.setUpdatedAt(LocalDateTime.now());
         sysUserMapper.insert(admin);
     }
 

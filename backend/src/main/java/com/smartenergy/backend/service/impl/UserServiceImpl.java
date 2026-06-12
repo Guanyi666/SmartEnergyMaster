@@ -19,7 +19,9 @@ import com.smartenergy.backend.vo.UserWithPersonnelVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -35,6 +37,9 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
+
+    private static final String BUILT_IN_ADMIN_USERNAME = "admin";
+    private static final String ADMIN_ROLE = "ADMIN";
 
     private final SysUserMapper sysUserMapper;
     private final UserWithPersonnelMapper userWithPersonnelMapper;
@@ -108,6 +113,10 @@ public class UserServiceImpl implements UserService {
         if (!StringUtils.hasText(request.getPassword())) {
             throw new IllegalArgumentException("新建用户必须设置初始密码");
         }
+        if (BUILT_IN_ADMIN_USERNAME.equalsIgnoreCase(request.getUsername().trim())) {
+            throw new IllegalArgumentException("用户名 admin 为内置管理员保留");
+        }
+        requireAdminForAdminRoleChange(null, request.getRole());
         if (sysUserMapper.exists(new QueryWrapper<SysUser>().eq("username", request.getUsername()))) {
             throw new IllegalArgumentException("用户名已存在");
         }
@@ -127,6 +136,8 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public UserVO updateUser(Integer id, UserUpsertRequest request) {
         SysUser user = requireUser(id);
+        protectBuiltInAdmin(user, request);
+        requireAdminForAdminRoleChange(user.getRole(), request.getRole());
         if (!user.getUsername().equals(request.getUsername())
                 && sysUserMapper.exists(new QueryWrapper<SysUser>().eq("username", request.getUsername()).ne("id", id))) {
             throw new IllegalArgumentException("用户名已存在");
@@ -149,6 +160,10 @@ public class UserServiceImpl implements UserService {
             throw new IllegalArgumentException("状态仅支持 ACTIVE 或 DISABLED");
         }
         SysUser user = requireUser(id);
+        if (isBuiltInAdmin(user) && !"ACTIVE".equals(status)) {
+            throw new IllegalArgumentException("内置管理员 admin 必须保持启用状态");
+        }
+        requireAdminForAdminRoleChange(user.getRole(), user.getRole());
         user.setStatus(status);
         user.setUpdatedAt(LocalDateTime.now());
         sysUserMapper.updateById(user);
@@ -161,9 +176,13 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public void deleteUser(Integer id) {
         SysUser user = requireUser(id);
-        if ("admin".equalsIgnoreCase(user.getUsername())) {
+        if (isBuiltInAdmin(user)) {
             throw new IllegalArgumentException("不能删除内置管理员账号");
         }
+        if (user.getUsername().equalsIgnoreCase(currentUsername())) {
+            throw new IllegalArgumentException("不能删除当前登录账号");
+        }
+        requireAdminForAdminRoleChange(user.getRole(), null);
         sysUserMapper.deleteById(id);
         auditLogService.record("DELETE", "USER", "SYS_USER", String.valueOf(id),
                 java.util.Map.of("username", user.getUsername()));
@@ -173,6 +192,42 @@ public class UserServiceImpl implements UserService {
         SysUser user = sysUserMapper.selectById(id);
         if (user == null) throw new IllegalArgumentException("用户不存在");
         return user;
+    }
+
+    private void protectBuiltInAdmin(SysUser user, UserUpsertRequest request) {
+        if (!isBuiltInAdmin(user)) {
+            if (BUILT_IN_ADMIN_USERNAME.equalsIgnoreCase(request.getUsername().trim())) {
+                throw new IllegalArgumentException("用户名 admin 为内置管理员保留");
+            }
+            return;
+        }
+        if (!BUILT_IN_ADMIN_USERNAME.equalsIgnoreCase(request.getUsername().trim())) {
+            throw new IllegalArgumentException("内置管理员 admin 不能修改用户名");
+        }
+        if (!ADMIN_ROLE.equals(request.getRole())) {
+            throw new IllegalArgumentException("内置管理员 admin 永远只能是系统管理员");
+        }
+    }
+
+    private void requireAdminForAdminRoleChange(String oldRole, String newRole) {
+        if ((ADMIN_ROLE.equals(oldRole) || ADMIN_ROLE.equals(newRole)) && !currentUserIsAdmin()) {
+            throw new AccessDeniedException("只有系统管理员可以授予或修改系统管理员身份");
+        }
+    }
+
+    private boolean isBuiltInAdmin(SysUser user) {
+        return BUILT_IN_ADMIN_USERNAME.equalsIgnoreCase(user.getUsername());
+    }
+
+    private boolean currentUserIsAdmin() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(authority -> ADMIN_ROLE.equals(authority.getAuthority()));
+    }
+
+    private String currentUsername() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication == null ? "" : authentication.getName();
     }
 
     private void copyEditableFields(UserUpsertRequest request, SysUser user) {

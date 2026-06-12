@@ -43,7 +43,7 @@
     </el-card>
 
     <el-card shadow="never">
-      <el-table v-loading="loading" :data="rows" stripe border>
+      <el-table v-loading="loading" class="people-table" :data="rows" stripe border>
         <!-- 账号信息 -->
         <el-table-column label="账号" prop="username" min-width="110" />
         <el-table-column label="姓名" prop="nickname" min-width="100" />
@@ -120,7 +120,7 @@
                   <el-dropdown-item v-if="row.isMaintenance" @click="onToggleDuty(row)">
                     切换在岗
                   </el-dropdown-item>
-                  <el-dropdown-item divided @click="onDelete(row)">
+                  <el-dropdown-item v-if="!isBuiltInAdmin(row)" divided @click="onDelete(row)">
                     <span style="color: #f56c6c">删除</span>
                   </el-dropdown-item>
                 </el-dropdown-menu>
@@ -159,9 +159,12 @@
             <el-input v-model="form.nickname" />
           </el-form-item>
           <el-form-item label="角色" required>
-            <el-select v-model="form.role" style="width: 100%">
+            <el-select v-model="form.role" :disabled="isEditingBuiltInAdmin" style="width: 100%">
               <el-option v-for="[v, l] in roles" :key="v" :label="l" :value="v" />
             </el-select>
+            <div v-if="isEditingBuiltInAdmin" class="admin-protection-tip">
+              内置管理员 admin 永远只能是系统管理员，且不能被删除。
+            </div>
           </el-form-item>
           <el-form-item label="部门">
             <el-input v-model="form.department" />
@@ -217,7 +220,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, shallowRef } from 'vue'
+import { computed, onMounted, reactive, shallowRef } from 'vue'
 import { ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { createUser, deleteUser, listUsersWithPersonnel, updateUser } from '../api'
@@ -239,6 +242,8 @@ const form = reactive({
   maxWorkload: 5
 })
 const skillOptions = ['电气', '机械', '液压', '仪表', '自动化']
+const isBuiltInAdmin = (user) => user?.username?.toLowerCase() === 'admin'
+const isEditingBuiltInAdmin = computed(() => form.username.toLowerCase() === 'admin' && editingId.value != null)
 
 const resetForm = () => {
   Object.assign(form, {
@@ -278,6 +283,7 @@ const onSubmit = async () => {
   if (!editingId.value && !form.password) return ElMessage.warning('请输入密码')
   if (!form.nickname) return ElMessage.warning('请输入姓名')
   if (!form.role) return ElMessage.warning('请选择角色')
+  if (isEditingBuiltInAdmin.value) form.role = 'ADMIN'
   submitting.value = true
   try {
     const payload = {
@@ -305,6 +311,7 @@ const onSubmit = async () => {
   }
 }
 const onDelete = async (row) => {
+  if (isBuiltInAdmin(row)) return ElMessage.warning('内置管理员 admin 不能被删除')
   try {
     await ElMessageBox.confirm(`确认删除 ${row.username}？此操作不可恢复`, '删除确认', { type: 'warning' })
     await deleteUser(row.id)
@@ -374,15 +381,47 @@ onMounted(load)
 <style scoped>
 .page-shell { display: flex; flex-direction: column; gap: 16px; }
 .page-header { padding: 4px 4px 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
-.page-title { margin: 0; font-size: 22px; font-weight: 600; color: #303133; }
-.page-subtitle { margin: 4px 0 0; color: #606266; font-size: 13px; }
-.filter-bar { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(8px); }
-/* v6.1: 修浅色字看不清 —— 改用 Element Plus 的 primary/regular 文字色（深） */
-.empty-cell { color: #606266; font-style: italic; font-weight: 400; }
-.value-text { color: #303133; font-weight: 600; }
-.muted { color: #606266; }
+.page-title { margin: 0; font-size: 22px; font-weight: 600; color: var(--text-primary); }
+.page-subtitle { margin: 4px 0 0; color: var(--text-secondary); font-size: 13px; }
+.filter-bar { background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(8px); }
+
+.people-table {
+  --el-table-bg-color: rgba(15, 23, 42, 0.88);
+  --el-table-tr-bg-color: rgba(15, 23, 42, 0.88);
+  --el-table-header-bg-color: rgba(15, 23, 42, 0.96);
+  --el-table-row-hover-bg-color: rgba(30, 41, 59, 0.96);
+  --el-fill-color-lighter: rgba(30, 41, 59, 0.82);
+  --el-table-border-color: rgba(148, 163, 184, 0.24);
+  color: var(--text-primary);
+}
+
+:deep(.people-table .el-table__inner-wrapper),
+:deep(.people-table .el-table__body-wrapper),
+:deep(.people-table tr),
+:deep(.people-table td.el-table__cell) {
+  background-color: rgba(15, 23, 42, 0.88) !important;
+  color: var(--text-primary);
+}
+
+:deep(.people-table th.el-table__cell) {
+  background-color: rgba(15, 23, 42, 0.96) !important;
+  color: #cbd5e1;
+}
+
+:deep(.people-table.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell) {
+  background-color: rgba(30, 41, 59, 0.82) !important;
+}
+
+:deep(.people-table .el-table__body tr:hover > td.el-table__cell) {
+  background-color: rgba(51, 65, 85, 0.92) !important;
+}
+
+.empty-cell { color: var(--text-secondary); font-style: italic; font-weight: 400; }
+.value-text { color: var(--text-primary); font-weight: 600; }
+.muted { color: var(--text-secondary); }
+.admin-protection-tip { margin-top: 6px; color: var(--accent-orange); font-size: 12px; }
 .form-section {
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--panel-border);
   border-radius: 6px;
   padding: 16px 20px 4px;
   margin-bottom: 16px;
@@ -390,7 +429,7 @@ onMounted(load)
 .form-section legend {
   font-size: 14px;
   font-weight: 600;
-  color: #303133;
+  color: var(--text-primary);
   padding: 0 8px;
 }
 </style>
