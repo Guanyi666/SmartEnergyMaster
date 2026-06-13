@@ -50,6 +50,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import { post } from '@/utils/request'
 
 const username = ref('')
 const password = ref('')
@@ -67,19 +68,29 @@ const handleLogin = () => {
 
   loading.value = true
 
-  // Mock login — replace with real API call
-  setTimeout(() => {
-    uni.setStorageSync('token', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.smart-energy-mock-token')
-    uni.setStorageSync('userInfo', JSON.stringify({
-      name: '张工',
-      employeeNo: username.value,
-      role: 'MAINTENANCE',
-      roleName: '运维工程师',
-    }))
-
-    loading.value = false
-    uni.reLaunch({ url: '/pages/index/index' })
-  }, 800)
+  post('/auth/login', {
+    username: username.value.trim(),
+    password: password.value,
+  })
+    .then((data) => {
+      uni.setStorageSync('token', data.token)
+      uni.setStorageSync(
+        'userInfo',
+        JSON.stringify({
+          name: data.username,
+          employeeNo: data.username,
+          role: data.role,
+          roleName: data.role === 'ADMIN' ? '系统管理员' : '运维工程师',
+        })
+      )
+      uni.reLaunch({ url: '/pages/index/index' })
+    })
+    .catch(() => {
+      // Toast already shown by request interceptor
+    })
+    .finally(() => {
+      loading.value = false
+    })
 }
 </script>
 
