@@ -28,6 +28,7 @@ import com.smartenergy.backend.vo.PageVO;
 import com.smartenergy.backend.vo.UserVO;
 import com.smartenergy.backend.vo.UserWithPersonnelVO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.access.AccessDeniedException;
@@ -44,6 +45,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
@@ -249,6 +251,49 @@ public class UserServiceImpl implements UserService {
                 java.util.Map.of("username", user.getUsername()));
     }
 
+    /**
+     * ★ 批次 2 C3 修复 (2026-06-13):
+     * 给 MaintenancePersonnelServiceImpl.create() 调用,自动建立维修工程师账号。
+     * 流程:
+     *   1. 校验 username 符合维修工程师账号格式 (年份+03+四位序号)
+     *   2. 校验 username 在 sys_user 表中唯一
+     *   3. 创建 sys_user 记录,初始密码 = username + "@Init" (BCrypt 加密)
+     *   4. 不在此方法内同步 personnel/archive 表 — 调用方负责后续 insert
+     */
+    @Override
+    @Transactional
+    public Integer createMaintenanceAccount(String username, String nickname, String phone, String email) {
+        if (!StringUtils.hasText(username)) {
+            throw new IllegalArgumentException("用户名不能为空");
+        }
+        String trimmed = username.trim();
+        // 格式必须符合维修工程师账号规范 (例如 2026030002)
+        AccountUsernameRules.validate(trimmed, MAINTENANCE_ROLE);
+        if (sysUserMapper.exists(new QueryWrapper<SysUser>().eq("username", trimmed))) {
+            throw new IllegalArgumentException("账号已存在,无法自动创建: " + trimmed
+                    + " (请改用现有账号或更换工号)");
+        }
+        SysUser user = new SysUser();
+        user.setUsername(trimmed);
+        user.setNickname(StringUtils.hasText(nickname) ? nickname : trimmed);
+        user.setRole(MAINTENANCE_ROLE);
+        user.setPhone(phone);
+        user.setEmail(email);
+        user.setDepartment("维修部");
+        user.setStatus("ACTIVE");
+        // 默认初始密码 = username + "@Init",例如 2026030002@Init
+        // 用户首次登录后应通过"账号设置"修改密码
+        user.setPassword(passwordEncoder.encode(trimmed + "@Init"));
+        user.setCreatedAt(LocalDateTime.now());
+        user.setUpdatedAt(LocalDateTime.now());
+        sysUserMapper.insert(user);
+        log.info("[UserService] 自动创建维修工程师账号: username={}, nickname={}, initialPassword=<{}@Init>",
+                trimmed, nickname, trimmed);
+        auditLogService.record("CREATE", "USER_AUTO", "SYS_USER", String.valueOf(user.getId()),
+                java.util.Map.of("username", trimmed, "via", "MaintenancePersonnelService.create"));
+        return user.getId();
+    }
+
     private SysUser requireUser(Integer id) {
         SysUser user = sysUserMapper.selectById(id);
         if (user == null) throw new IllegalArgumentException("用户不存在");
@@ -325,27 +370,36 @@ public class UserServiceImpl implements UserService {
         MaintenancePersonnel schedule = findSchedule(user.getId(), lookupUsername);
         MaintenancePersonnelArchive archive = findArchive(user.getId(), lookupUsername);
 
-        if (!MAINTENANCE_ROLE.equals(user.getRole())) {
-            removeMaintenanceProfile(schedule, archive, oldRole);
-            return;
-        }
-
+        boolean isMaintenance = MAINTENANCE_ROLE.equals(user.getRole());
+        boolean wasMaintenance = MAINTENANCE_ROLE.equals(oldRole);
         MaintenanceProfileRequest profile = request.getMaintenanceProfile();
-        if (profile == null) {
+
+        // ★ 批次 2 改造 (2026-06-13): 所有角色都建/更新 personnel 档案+排班,
+        //   消除"非维修角色无 personnel 记录"导致的人员管理界面字段空白问题。
+        //   非维修角色 max_workload=0, is_on_duty=false (他们不接工单);
+        //   维修角色保持原有 profile 数据驱动的完整字段。
+        if (isMaintenance && profile == null) {
             throw new IllegalArgumentException("维修工程师必须填写维修人员档案与排班信息");
         }
+        // 维修工程师降级为其它角色,且有未结工单 → 拒绝(避免幽灵指派)
+        if (wasMaintenance && !isMaintenance && schedule != null
+                && schedule.getCurrentWorkload() != null && schedule.getCurrentWorkload() > 0) {
+            throw new IllegalStateException("该维修工程师仍有处理中工单,请先完成或转派工单后再修改身份");
+        }
+
         LocalDateTime now = LocalDateTime.now();
 
+        // ── 1. 排班 (workorder_maintenance_personnel)
         if (schedule == null) {
             schedule = new MaintenancePersonnel();
             schedule.setCurrentWorkload(0);
-            schedule.setIsOnDuty(true);
-            schedule.setAvatarColor("#52c8ff");
             schedule.setCreatedAt(now);
         }
         schedule.setUserId(user.getId());
         schedule.setEmployeeNo(username);
-        schedule.setMaxWorkload(profile.getMaxWorkload());
+        schedule.setAvatarColor(pickAvatarColor(user.getRole()));
+        schedule.setIsOnDuty(isMaintenance);
+        schedule.setMaxWorkload(isMaintenance ? (profile.getMaxWorkload() == null ? 5 : profile.getMaxWorkload()) : 0);
         schedule.setUpdatedAt(now);
         if (schedule.getId() == null) {
             maintenancePersonnelMapper.insert(schedule);
@@ -353,24 +407,40 @@ public class UserServiceImpl implements UserService {
             maintenancePersonnelMapper.updateById(schedule);
         }
 
+        // ── 2. 档案 (maintenance_personnel)
         if (archive == null) {
             archive = new MaintenancePersonnelArchive();
             archive.setCreatedAt(now);
         }
         archive.setUserId(user.getId());
         archive.setEmployeeNo(username);
-        archive.setName(profile.getName());
-        archive.setPhone(profile.getPhone());
-        archive.setEmail(profile.getEmail());
-        archive.setSpecializations(writeSpecializations(profile.getSpecializations()));
-        archive.setSkillLevel(profile.getSkillLevel());
-        archive.setCertification(profile.getCertification());
+        archive.setName(isMaintenance ? profile.getName()
+                : (StringUtils.hasText(user.getNickname()) ? user.getNickname() : username));
+        archive.setPhone(isMaintenance ? profile.getPhone() : user.getPhone());
+        archive.setEmail(isMaintenance ? profile.getEmail() : user.getEmail());
+        archive.setSpecializations(isMaintenance ? writeSpecializations(profile.getSpecializations()) : "[]");
+        archive.setSkillLevel(isMaintenance ? profile.getSkillLevel() : "JUNIOR");
+        archive.setCertification(isMaintenance ? profile.getCertification() : null);
         archive.setUpdatedAt(now);
         if (archive.getId() == null) {
             maintenancePersonnelArchiveMapper.insert(archive);
         } else {
             maintenancePersonnelArchiveMapper.updateById(archive);
         }
+    }
+
+    /** 根据角色返回头像颜色(与 14_backfill SQL 一致) */
+    private String pickAvatarColor(String role) {
+        if (role == null) return "#94a3b8";
+        return switch (role) {
+            case "ADMIN" -> "#ff5d5d";
+            case "MANAGER" -> "#ffaa00";
+            case "MAINTENANCE_ENGINEER" -> "#52c8ff";
+            case "HR_MANAGER" -> "#3bff9f";
+            case "OPERATOR" -> "#a78bfa";
+            case "DEVICE_MANAGER" -> "#ffd24a";
+            default -> "#94a3b8";
+        };
     }
 
     private MaintenancePersonnel findSchedule(Integer userId, String username) {

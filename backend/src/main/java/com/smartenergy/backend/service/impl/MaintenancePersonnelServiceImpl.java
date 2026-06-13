@@ -8,9 +8,12 @@ import com.smartenergy.backend.dto.MaintenancePersonnelRequest;
 import com.smartenergy.backend.dto.PageQuery;
 import com.smartenergy.backend.entity.MaintenancePersonnel;
 import com.smartenergy.backend.entity.MaintenancePersonnelArchive;
+import com.smartenergy.backend.entity.SysUser;
 import com.smartenergy.backend.mapper.MaintenancePersonnelArchiveMapper;
 import com.smartenergy.backend.mapper.MaintenancePersonnelMapper;
+import com.smartenergy.backend.mapper.SysUserMapper;
 import com.smartenergy.backend.service.MaintenancePersonnelService;
+import com.smartenergy.backend.service.UserService;
 import com.smartenergy.backend.vo.MaintenancePersonnelFullVO;
 import com.smartenergy.backend.vo.MaintenancePersonnelVO;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +43,9 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
 
     private final MaintenancePersonnelMapper personnelMapper;
     private final MaintenancePersonnelArchiveMapper archiveMapper;
+    // ★ 批次 2 注入: 用于 create() 自动建账号 (C3) + delete() 联动禁账号 (C4)
+    private final SysUserMapper sysUserMapper;
+    private final UserService userService;
 
     @Override
     public Page<MaintenancePersonnelVO> list(PageQuery pageQuery, String specialization,
@@ -84,7 +90,7 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public MaintenancePersonnelVO create(MaintenancePersonnelRequest req) {
         // 唯一性校验
         Long exist = personnelMapper.selectCount(new QueryWrapper<MaintenancePersonnel>()
@@ -94,10 +100,29 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
         }
         LocalDateTime now = LocalDateTime.now();
 
+        // ★ 批次 2 C3 + H1 修复 (2026-06-13): 账号-员工 1:1 完整性
+        //   ① 若 userId 已传 → 校验 sys_user 存在性 (堵无效 FK)
+        //   ② 若 userId 未传 → 自动调 userService.createMaintenanceAccount 建账号
+        //      → 用 employee_no 当 username (必须符合 2026030xxx 格式),初始密码 username@Init
+        //   修复前: userId 任意传值无校验,且不传时永远建不出可登录账号 (幽灵员工)
+        Integer userId = req.getUserId();
+        if (userId != null) {
+            SysUser existing = sysUserMapper.selectById(userId);
+            if (existing == null) {
+                throw new IllegalArgumentException("指定的账号不存在: userId=" + userId
+                        + " (H1: 必须先在系统配置中创建账号,或留空让系统自动创建)");
+            }
+        } else {
+            userId = userService.createMaintenanceAccount(
+                    req.getEmployeeNo(), req.getName(), req.getPhone(), req.getEmail());
+            log.info("[Personnel] C3 自动建账号 → userId={}, employeeNo={}",
+                    userId, req.getEmployeeNo());
+        }
+
         // v4: 写排班表（workorder_maintenance_personnel）
         MaintenancePersonnel entity = new MaintenancePersonnel();
         entity.setEmployeeNo(req.getEmployeeNo());
-        entity.setUserId(req.getUserId());
+        entity.setUserId(userId);
         if (!StringUtils.hasText(req.getAvatarColor())) {
             entity.setAvatarColor("#52c8ff");
         } else {
@@ -117,9 +142,10 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
                 req.getName(), req.getPhone(), req.getEmail(),
                 serializeList(req.getSpecializations()),
                 req.getSkillLevel(), req.getCertification(),
-                req.getUserId(), now);
+                userId, now);
 
-        log.info("[Personnel] 创建: employeeNo={}, name={}", entity.getEmployeeNo(), archive.getName());
+        log.info("[Personnel] 创建完成: employeeNo={}, name={}, userId={}",
+                entity.getEmployeeNo(), archive.getName(), userId);
         return toVO(entity);
     }
 
@@ -157,7 +183,7 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         MaintenancePersonnel entity = personnelMapper.selectById(id);
         if (entity == null) {
@@ -168,9 +194,33 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
                 "该人员当前有 " + entity.getCurrentWorkload() + " 单在处理，无法删除（请先转派或闭环）"
             );
         }
+
+        // ★ 批次 2 C4 + M2 合并修复 (2026-06-13): 防幽灵账号 + 防孤儿 assignment
+        //   旧版只 personnelMapper.deleteById(id),sys_user 账号继续可登录 = 幽灵账号
+        //   修复后 3 步:
+        //     1) 先禁用 sys_user 账号 (不物理删,保留审计关联)
+        //     2) 清理 archive 档案 (按 employee_no 关联)
+        //     3) 最后删 workorder_maintenance_personnel 排班
+        Integer userId = entity.getUserId();
+        if (userId != null) {
+            try {
+                userService.updateStatus(userId, "DISABLED");
+                log.info("[Personnel] C4 联动禁用账号: userId={}", userId);
+            } catch (Exception e) {
+                // 内置管理员或其它特殊账号无法禁用 → 阻止人员删除以保证一致性
+                throw new IllegalStateException("无法禁用关联账号 (userId=" + userId
+                        + "): " + e.getMessage() + " — 请先在系统配置中处理该账号", e);
+            }
+        }
+        // 清理档案表 (按 employee_no, 因为 archive 与 schedule 通过 employee_no 弱关联)
+        int archiveDeleted = archiveMapper.delete(new QueryWrapper<MaintenancePersonnelArchive>()
+                .eq("employee_no", entity.getEmployeeNo()));
+        log.info("[Personnel] 清理 archive: employeeNo={}, deleted={}",
+                entity.getEmployeeNo(), archiveDeleted);
+
         personnelMapper.deleteById(id);
-        // 注意：v4 不级联删除 archive（按 user_id 关联的档案独立维护）
-        log.info("[Personnel] 删除: id={}, employeeNo={}", entity.getEmployeeNo());
+        log.info("[Personnel] 删除完成: id={}, employeeNo={}, userId={}",
+                id, entity.getEmployeeNo(), userId);
     }
 
     @Override

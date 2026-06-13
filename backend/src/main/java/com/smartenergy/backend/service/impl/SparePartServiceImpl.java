@@ -200,19 +200,23 @@ public class SparePartServiceImpl implements SparePartService {
                 missing.add("备件不存在: " + trimmed);
                 continue;
             }
-            if (part.getQuantity() == null || part.getQuantity() < 1) {
-                missing.add("库存为 0: " + trimmed);
-                continue;
-            }
+            // 同一工单 + 同一备件已扣过则跳过(幂等)
             Long existing = usageMapper.selectCount(new QueryWrapper<SparePartUsage>()
                     .eq("work_order_id", workOrder.getId())
                     .eq("part_id", part.getId()));
             if (existing != null && existing > 0) {
                 continue;
             }
-            part.setQuantity(part.getQuantity() - 1);
-            part.setUpdatedAt(now);
-            partMapper.updateById(part);
+            // ★ 批次 2 C5 修复 (2026-06-13): 改用原子 SQL 扣减 (deductStock 已是
+            //   UPDATE ... WHERE qty >= ?), 避免并发"读-改-写"导致 lost update + 重复扣减。
+            //   返回 0 = 并发已被扣空, 记入 missing 但不抛异常 (避免回滚整工单).
+            int rows = partMapper.deductStock(part.getId(), 1, now);
+            if (rows == 0) {
+                missing.add("库存被并发扣减为 0: " + trimmed);
+                continue;
+            }
+            // 重新查最新 qty 用于 VO 展示
+            part = partMapper.selectById(part.getId());
 
             SparePartUsage usage = new SparePartUsage();
             usage.setPartId(part.getId());
