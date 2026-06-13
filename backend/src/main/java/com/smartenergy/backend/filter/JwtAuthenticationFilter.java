@@ -71,6 +71,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(authToken);
                     }
+                } else {
+                    // ★ NC1 修复: JWTUtil.verify() 返回 false (签名无效/被篡改) 时显式拒绝,
+                    //    防止 fall-through 到 filterChain.doFilter() 让伪造 token 继续未认证执行
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token 签名无效");
+                    return;
                 }
             } catch (Exception e) {
                 // 签名错误 / 格式异常 / 解析失败 → 401

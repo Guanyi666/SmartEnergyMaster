@@ -223,10 +223,12 @@ public class WorkOrderServiceImpl implements WorkOrderService {
 
     @Override
     public List<WorkOrderVO> listActiveAlerts(int limit) {
+        // ★ NC3 防御纵深: 钳制 [1, 500]
+        int safeLimit = Math.min(Math.max(1, limit), 500);
         return workOrderMapper.selectList(new QueryWrapper<WorkOrder>()
                         .in("status", List.of("PENDING", "IN_PROGRESS"))
                         .orderByDesc("created_at")
-                        .last("LIMIT " + limit))
+                        .last("LIMIT " + safeLimit))
                 .stream()
                 .map(this::toVO)
                 .toList();

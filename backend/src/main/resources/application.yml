@@ -45,6 +45,17 @@ prediction:
 jwt:
   secret: ${JWT_SECRET:SmartEnergyMasterSecretKey}
   expiration-ms: 86400000  # 24h
+  # ★ NH1: dev profile 允许弱密钥 (本地开发用), prod 必须 false (强制 fail-fast)
+  allow-weak-secret: ${JWT_ALLOW_WEAK_SECRET:true}
+
+# ★ NH2: 传感器上传 API Key (data_pump.py 通过 SENSOR_API_KEY 环境变量配套)
+#   prod 必须设置高熵随机串. 默认空串 = 拒绝所有上传请求 (fail-closed)
+app:
+  sensor:
+    api-key: ${SENSOR_API_KEY:dev-sensor-key-please-rotate-in-prod}
+  security:
+    # ★ NH3: Swagger UI 公开开关. dev 默认 true 便于调试, prod 必须 false (要求 ADMIN 登录)
+    swagger-public: ${SWAGGER_PUBLIC:true}
 
 # MyBatis-Plus
 mybatis-plus:

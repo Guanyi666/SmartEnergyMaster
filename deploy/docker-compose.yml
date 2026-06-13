@@ -63,6 +63,10 @@ services:
       REDIS_PORT: 6379
       PREDICTION_BASE_URL: http://prediction:8000
       JWT_SECRET: ${JWT_SECRET:-SmartEnergyMasterSecretKey}
+      # ★ 批次 0 新增 — dev 默认值让开发开箱即用,prod 部署必须覆盖以下三项
+      JWT_ALLOW_WEAK_SECRET: ${JWT_ALLOW_WEAK_SECRET:-true}
+      SENSOR_API_KEY: ${SENSOR_API_KEY:-dev-sensor-key-please-rotate-in-prod}
+      SWAGGER_PUBLIC: ${SWAGGER_PUBLIC:-true}
       TZ: Asia/Shanghai
     ports:
       - "${BACKEND_PORT:-8080}:8080"
@@ -97,6 +101,8 @@ services:
     container_name: smart_energy_data_pump
     environment:
       SENSOR_API_URL: http://backend:8080/api/sensor/upload
+      # ★ 批次 0 新增 — 必须与 backend 的 SENSOR_API_KEY 一致,否则上传被 401 拒绝
+      SENSOR_API_KEY: ${SENSOR_API_KEY:-dev-sensor-key-please-rotate-in-prod}
     depends_on:
       backend:
         condition: service_healthy

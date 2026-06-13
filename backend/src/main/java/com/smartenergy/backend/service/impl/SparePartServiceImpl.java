@@ -146,9 +146,11 @@ public class SparePartServiceImpl implements SparePartService {
 
     @Override
     public List<SparePartUsageVO> listUsages(Long partId, String userName, int limit) {
+        // ★ NC3 防御纵深: 钳制 [1, 500] 防止单次过大 LIMIT + 未来 refactor 风险
+        int safeLimit = Math.min(Math.max(1, limit), 500);
         QueryWrapper<SparePartUsage> wrapper = new QueryWrapper<SparePartUsage>()
                 .orderByDesc("used_at")
-                .last("LIMIT " + Math.max(1, limit));
+                .last("LIMIT " + safeLimit);
         if (partId != null) {
             wrapper.eq("part_id", partId);
         }
