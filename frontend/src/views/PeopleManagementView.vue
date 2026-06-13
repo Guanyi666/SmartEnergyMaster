@@ -30,12 +30,6 @@
             <el-option label="锁定" value="LOCKED" />
           </el-select>
         </el-form-item>
-        <el-form-item label="维修身份">
-          <el-select v-model="filters.isMaintenance" placeholder="全部" clearable style="width: 120px">
-            <el-option label="是" :value="true" />
-            <el-option label="否" :value="false" />
-          </el-select>
-        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="onSearch">查询</el-button>
           <el-button @click="onReset">重置</el-button>
@@ -60,21 +54,13 @@
           </template>
         </el-table-column>
 
-        <!-- 是否维修人员标识 -->
-        <el-table-column label="维修身份" min-width="100" align="center">
-          <template #default="{ row }">
-            <el-tag v-if="row.isMaintenance" type="success" size="small">✓ 维修人员</el-tag>
-            <el-tag v-else type="info" size="small" effect="plain">普通</el-tag>
-          </template>
-        </el-table-column>
-
         <!-- 档案信息（仅维修人员有） -->
         <el-table-column label="工号" prop="employeeNo" min-width="80" />
         <el-table-column label="姓名（档案）" prop="archiveName" min-width="100" />
         <el-table-column label="手机" prop="archivePhone" min-width="120" />
         <el-table-column label="技能等级" min-width="100">
           <template #default="{ row }">
-            <el-tag v-if="row.skillLevel" size="small" effect="plain">{{ row.skillLevel }}</el-tag>
+            <el-tag v-if="row.skillLevel" size="small" effect="plain">{{ skillLevelLabel(row.skillLevel) }}</el-tag>
             <span v-else class="empty-cell">—</span>
           </template>
         </el-table-column>
@@ -96,25 +82,26 @@
         </el-table-column>
         <el-table-column label="当前/最大" min-width="100" align="center">
           <template #default="{ row }">
-            <span v-if="row.currentWorkload != null" class="value-text">{{ row.currentWorkload }} / {{ row.maxWorkload }}</span>
-            <span v-else class="empty-cell">—</span>
+            <span v-if="row.isMaintenance && row.currentWorkload != null" class="value-text">{{ row.currentWorkload }} / {{ row.maxWorkload }}</span>
+            <span v-else class="empty-cell">无</span>
           </template>
         </el-table-column>
         <el-table-column label="负载率" min-width="120">
           <template #default="{ row }">
-            <el-progress v-if="row.workloadRate != null" :percentage="row.workloadRate"
+            <el-progress v-if="row.isMaintenance && row.workloadRate != null" :percentage="row.workloadRate"
                          :color="rateColor(row.workloadRate)" :stroke-width="14" />
-            <span v-else class="empty-cell">—</span>
+            <span v-else class="empty-cell">无</span>
           </template>
         </el-table-column>
 
         <!-- v6.1：操作列（编辑 + 更多下拉） -->
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
+            <div class="op-cell">
             <!-- v6.2 改造：DEVICE_MANAGER 看不到"编辑"按钮 -->
-            <el-button v-if="canFullEdit" size="small" link type="primary" @click="onEdit(row)">编辑</el-button>
+            <el-button v-if="canFullEdit" size="small" link class="op-action" @click="onEdit(row)">编辑</el-button>
             <el-dropdown trigger="click" size="small">
-              <el-button size="small" link type="primary">
+              <el-button size="small" link class="op-action">
                 更多 <el-icon class="el-icon--right"><ArrowDown /></el-icon>
               </el-button>
               <template #dropdown>
@@ -130,6 +117,7 @@
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -233,6 +221,7 @@ import { createUser, deleteUser, listUsersWithPersonnel, updateUser } from '../a
 import { toggleDuty } from '../api/workorder'
 import { useAuthStore } from '../stores/auth'
 import { accountFormatHint, BUILT_IN_ADMIN_ACCOUNT, validateAccount } from '../utils/account'
+import { skillLevelLabel } from '../utils/skillLevel'
 
 const auth = useAuthStore()
 
@@ -242,7 +231,9 @@ const canToggleDuty = computed(() => ['HR_MANAGER', 'DEVICE_MANAGER', 'ADMIN'].i
 
 const rows = shallowRef([])
 const loading = shallowRef(false)
-const filters = reactive({ keyword: '', role: '', department: '', status: '', isMaintenance: true })  // v6.2 改造：默认只看维修人员
+// 维修身份筛选已从界面移除：DEVICE_MANAGER 仍限定只看维修人员，HR/ADMIN 查看全部人员
+const onlyMaintenance = auth.user?.role === 'DEVICE_MANAGER' ? true : ''
+const filters = reactive({ keyword: '', role: '', department: '', status: '', isMaintenance: onlyMaintenance })
 const pagination = reactive({ page: 1, size: 10, total: 0 })
 
 // v6.1: 编辑对话框
@@ -468,6 +459,24 @@ onMounted(load)
 
 :deep(.people-table .el-table__body tr:hover > td.el-table__cell) {
   background-color: rgba(51, 65, 85, 0.92) !important;
+}
+
+/* 操作列：编辑 / 更多 横向对齐，避免互相挤压 */
+.op-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.op-cell :deep(.el-dropdown) {
+  line-height: 1;
+}
+/* 字体加亮：原 link type=primary 在深色表格里偏暗看不清，改用高对比亮色 */
+.op-cell :deep(.op-action.el-button.is-link) {
+  color: #6cc6ff;
+  font-weight: 600;
+}
+.op-cell :deep(.op-action.el-button.is-link:hover) {
+  color: #b6e6ff;
 }
 
 .empty-cell { color: var(--text-secondary); font-style: italic; font-weight: 400; }

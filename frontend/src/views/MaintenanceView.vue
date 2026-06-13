@@ -141,7 +141,14 @@ const selectOrder = async (item) => {
 
 const changeStatus = async (status) => {
   if (!selected.value) return
-  await patchWorkOrderStatus(selected.value.id, { status, note: note.value })
+  const payload = { status, note: note.value }
+  // 开始维修时把工单认领给当前工程师：否则工单 PENDING→IN_PROGRESS 后既不满足
+  // “PENDING”也不满足“isMine”，会立刻从待处理列表消失。认领后工单保留在进行中，
+  // 直到点击“维修完成”(RESOLVED) 才转入“我的维修记录”。
+  if (status === 'IN_PROGRESS' && !selected.value.assignee) {
+    payload.assignee = auth.user?.nickname || auth.user?.username
+  }
+  await patchWorkOrderStatus(selected.value.id, payload)
   ElMessage.success(status === 'RESOLVED' ? '维修已完成并写入个人维修记录' : '已开始维修')
   note.value = ''
   await load()

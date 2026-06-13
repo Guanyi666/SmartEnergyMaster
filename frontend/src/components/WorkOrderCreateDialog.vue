@@ -19,8 +19,10 @@
       </el-form-item>
       <el-form-item label="优先级" required>
         <el-select v-model="form.priority" style="width: 100%">
-          <el-option label="高 HIGH" value="HIGH" />
           <el-option label="严重 CRITICAL" value="CRITICAL" />
+          <el-option label="高 HIGH" value="HIGH" />
+          <el-option label="中 MEDIUM" value="MEDIUM" />
+          <el-option label="低 LOW" value="LOW" />
         </el-select>
       </el-form-item>
       <el-form-item label="描述">

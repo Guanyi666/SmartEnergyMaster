@@ -324,7 +324,14 @@ a {
   --el-table-row-hover-bg-color: rgba(92, 220, 255, 0.08);
   --el-table-border-color: rgba(92, 220, 255, 0.12);
   --el-table-header-text-color: var(--accent-cyan);
+  /* stripe 斑马纹行默认使用浅色 --el-fill-color-lighter，深色主题下会出现白底白字，这里改为深色 */
+  --el-fill-color-lighter: rgba(13, 37, 64, 0.55);
   background: transparent;
+}
+
+/* 斑马纹（stripe）行：强制深色背景，避免白底白字看不清 */
+.el-table .el-table__body tr.el-table__row--striped td.el-table__cell {
+  background: rgba(13, 37, 64, 0.55) !important;
 }
 
 .el-table th.el-table__cell {
@@ -337,6 +344,21 @@ a {
 
 .el-table tr td.el-table__cell {
   border-bottom: 1px solid rgba(92, 220, 255, 0.08) !important;
+}
+
+/* 固定列（fixed=left/right）默认是 sticky 透明单元格，在本项目的透明表格主题下，
+   表格横向溢出时相邻列会从固定列下方透出，造成文字/按钮重叠。给固定单元格补不透明深色背景。 */
+.el-table td.el-table-fixed-column--left,
+.el-table td.el-table-fixed-column--right,
+.el-table th.el-table-fixed-column--left,
+.el-table th.el-table-fixed-column--right {
+  background-color: #0a1c33 !important;
+}
+
+/* 悬停行时固定列保持一致的深色，避免闪烁 */
+.el-table .el-table__body tr:hover > td.el-table-fixed-column--left,
+.el-table .el-table__body tr:hover > td.el-table-fixed-column--right {
+  background-color: #12273f !important;
 }
 
 .el-dialog {

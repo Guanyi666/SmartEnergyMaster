@@ -22,7 +22,7 @@
       <div class="header-center">
         <div class="system-status">
           <span class="status-dot status-dot--running"></span>
-          <span class="status-label">SYSTEM ONLINE</span>
+          <span class="status-label">系统在线</span>
           <span class="status-divider">|</span>
           <span class="status-time">{{ clock }}</span>
           <span class="status-divider">|</span>
@@ -219,17 +219,9 @@ const logout = async () => {
   router.push('/login')
 }
 
-const handleBeforeUnload = () => {
-  if (auth.token && auth.user?.username) {
-    try {
-      const payload = JSON.stringify({ token: auth.token, username: auth.user.username })
-      const blob = new Blob([payload], { type: 'application/json' })
-      navigator.sendBeacon('/api/auth/logout', blob)
-    } catch (e) {
-      // 静默失败
-    }
-  }
-}
+// 说明：曾在此监听 beforeunload 调 sendBeacon 登出，但 beforeunload 无法区分
+// “刷新/站内跳转”与“关闭标签页”，导致刷新页面会把后端会话删掉、重载后被 401 踢回登录页。
+// 现移除该逻辑：登出只由“退出”按钮主动触发；关闭页面后由后端会话的 15 分钟空闲 TTL 兜底回收。
 
 onMounted(() => {
   startAlertPolling()
@@ -238,11 +230,9 @@ onMounted(() => {
     clock.value = formatTime(d)
     dateText.value = formatDate(d)
   }, 1000)
-  window.addEventListener('beforeunload', handleBeforeUnload)
 })
 onBeforeUnmount(() => {
   if (clockTimer) clearInterval(clockTimer)
-  window.removeEventListener('beforeunload', handleBeforeUnload)
 })
 </script>
 

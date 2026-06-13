@@ -51,25 +51,6 @@
                 <el-tag :type="row.isActive ? 'success' : 'info'" size="small">{{ row.isActive ? '是' : '否' }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="100" fixed="right">
-              <template #default="{ row }">
-                <span class="btn-group-wide">
-                  <el-button link type="primary" size="small" @click.stop="openSopDialog(row)">编辑</el-button>
-                  <el-button link type="danger" size="small" @click.stop="handleDeleteSop(row)">删除</el-button>
-                </span>
-                <span class="btn-group-narrow">
-                  <el-dropdown trigger="click" @command="(cmd) => { if(cmd==='edit') openSopDialog(row); if(cmd==='delete') handleDeleteSop(row) }">
-                    <el-button link type="primary" size="small">操作 ▾</el-button>
-                    <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                        <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
-                      </el-dropdown-menu>
-                    </template>
-                  </el-dropdown>
-                </span>
-              </template>
-            </el-table-column>
           </el-table>
           <div v-if="!sops.length" class="empty-tip">暂无标准流程数据，点击“新增标准流程”开始登记。</div>
         </div>
@@ -112,25 +93,6 @@
               <template #default="{ row }">{{ row.durationMinutes || '--' }} 分钟</template>
             </el-table-column>
             <el-table-column prop="occurredAt" label="发生时间" min-width="170" />
-            <el-table-column label="操作" width="100" fixed="right">
-              <template #default="{ row }">
-                <span class="btn-group-wide">
-                  <el-button link type="primary" size="small" @click.stop="openCaseDialog(row)">编辑</el-button>
-                  <el-button link type="danger" size="small" @click.stop="handleDeleteCase(row)">删除</el-button>
-                </span>
-                <span class="btn-group-narrow">
-                  <el-dropdown trigger="click" @command="(cmd) => { if(cmd==='edit') openCaseDialog(row); if(cmd==='delete') handleDeleteCase(row) }">
-                    <el-button link type="primary" size="small">操作 ▾</el-button>
-                    <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                        <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
-                      </el-dropdown-menu>
-                    </template>
-                  </el-dropdown>
-                </span>
-              </template>
-            </el-table-column>
           </el-table>
           <div v-if="!cases.length" class="empty-tip">暂无维修案例。</div>
         </div>

@@ -5,7 +5,11 @@ export const statusMeta = {
   STOPPED: { label: '停机', color: '#94a3b8' },
   OFFLINE: { label: '离线', color: '#64748b' },
   FAULT: { label: '故障待处理', color: '#ff5d5d' },
-  MAINTENANCE: { label: '维修中', color: '#ff9f43' }
+  MAINTENANCE: { label: '维修中', color: '#ff9f43' },
+  // 工单状态（PENDING/IN_PROGRESS/RESOLVED），供 StatusPill 等组件渲染中文
+  PENDING: { label: '待处理', color: '#ffb347' },
+  IN_PROGRESS: { label: '处理中', color: '#5bc0ff' },
+  RESOLVED: { label: '已修复', color: '#3bff9f' }
 }
 
 export const priceTierMeta = {
