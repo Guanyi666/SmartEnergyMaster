@@ -1,5 +1,5 @@
 <template>
-  <div class="layout-shell">
+  <div class="layout-shell" :class="{ 'dashboard-mode': route.path === '/dashboard' }">
     <aside class="layout-sidebar glass-panel">
       <div class="brand-block">
         <p class="brand-mark">智能能源</p>
@@ -231,6 +231,16 @@ onBeforeUnmount(() => {
 
 .layout-main {
   min-width: 0;
+}
+
+.dashboard-mode {
+  display: block;
+  padding: 0;
+}
+
+.dashboard-mode .layout-sidebar,
+.dashboard-mode .layout-topbar {
+  display: none;
 }
 
 .layout-topbar {
