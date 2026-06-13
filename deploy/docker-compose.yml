@@ -24,6 +24,8 @@ services:
       - ./init-sql/10_transfer_requests.sql:/docker-entrypoint-initdb.d/10_transfer_requests.sql:ro
       - ./init-sql/11_db_restructure_v1.sql:/docker-entrypoint-initdb.d/11_db_restructure_v1.sql:ro
       - ./init-sql/12_account_username_format.sql:/docker-entrypoint-initdb.d/12_account_username_format.sql:ro
+      - ./init-sql/13_data_integrity_fixes.sql:/docker-entrypoint-initdb.d/13_data_integrity_fixes.sql:ro
+      - ./init-sql/14_backfill_personnel_for_existing_users.sql:/docker-entrypoint-initdb.d/14_backfill_personnel_for_existing_users.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-energy_user} -d ${DB_NAME:-smart_energy}"]
       interval: 10s
@@ -63,6 +65,13 @@ services:
       REDIS_PORT: 6379
       PREDICTION_BASE_URL: http://prediction:8000
       JWT_SECRET: ${JWT_SECRET:-SmartEnergyMasterSecretKey}
+      # ★ 批次 0 新增 — dev 默认值让开发开箱即用,prod 部署必须覆盖以下三项
+      JWT_ALLOW_WEAK_SECRET: ${JWT_ALLOW_WEAK_SECRET:-true}
+      SENSOR_API_KEY: ${SENSOR_API_KEY:-dev-sensor-key-please-rotate-in-prod}
+      SWAGGER_PUBLIC: ${SWAGGER_PUBLIC:-true}
+      # ★ 批次 3 新增 — prod 必须显式配置以下三项
+      MYBATIS_LOG_IMPL: ${MYBATIS_LOG_IMPL:-org.apache.ibatis.logging.stdout.StdOutImpl}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:*,http://127.0.0.1:*}
       TZ: Asia/Shanghai
     ports:
       - "${BACKEND_PORT:-8080}:8080"
@@ -97,6 +106,8 @@ services:
     container_name: smart_energy_data_pump
     environment:
       SENSOR_API_URL: http://backend:8080/api/sensor/upload
+      # ★ 批次 0 新增 — 必须与 backend 的 SENSOR_API_KEY 一致,否则上传被 401 拒绝
+      SENSOR_API_KEY: ${SENSOR_API_KEY:-dev-sensor-key-please-rotate-in-prod}
     depends_on:
       backend:
         condition: service_healthy

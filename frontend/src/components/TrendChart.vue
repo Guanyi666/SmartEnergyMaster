@@ -3,7 +3,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as echarts from 'echarts'
 
 const props = defineProps({
@@ -12,41 +12,25 @@ const props = defineProps({
 
 const chartRef = ref()
 let chart
-let resizeObserver
-let resizeFrame
-
-const normalizedRecords = computed(() => props.records
-  .map((item) => ({
-    ...item,
-    timestamp: new Date(item.time).getTime(),
-    usage: Number(item.usageKwh)
-  }))
-  .filter((item) => Number.isFinite(item.timestamp) && Number.isFinite(item.usage))
-  .sort((a, b) => a.timestamp - b.timestamp))
-
-const timeSpan = computed(() => {
-  const records = normalizedRecords.value
-  return records.length > 1 ? records[records.length - 1].timestamp - records[0].timestamp : 0
-})
 
 const markAreas = computed(() => {
-  if (normalizedRecords.value.length < 2) return []
+  if (!props.records.length) return []
   const areas = []
   let start = 0
 
-  for (let i = 1; i <= normalizedRecords.value.length; i += 1) {
-    const prev = normalizedRecords.value[i - 1]
-    const current = normalizedRecords.value[i]
+  for (let i = 1; i <= props.records.length; i += 1) {
+    const prev = props.records[i - 1]
+    const current = props.records[i]
     if (!current || current.xianPriceTier !== prev.xianPriceTier) {
       const color =
         prev.xianPriceTier === 'CRITICAL_PEAK' || prev.xianPriceTier === 'PEAK'
-          ? 'rgba(255, 93, 93, 0.14)'
+          ? 'rgba(255, 93, 93, 0.16)'
           : prev.xianPriceTier === 'VALLEY' || prev.xianPriceTier === 'DEEP_VALLEY'
-            ? 'rgba(59, 255, 159, 0.12)'
-            : 'rgba(82, 200, 255, 0.08)'
+            ? 'rgba(59, 255, 159, 0.14)'
+            : 'rgba(92, 220, 255, 0.10)'
       areas.push([
-        { xAxis: normalizedRecords.value[start].timestamp, itemStyle: { color } },
-        { xAxis: prev.timestamp }
+        { xAxis: start, itemStyle: { color } },
+        { xAxis: i - 1 }
       ])
       start = i
     }
@@ -54,51 +38,48 @@ const markAreas = computed(() => {
   return areas
 })
 
-const formatAxisTime = (value) => {
-  const date = new Date(value)
-  if (timeSpan.value <= 10 * 60 * 1000) {
-    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
-  }
-  if (timeSpan.value <= 48 * 60 * 60 * 1000) {
-    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
-  }
-  return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })
-}
-
 const renderChart = () => {
   if (!chartRef.value) return
-  if (!chart) chart = echarts.init(chartRef.value)
+  if (!chart) {
+    chart = echarts.init(chartRef.value)
+  }
 
   chart.setOption({
     backgroundColor: 'transparent',
-    grid: { left: 24, right: 24, top: 30, bottom: 28, containLabel: true },
+    grid: { left: 48, right: 22, top: 30, bottom: 36 },
     tooltip: {
       trigger: 'axis',
-      axisPointer: { type: 'cross' },
-      formatter: (params) => {
-        const point = params[0]
-        if (!point) return ''
-        const time = new Date(point.value[0]).toLocaleString('zh-CN', { hour12: false })
-        return `${time}<br/>负荷：${Number(point.value[1]).toFixed(2)} kWh`
+      backgroundColor: 'rgba(13, 37, 64, 0.92)',
+      borderColor: 'rgba(92, 220, 255, 0.4)',
+      borderWidth: 1,
+      textStyle: { color: '#fff' },
+      axisPointer: {
+        lineStyle: { color: 'rgba(92, 220, 255, 0.4)' }
       }
     },
     xAxis: {
-      type: 'time',
+      type: 'category',
       boundaryGap: false,
-      splitNumber: Math.max(3, Math.min(10, Math.floor((chartRef.value.clientWidth || 600) / 130))),
       axisLabel: {
-        color: '#94a3b8',
-        hideOverlap: true,
-        formatter: formatAxisTime
+        color: '#a8c4e0',
+        fontSize: 11
       },
-      axisLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.32)' } },
-      splitLine: { show: false }
+      axisLine: { lineStyle: { color: 'rgba(92, 220, 255, 0.2)' } },
+      axisTick: { show: false },
+      data: props.records.map((item) => new Date(item.time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }))
     },
     yAxis: {
       type: 'value',
-      scale: true,
-      axisLabel: { color: '#94a3b8' },
-      splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.15)' } }
+      axisLabel: {
+        color: '#a8c4e0',
+        fontSize: 11
+      },
+      splitLine: {
+        lineStyle: {
+          color: 'rgba(92, 220, 255, 0.10)',
+          type: 'dashed'
+        }
+      }
     },
     series: [
       {
@@ -106,42 +87,40 @@ const renderChart = () => {
         type: 'line',
         smooth: true,
         symbol: 'none',
-        lineStyle: { width: 3, color: '#52c8ff' },
+        lineStyle: {
+          width: 3,
+          color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+            { offset: 0, color: '#5cdcff' },
+            { offset: 1, color: '#3da9ff' }
+          ]),
+          shadowColor: 'rgba(92, 220, 255, 0.4)',
+          shadowBlur: 8
+        },
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(82, 200, 255, 0.35)' },
-            { offset: 1, color: 'rgba(82, 200, 255, 0.02)' }
+            { offset: 0, color: 'rgba(92, 220, 255, 0.45)' },
+            { offset: 1, color: 'rgba(92, 220, 255, 0.02)' }
           ])
         },
-        markArea: { silent: true, data: markAreas.value },
-        data: normalizedRecords.value.map((item) => [item.timestamp, item.usage])
+        markArea: {
+          silent: true,
+          data: markAreas.value
+        },
+        data: props.records.map((item) => item.usageKwh)
       }
     ]
-  }, true)
-}
-
-const resize = () => {
-  cancelAnimationFrame(resizeFrame)
-  resizeFrame = requestAnimationFrame(() => {
-    chart?.resize()
-    renderChart()
   })
 }
 
-onMounted(async () => {
-  await nextTick()
+onMounted(() => {
   renderChart()
-  resizeObserver = new ResizeObserver(resize)
-  resizeObserver.observe(chartRef.value)
-  window.addEventListener('resize', resize)
+  window.addEventListener('resize', renderChart)
 })
 
 watch(() => props.records, renderChart, { deep: true })
 
 onBeforeUnmount(() => {
-  cancelAnimationFrame(resizeFrame)
-  resizeObserver?.disconnect()
-  window.removeEventListener('resize', resize)
+  window.removeEventListener('resize', renderChart)
   chart?.dispose()
 })
 </script>

@@ -517,10 +517,13 @@ onMounted(() => {
 
 .page-title {
   margin: 0;
-  font-size: 24px;
-  font-weight: 600;
-  color: #e0f2fe;
-  letter-spacing: 1px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .page-subtitle {
@@ -601,7 +604,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: #e0f2fe;
+  color: #ffffff;
 }
 
 .col-title .dot {
@@ -616,7 +619,7 @@ onMounted(() => {
 
 .count-badge :deep(.el-badge__content) {
   background: rgba(15, 23, 42, 0.7);
-  color: #e0f2fe;
+  color: #ffffff;
   border: 1px solid rgba(148, 163, 184, 0.3);
   font-weight: 600;
 }
@@ -660,7 +663,7 @@ onMounted(() => {
   border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 8px;
   font-size: 13px;
-  color: #e0f2fe;
+  color: #ffffff;
   font-family: 'SF Mono', Consolas, monospace;
 }
 .snapshot-row .snapshot-time {

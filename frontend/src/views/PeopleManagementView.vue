@@ -435,9 +435,9 @@ onMounted(load)
 <style scoped>
 .page-shell { display: flex; flex-direction: column; gap: 16px; }
 .page-header { padding: 4px 4px 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
-.page-title { margin: 0; font-size: 22px; font-weight: 600; color: var(--text-primary); }
-.page-subtitle { margin: 4px 0 0; color: var(--text-secondary); font-size: 13px; }
-.filter-bar { background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(8px); }
+.page-title { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 3px; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.page-subtitle { margin: 4px 0 0; color: var(--text-secondary); font-size: 13px; letter-spacing: 1px; }
+.filter-bar { background: linear-gradient(180deg, rgba(13, 37, 64, 0.85), rgba(10, 25, 41, 0.7)); border: 1px solid var(--panel-border); border-radius: 12px; }
 
 .people-table {
   --el-table-bg-color: rgba(15, 23, 42, 0.88);

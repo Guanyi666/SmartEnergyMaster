@@ -30,10 +30,10 @@ const render = () => {
   }
   chart.setOption({
     backgroundColor: 'transparent',
-    color: ['#52c8ff', '#3bff9f', '#ffb347', '#a78bfa', '#ff5d5d'],
+    color: ['#5cdcff', '#3bff9f', '#ffb347', '#a78bfa', '#ff5d5d'],
     grid: { left: props.horizontal ? 82 : 48, right: 22, top: 40, bottom: 36 },
-    legend: { top: 4, textStyle: { color: '#94a3b8' } },
-    tooltip: { trigger: 'axis', backgroundColor: '#0f172a', borderColor: 'rgba(82,200,255,.25)', textStyle: { color: '#eef4ff' } },
+    legend: { top: 4, textStyle: { color: '#a8c4e0' } },
+    tooltip: { trigger: 'axis', backgroundColor: 'rgba(13,37,64,.92)', borderColor: 'rgba(92,220,255,.4)', textStyle: { color: '#ffffff' } },
     xAxis: props.horizontal ? valueAxis : categoryAxis,
     yAxis: props.horizontal ? categoryAxis : valueAxis,
     series: props.series.map((item) => ({

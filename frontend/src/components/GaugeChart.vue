@@ -12,7 +12,7 @@ const props = defineProps({
   unit: { type: String, default: '' },
   min: { type: Number, default: 0 },
   max: { type: Number, default: 100 },
-  color: { type: String, default: '#52c8ff' }
+  color: { type: String, default: '#5cdcff' }
 })
 
 const chartRef = ref()
@@ -24,6 +24,13 @@ const renderChart = () => {
     chart = echarts.init(chartRef.value)
   }
 
+  // 根据 color 推算三段渐变（青→琥珀→红）
+  const colorStops = [
+    [0.6, props.color],
+    [0.85, '#ffb347'],
+    [1, '#ff5d5d']
+  ]
+
   chart.setOption({
     backgroundColor: 'transparent',
     series: [
@@ -31,39 +38,81 @@ const renderChart = () => {
         type: 'gauge',
         min: props.min,
         max: props.max,
+        radius: '92%',
         axisLine: {
           lineStyle: {
-            width: 18,
-            color: [
-              [0.6, '#164e63'],
-              [0.85, '#0f766e'],
-              [1, '#7f1d1d']
-            ]
+            width: 16,
+            color: colorStops
           }
         },
         pointer: {
+          length: '70%',
+          width: 4,
           itemStyle: {
-            color: props.color
+            color: props.color,
+            shadowBlur: 8,
+            shadowColor: props.color
           }
+        },
+        axisTick: {
+          distance: -22,
+          length: 6,
+          lineStyle: {
+            color: 'rgba(92,220,255,0.35)',
+            width: 1
+          }
+        },
+        splitLine: {
+          distance: -25,
+          length: 12,
+          lineStyle: {
+            color: 'rgba(168,196,224,0.5)',
+            width: 2
+          }
+        },
+        axisLabel: {
+          distance: -36,
+          color: '#94a3b8',
+          fontSize: 10
         },
         progress: {
           show: true,
-          width: 18,
+          width: 16,
           itemStyle: {
-            color: props.color
+            color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+              { offset: 0, color: props.color },
+              { offset: 1, color: '#ffb347' }
+            ])
+          }
+        },
+        anchor: {
+          show: true,
+          size: 14,
+          itemStyle: {
+            color: props.color,
+            borderColor: '#fff',
+            borderWidth: 2
           }
         },
         detail: {
           valueAnimation: true,
-          formatter: `{value} ${props.unit}`,
-          fontSize: 22,
-          color: '#eef4ff',
-          offsetCenter: [0, '58%']
+          formatter: `{value|${'{value}'} ${props.unit}}`,
+          rich: {
+            value: {
+              fontSize: 22,
+              fontWeight: 700,
+              color: '#ffffff',
+              fontFamily: 'Bahnschrift'
+            }
+          },
+          offsetCenter: [0, '60%']
         },
         title: {
-          offsetCenter: [0, '84%'],
-          color: '#94a3b8',
-          fontSize: 14
+          offsetCenter: [0, '85%'],
+          color: '#a8c4e0',
+          fontSize: 12,
+          fontWeight: 600,
+          letterSpacing: 2
         },
         data: [
           {
@@ -92,6 +141,6 @@ onBeforeUnmount(() => {
 <style scoped>
 .chart-box {
   width: 100%;
-  height: 280px;
+  height: 240px;
 }
 </style>

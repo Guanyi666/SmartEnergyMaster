@@ -20,6 +20,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.util.Set;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
@@ -161,8 +164,22 @@ public class DeviceServiceImpl implements DeviceService {
         overview.setActiveWorkOrderCount(activeCount);
         overview.setLatestWorkOrderTitle(latestOrder != null ? latestOrder.getTitle() : null);
         overview.setStatus(DeviceStatusHelper.resolveStatus(latestData, device.getStatus(), activeCount > 0));
+
+        // ★ C1+C2 修复 (2026-06-13): 非运行状态强制清零运行时指标,避免前端展示
+        //   "OFFLINE 状态但 usageKwh=856 kWh" 这类自相矛盾的脏数据。
+        //   同时让 DashboardServiceImpl.buildSummary() 的 totalUsageKwh 自动正确(C2 自愈)。
+        //   保留 temperature/pressure/vibration 供运维诊断(可以看出设备最后停机时的状态).
+        if (NON_RUNNING_STATUSES.contains(overview.getStatus())) {
+            overview.setUsageKwh(BigDecimal.ZERO);
+            overview.setCo2Emission(BigDecimal.ZERO);
+            overview.setOperatingStatus(0);
+        }
         return overview;
     }
+
+    /** ★ C1: 非运行状态白名单 — 命中即强制清零运行时能耗指标 */
+    private static final Set<String> NON_RUNNING_STATUSES =
+            Set.of("OFFLINE", "STOPPED", "FAULT", "MAINTENANCE");
 
     private SensorData findLatestSensor(Integer deviceId) {
         return sensorDataMapper.selectOne(new QueryWrapper<SensorData>()
