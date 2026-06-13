@@ -545,7 +545,8 @@ onMounted(async () => {
 }
 
 .table-panel {
-  padding: 20px;
+  padding: 18px 20px;
+  margin-bottom: 14px;
 }
 
 .table-head {
@@ -594,7 +595,8 @@ onMounted(async () => {
   margin: 0 0 14px;
   font-size: 15px;
   font-weight: 700;
-  color: #dbeafe;
+  color: var(--accent-cyan);
+  letter-spacing: 2px;
   padding-bottom: 10px;
   border-bottom: 1px solid rgba(148, 163, 184, 0.15);
 }

@@ -24,10 +24,10 @@ const markAreas = computed(() => {
     if (!current || current.xianPriceTier !== prev.xianPriceTier) {
       const color =
         prev.xianPriceTier === 'CRITICAL_PEAK' || prev.xianPriceTier === 'PEAK'
-          ? 'rgba(255, 93, 93, 0.14)'
+          ? 'rgba(255, 93, 93, 0.16)'
           : prev.xianPriceTier === 'VALLEY' || prev.xianPriceTier === 'DEEP_VALLEY'
-            ? 'rgba(59, 255, 159, 0.12)'
-            : 'rgba(82, 200, 255, 0.08)'
+            ? 'rgba(59, 255, 159, 0.14)'
+            : 'rgba(92, 220, 255, 0.10)'
       areas.push([
         { xAxis: start, itemStyle: { color } },
         { xAxis: i - 1 }
@@ -46,26 +46,38 @@ const renderChart = () => {
 
   chart.setOption({
     backgroundColor: 'transparent',
-    grid: { left: 40, right: 20, top: 30, bottom: 36 },
+    grid: { left: 48, right: 22, top: 30, bottom: 36 },
     tooltip: {
-      trigger: 'axis'
+      trigger: 'axis',
+      backgroundColor: 'rgba(13, 37, 64, 0.92)',
+      borderColor: 'rgba(92, 220, 255, 0.4)',
+      borderWidth: 1,
+      textStyle: { color: '#fff' },
+      axisPointer: {
+        lineStyle: { color: 'rgba(92, 220, 255, 0.4)' }
+      }
     },
     xAxis: {
       type: 'category',
       boundaryGap: false,
       axisLabel: {
-        color: '#94a3b8'
+        color: '#a8c4e0',
+        fontSize: 11
       },
+      axisLine: { lineStyle: { color: 'rgba(92, 220, 255, 0.2)' } },
+      axisTick: { show: false },
       data: props.records.map((item) => new Date(item.time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }))
     },
     yAxis: {
       type: 'value',
       axisLabel: {
-        color: '#94a3b8'
+        color: '#a8c4e0',
+        fontSize: 11
       },
       splitLine: {
         lineStyle: {
-          color: 'rgba(148, 163, 184, 0.15)'
+          color: 'rgba(92, 220, 255, 0.10)',
+          type: 'dashed'
         }
       }
     },
@@ -77,12 +89,17 @@ const renderChart = () => {
         symbol: 'none',
         lineStyle: {
           width: 3,
-          color: '#52c8ff'
+          color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+            { offset: 0, color: '#5cdcff' },
+            { offset: 1, color: '#3da9ff' }
+          ]),
+          shadowColor: 'rgba(92, 220, 255, 0.4)',
+          shadowBlur: 8
         },
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(82, 200, 255, 0.35)' },
-            { offset: 1, color: 'rgba(82, 200, 255, 0.02)' }
+            { offset: 0, color: 'rgba(92, 220, 255, 0.45)' },
+            { offset: 1, color: 'rgba(92, 220, 255, 0.02)' }
           ])
         },
         markArea: {

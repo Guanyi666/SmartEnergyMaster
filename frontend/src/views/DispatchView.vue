@@ -278,7 +278,17 @@ onMounted(() => {
 .page-shell { display: flex; flex-direction: column; gap: 16px; height: 100%; }
 
 .page-header { display: flex; justify-content: space-between; align-items: flex-start; }
-.page-title { margin: 0; font-size: 22px; font-weight: 600; color: #e0f2fe; }
+
+.page-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  background: linear-gradient(90deg, #5cdcff, #3da9ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
 .page-subtitle { margin: 4px 0 0; font-size: 12px; color: var(--text-secondary); }
 
 .dispatch-row {
@@ -299,7 +309,7 @@ onMounted(() => {
   border-bottom: 1px solid rgba(148, 163, 184, 0.15);
 }
 
-.col-head h3 { margin: 0; font-size: 14px; color: #e0f2fe; }
+.col-head h3 { margin: 0; font-size: 14px; color: #ffffff; }
 
 .count {
   font-size: 11px;
@@ -349,7 +359,7 @@ onMounted(() => {
 
 .order-title {
   font-size: 13px;
-  color: #e0f2fe;
+  color: #ffffff;
   margin-bottom: 2px;
 }
 
@@ -391,7 +401,7 @@ onMounted(() => {
 .match-head h3 {
   margin: 0 0 8px;
   font-size: 15px;
-  color: #e0f2fe;
+  color: #ffffff;
 }
 
 .required-skills {
@@ -479,7 +489,7 @@ onMounted(() => {
   margin-bottom: 4px;
 }
 
-.match-name-row strong { color: #e0f2fe; font-size: 15px; }
+.match-name-row strong { color: #ffffff; font-size: 15px; }
 
 .emp-no {
   font-family: 'SF Mono', Consolas, monospace;
@@ -571,7 +581,7 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
-.mini-name { flex: 1; font-size: 12px; color: #e0f2fe; }
+.mini-name { flex: 1; font-size: 12px; color: #ffffff; }
 .mini-load { font-size: 10px; color: var(--text-secondary); font-family: 'SF Mono', Consolas, monospace; }
 
 .empty-tip {

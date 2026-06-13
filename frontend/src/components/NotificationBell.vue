@@ -57,9 +57,15 @@ watch(() => props.alerts.map((item) => item.id).join(','), () => {
 
 <style scoped>
 .bell-button {
-  background: rgba(15, 23, 42, .88);
-  border-color: rgba(82, 200, 255, .28);
-  color: #dbeafe;
+  background: rgba(13, 37, 64, .88);
+  border-color: rgba(92, 220, 255, .32);
+  color: var(--accent-cyan);
+}
+
+.bell-button:hover {
+  background: rgba(13, 37, 64, 1);
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 12px rgba(92, 220, 255, 0.4);
 }
 
 .notification-head {
@@ -67,6 +73,12 @@ watch(() => props.alerts.map((item) => item.id).join(','), () => {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 10px;
+}
+
+.notification-head strong {
+  color: var(--accent-cyan);
+  letter-spacing: 2px;
+  font-size: 14px;
 }
 
 .notification-list {
@@ -82,17 +94,18 @@ watch(() => props.alerts.map((item) => item.id).join(','), () => {
   width: 100%;
   padding: 11px;
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: 10px;
   background: transparent;
-  color: #eef4ff;
+  color: #ffffff;
   text-align: left;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .notification-item:hover,
 .notification-item.unread {
-  border-color: rgba(82, 200, 255, .2);
-  background: rgba(82, 200, 255, .08);
+  border-color: rgba(92, 220, 255, 0.32);
+  background: rgba(92, 220, 255, 0.08);
 }
 
 .notification-dot {
@@ -104,8 +117,8 @@ watch(() => props.alerts.map((item) => item.id).join(','), () => {
 }
 
 .unread .notification-dot {
-  background: #ff5d5d;
-  box-shadow: 0 0 10px rgba(255, 93, 93, .6);
+  background: var(--accent-red);
+  box-shadow: 0 0 10px rgba(255, 93, 93, 0.6);
 }
 
 .notification-item span:last-child {
@@ -115,6 +128,6 @@ watch(() => props.alerts.map((item) => item.id).join(','), () => {
 
 .notification-item small,
 .empty-text {
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 </style>

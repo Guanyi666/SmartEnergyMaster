@@ -282,9 +282,13 @@ onMounted(loadList)
 
 .page-title {
   margin: 0;
-  font-size: 22px;
-  font-weight: 600;
-  color: #e0f2fe;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .page-subtitle {
@@ -351,7 +355,7 @@ onMounted(loadList)
 
 .name {
   font-size: 16px;
-  color: #e0f2fe;
+  color: #ffffff;
 }
 
 .emp-no {
@@ -420,7 +424,7 @@ onMounted(loadList)
 
 .wl-value {
   font-family: 'SF Mono', Consolas, monospace;
-  color: #e0f2fe;
+  color: #ffffff;
 }
 
 .wl-bar {

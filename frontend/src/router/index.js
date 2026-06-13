@@ -11,7 +11,7 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: LoginView,
-      meta: { public: true }
+      meta: { public: true, title: '系统登录' }
     },
     {
       path: '/',
@@ -25,96 +25,93 @@ const router = createRouter({
           path: '/dashboard',
           name: 'dashboard',
           component: () => import('../views/DashboardView.vue'),
-          meta: { roles: ['OPERATOR', 'MANAGER', 'ADMIN'] } // v6.2 移除 DEVICE_MANAGER
+          meta: { roles: ['OPERATOR', 'MANAGER', 'ADMIN'], title: '监控指挥中心', subtitle: 'REAL-TIME MONITORING' }
         },
         {
           path: '/scheduler',
           name: 'scheduler',
           component: () => import('../views/SchedulerView.vue'),
-          meta: { roles: ['MANAGER', 'ADMIN'] } // v6.2
+          meta: { roles: ['MANAGER', 'ADMIN'], title: '生产调度优化', subtitle: 'PRODUCTION SCHEDULING' }
         },
         {
           path: '/analysis',
           name: 'analysis',
           component: () => import('../views/AnalysisView.vue'),
-          meta: { roles: ['OPERATOR', 'DEVICE_MANAGER', 'MANAGER', 'HR_MANAGER', 'ADMIN'] } // v6.2 加 HR_MANAGER
+          meta: { roles: ['OPERATOR', 'DEVICE_MANAGER', 'MANAGER', 'HR_MANAGER', 'ADMIN'], title: '负荷分析', subtitle: 'LOAD ANALYSIS' }
         },
         {
           path: '/devices',
           name: 'devices',
           component: () => import('../views/DevicesView.vue'),
-          meta: { roles: ['OPERATOR', 'ADMIN'] } // v6.2 移除 DEVICE_MANAGER
+          meta: { roles: ['OPERATOR', 'ADMIN'], title: '设备管理', subtitle: 'DEVICE MANAGEMENT' }
         },
         // Epic 07：维修知识库 & 备件管理
         {
           path: '/knowledge',
           name: 'knowledge',
           component: () => import('../views/KnowledgeView.vue'),
-          meta: { roles: ['MAINTENANCE_ENGINEER', 'ADMIN'] } // v6.2 移除 DEVICE_MANAGER
+          meta: { roles: ['MAINTENANCE_ENGINEER', 'ADMIN'], title: '维修知识库', subtitle: 'MAINTENANCE KNOWLEDGE' }
         },
         {
           path: '/spare-parts',
           name: 'spare-parts',
           component: () => import('../views/SparePartsView.vue'),
-          meta: { roles: ['DEVICE_MANAGER', 'ADMIN'] }
+          meta: { roles: ['DEVICE_MANAGER', 'ADMIN'], title: '备件库存', subtitle: 'SPARE PARTS' }
         },
         {
           path: '/maintenance/spare-parts',
           name: 'maintenance-spare-parts',
           component: () => import('../views/EngineerSparePartsView.vue'),
-          meta: { roles: ['MAINTENANCE_ENGINEER', 'ADMIN'] }
+          meta: { roles: ['MAINTENANCE_ENGINEER', 'ADMIN'], title: '库存与申请记录', subtitle: 'ENGINEER INVENTORY' }
         },
         {
           path: '/maintenance/transfer-requests',
           name: 'transfer-requests',
           component: () => import('../views/TransferRequestsView.vue'),
-          meta: { roles: ['DEVICE_MANAGER', 'ADMIN'] }
+          meta: { roles: ['DEVICE_MANAGER', 'ADMIN'], title: '转派审批', subtitle: 'TRANSFER REVIEW' }
         },
         // Epic 05 维修模块（按需加载，含 meta.roles 角色拦截）
         {
           path: '/maintenance',
           name: 'maintenance',
           component: () => import('../views/MaintenanceView.vue'),
-          meta: { roles: ['MAINTENANCE_ENGINEER', 'ADMIN'] }
+          meta: { roles: ['MAINTENANCE_ENGINEER', 'ADMIN'], title: '工单中心', subtitle: 'WORK ORDER CENTER' }
         },
         {
           path: '/operations/orders',
           name: 'operations-orders',
           component: () => import('../views/MaintenanceCenterView.vue'),
-          meta: { roles: ['DEVICE_MANAGER', 'ADMIN'] } // v6.2 移除 OPERATOR（OPERATOR 在 /devices 页面新建工单）
+          meta: { roles: ['DEVICE_MANAGER', 'ADMIN'], title: '故障工单中心', subtitle: 'FAULT ORDER CENTER' }
         },
         {
-          // v6 改造：人员管理合并到统一路由（兼容旧 /admin/users 和 /maintenance/personnel）
           path: '/admin/people',
           name: 'people',
           component: () => import('../views/PeopleManagementView.vue'),
-          meta: { roles: ['HR_MANAGER', 'DEVICE_MANAGER', 'ADMIN'] } // v6.2 移除 MANAGER
+          meta: { roles: ['HR_MANAGER', 'DEVICE_MANAGER', 'ADMIN'], title: '人员管理', subtitle: 'PEOPLE MANAGEMENT' }
         },
         {
           path: '/maintenance/dispatch',
           name: 'maintenance-dispatch',
           component: () => import('../views/DispatchView.vue'),
-          meta: { roles: ['DEVICE_MANAGER', 'ADMIN'] } // v6.2 移除 MANAGER
+          meta: { roles: ['DEVICE_MANAGER', 'ADMIN'], title: '智能调度', subtitle: 'INTELLIGENT DISPATCH' }
         },
         {
           path: '/maintenance/orders/:id',
           name: 'maintenance-order-detail',
           component: () => import('../views/WorkOrderDetailView.vue'),
-          meta: { roles: ['MAINTENANCE_ENGINEER', 'ADMIN'], hideInMenu: true }
+          meta: { roles: ['MAINTENANCE_ENGINEER', 'ADMIN'], hideInMenu: true, title: '工单详情', subtitle: 'ORDER DETAIL' }
         },
         {
           path: '/admin',
           name: 'admin',
           component: () => import('../views/AdminView.vue'),
-          meta: { roles: ['MANAGER', 'ADMIN'] }
+          meta: { roles: ['MANAGER', 'ADMIN'], title: '经理决策仪表盘', subtitle: 'MANAGER COCKPIT' }
         },
         {
-          // v6 改造：保留旧 URL 兼容，都跳到新页面
           path: '/admin/users',
           redirect: '/admin/people'
         },
         {
-          // v6 改造：保留旧 URL 兼容
           path: '/maintenance/personnel',
           redirect: '/admin/people'
         },
@@ -122,18 +119,19 @@ const router = createRouter({
           path: '/admin/config',
           name: 'config',
           component: () => import('../views/ConfigView.vue'),
-          meta: { roles: ['ADMIN'] }
+          meta: { roles: ['ADMIN'], title: '系统配置', subtitle: 'SYSTEM CONFIG' }
         },
         {
           path: '/audit-log',
           name: 'audit-log',
           component: () => import('../views/AuditLogView.vue'),
-          meta: { roles: ['ADMIN'] }
+          meta: { roles: ['ADMIN'], title: '审计日志', subtitle: 'AUDIT LOG' }
         },
         {
           path: '/account-settings',
           name: 'account-settings',
-          component: () => import('../views/AccountSettingsView.vue')
+          component: () => import('../views/AccountSettingsView.vue'),
+          meta: { title: '账号设置', subtitle: 'ACCOUNT SETTINGS' }
         }
       ]
     }
