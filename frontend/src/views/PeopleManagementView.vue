@@ -5,7 +5,8 @@
         <h2 class="page-title">人员管理</h2>
         <p class="page-subtitle">统一查看账号身份、维修人员档案与排班负载</p>
       </div>
-      <el-button type="primary" @click="openCreate">+ 新增人员</el-button>
+      <!-- v6.2 改造：DEVICE_MANAGER 看不到"+" 新增人员按钮 -->
+      <el-button v-if="canFullEdit" type="primary" @click="openCreate">+ 新增人员</el-button>
     </header>
 
     <el-card class="filter-bar" shadow="never">
@@ -110,17 +111,20 @@
         <!-- v6.1：操作列（编辑 + 更多下拉） -->
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" link type="primary" @click="onEdit(row)">编辑</el-button>
+            <!-- v6.2 改造：DEVICE_MANAGER 看不到"编辑"按钮 -->
+            <el-button v-if="canFullEdit" size="small" link type="primary" @click="onEdit(row)">编辑</el-button>
             <el-dropdown trigger="click" size="small">
               <el-button size="small" link type="primary">
                 更多 <el-icon class="el-icon--right"><ArrowDown /></el-icon>
               </el-button>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item v-if="row.isMaintenance" @click="onToggleDuty(row)">
+                  <!-- v6.2 改造：DEVICE_MANAGER + HR_MANAGER + ADMIN 都能"切换在岗" -->
+                  <el-dropdown-item v-if="row.isMaintenance && canToggleDuty" @click="onToggleDuty(row)">
                     切换在岗
                   </el-dropdown-item>
-                  <el-dropdown-item v-if="!isBuiltInAdmin(row)" divided @click="onDelete(row)">
+                  <!-- v6.2 改造：DEVICE_MANAGER 看不到"删除"按钮 -->
+                  <el-dropdown-item v-if="canFullEdit && !isBuiltInAdmin(row)" divided @click="onDelete(row)">
                     <span style="color: #f56c6c">删除</span>
                   </el-dropdown-item>
                 </el-dropdown-menu>
@@ -226,13 +230,19 @@ import { computed, onMounted, reactive, shallowRef } from 'vue'
 import { ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { createUser, deleteUser, listUsersWithPersonnel, updateUser } from '../api'
+import { toggleDuty } from '../api/workorder'
 import { useAuthStore } from '../stores/auth'
 import { accountFormatHint, BUILT_IN_ADMIN_ACCOUNT, validateAccount } from '../utils/account'
 
 const auth = useAuthStore()
+
+// v6.2 改造：11 页面 DEVICE_MANAGER 只能看维修人员 + 只在岗切换，无编辑/删除/新增
+const canFullEdit = computed(() => ['HR_MANAGER', 'ADMIN'].includes(auth.user?.role))
+const canToggleDuty = computed(() => ['HR_MANAGER', 'DEVICE_MANAGER', 'ADMIN'].includes(auth.user?.role))
+
 const rows = shallowRef([])
 const loading = shallowRef(false)
-const filters = reactive({ keyword: '', role: '', department: '', status: '', isMaintenance: undefined })
+const filters = reactive({ keyword: '', role: '', department: '', status: '', isMaintenance: true })  // v6.2 改造：默认只看维修人员
 const pagination = reactive({ page: 1, size: 10, total: 0 })
 
 // v6.1: 编辑对话框
@@ -358,9 +368,16 @@ const onDelete = async (row) => {
     if (e !== 'cancel') ElMessage.error(e?.response?.data?.message || '删除失败')
   }
 }
-const onToggleDuty = (row) => {
-  ElMessage.info('离岗/在岗切换请用维修人员子表（后续在 PersonnelView 接入）')
-  // 暂未直接接 /api/workorder/personnel/{id}/duty，可在 PersonDetailView 中扩展
+// v6.2 改造：onToggleDuty 真正调 PATCH /api/workorder/personnel/{id}/duty API
+const onToggleDuty = async (row) => {
+  const newDuty = !row.isOnDuty
+  try {
+    await toggleDuty(row.id, newDuty)
+    row.isOnDuty = newDuty
+    ElMessage.success('已切换为' + (newDuty ? '在岗' : '离岗'))
+  } catch (e) {
+    ElMessage.error(e?.response?.data?.message || '切换失败')
+  }
 }
 
 const roles = [
@@ -368,7 +385,7 @@ const roles = [
   ['HR_MANAGER', '人事管理员'],
   ['MANAGER', '生产经理'],
   ['OPERATOR', '操作员'],
-  ['DEVICE_MANAGER', '设备管理人员'],
+  ['DEVICE_MANAGER', '工单管理人员'],
   ['MAINTENANCE_ENGINEER', '维修工程师']
 ]
 const roleLabel = (r) => roles.find(([v]) => v === r)?.[1] || r
@@ -407,7 +424,7 @@ const load = async () => {
 }
 const onSearch = () => { pagination.page = 1; load() }
 const onReset = () => {
-  Object.assign(filters, { keyword: '', role: '', department: '', status: '', isMaintenance: undefined })
+  Object.assign(filters, { keyword: '', role: '', department: '', status: '' })
   pagination.page = 1
   load()
 }
