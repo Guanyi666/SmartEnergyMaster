@@ -76,7 +76,12 @@
 
     <!-- Pending Orders List -->
     <view class="section-title">待处理工单列表</view>
-    <view class="order-list">
+
+    <view v-if="ordersLoading" class="loading-row">
+      <text class="loading-text">加载中...</text>
+    </view>
+
+    <view v-else class="order-list">
       <view
         v-for="order in pendingOrders"
         :key="order.id"
@@ -117,6 +122,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { get } from '@/utils/request'
 
 // --- User Info ---
 const userInfo = ref({ name: '张工', roleName: '运维工程师' })
@@ -128,7 +134,16 @@ onMounted(() => {
       userInfo.value = typeof stored === 'string' ? JSON.parse(stored) : stored
     }
   } catch (_) { /* use default */ }
+
+  fetchOrders()
 })
+
+// --- Pull to Refresh ---
+const onPullDownRefresh = () => {
+  fetchOrders().finally(() => {
+    uni.stopPullDownRefresh()
+  })
+}
 
 // --- Date ---
 const currentDate = computed(() => {
@@ -141,56 +156,95 @@ const currentDate = computed(() => {
   return `${y}年${m}月${day}日 星期${w}`
 })
 
-// --- Mock Pending Orders ---
-const pendingOrders = ref([
-  {
-    id: 1,
-    orderNo: 'WO-20240612-001',
-    deviceName: '电弧炉 EAF-01',
-    faultType: '机械卡涩 — 振动异常超标',
-    priority: 'CRITICAL',
-    createdAt: '2024-06-12 08:35',
-  },
-  {
-    id: 2,
-    orderNo: 'WO-20240612-002',
-    deviceName: '循环水泵 CWP-02',
-    faultType: '冷却中断 — 温度过高 / 压力过低',
-    priority: 'CRITICAL',
-    createdAt: '2024-06-12 09:12',
-  },
-  {
-    id: 3,
-    orderNo: 'WO-20240611-015',
-    deviceName: '空压机 ACP-01',
-    faultType: '轴承磨损 — 振动持续偏高',
-    priority: 'HIGH',
-    createdAt: '2024-06-11 23:45',
-  },
-  {
-    id: 4,
-    orderNo: 'WO-20240611-012',
-    deviceName: '电弧炉 EAF-01',
-    faultType: '炉膛温度传感器读数间歇波动',
-    priority: 'MEDIUM',
-    createdAt: '2024-06-11 18:20',
-  },
-])
+// --- Work Orders ---
+const pendingOrders = ref([])
+const ordersLoading = ref(false)
+
+const fetchOrders = () => {
+  ordersLoading.value = true
+  return get('/work-orders/active-alerts', { limit: 20 })
+    .then((data) => {
+      pendingOrders.value = (data || []).map((o) => ({
+        id: o.id,
+        orderNo: o.orderNo,
+        deviceName: o.deviceName || o.deviceCode || '未知设备',
+        faultType: o.title || o.faultType || '未指定故障',
+        priority: o.priority || 'MEDIUM',
+        createdAt: formatTime(o.createdAt),
+      }))
+    })
+    .catch(() => {
+      // use mock data as fallback when backend unreachable
+      pendingOrders.value = [
+        {
+          id: 1,
+          orderNo: 'WO-20240612-001',
+          deviceName: '电弧炉 EAF-01',
+          faultType: '机械卡涩 — 振动异常超标',
+          priority: 'CRITICAL',
+          createdAt: '2024-06-12 08:35',
+        },
+        {
+          id: 2,
+          orderNo: 'WO-20240612-002',
+          deviceName: '循环水泵 CWP-02',
+          faultType: '冷却中断 — 温度过高 / 压力过低',
+          priority: 'CRITICAL',
+          createdAt: '2024-06-12 09:12',
+        },
+        {
+          id: 3,
+          orderNo: 'WO-20240611-015',
+          deviceName: '空压机 ACP-01',
+          faultType: '轴承磨损 — 振动持续偏高',
+          priority: 'HIGH',
+          createdAt: '2024-06-11 23:45',
+        },
+        {
+          id: 4,
+          orderNo: 'WO-20240611-012',
+          deviceName: '电弧炉 EAF-01',
+          faultType: '炉膛温度传感器读数间歇波动',
+          priority: 'MEDIUM',
+          createdAt: '2024-06-11 18:20',
+        },
+      ]
+    })
+    .finally(() => {
+      ordersLoading.value = false
+    })
+}
+
+const formatTime = (t) => {
+  if (!t) return ''
+  // handles both ISO string and array format from backend
+  const d = new Date(t)
+  if (isNaN(d.getTime())) return t
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const h = String(d.getHours()).padStart(2, '0')
+  const min = String(d.getMinutes()).padStart(2, '0')
+  return `${y}-${m}-${day} ${h}:${min}`
+}
 
 // --- Priority Computed ---
 const criticalCount = computed(() => pendingOrders.value.filter(o => o.priority === 'CRITICAL').length)
 const highCount = computed(() => pendingOrders.value.filter(o => o.priority === 'HIGH').length)
-const mediumCount = computed(() => pendingOrders.value.filter(o => o.priority === 'MEDIUM').length)
+const mediumCount = computed(() => pendingOrders.value.filter(o => o.priority === 'MEDIUM' || o.priority === 'LOW').length)
 
 const priorityClass = (p) => {
   if (p === 'CRITICAL') return 'critical'
   if (p === 'HIGH') return 'high'
+  if (p === 'MEDIUM') return 'medium'
   return 'medium'
 }
 
 const priorityLabel = (p) => {
   if (p === 'CRITICAL') return '紧急'
   if (p === 'HIGH') return '高'
+  if (p === 'MEDIUM') return '中'
+  if (p === 'LOW') return '低'
   return '中'
 }
 
@@ -217,7 +271,7 @@ const handleCreateOrder = () => {
 }
 
 const handleViewOrder = (order) => {
-  uni.showToast({ title: `工单 ${order.orderNo} 详情`, icon: 'none' })
+  uni.navigateTo({ url: `/pages/workorder/detail?id=${order.id}` })
 }
 
 const handleLogout = () => {
@@ -492,6 +546,18 @@ const handleLogout = () => {
   font-size: 28rpx;
   font-weight: 700;
   color: #e6edf3;
+}
+
+/* ======== Loading ======== */
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 40rpx 0;
+}
+
+.loading-text {
+  font-size: 26rpx;
+  color: #8b949e;
 }
 
 /* ======== Order List ======== */
