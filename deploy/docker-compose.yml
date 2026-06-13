@@ -1,3 +1,5 @@
+name: smart-energy
+
 services:
   timescaledb:
     image: timescale/timescaledb:latest-pg14
@@ -5,9 +7,9 @@ services:
     environment:
       POSTGRES_USER: ${DB_USERNAME:-energy_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-energy_password}
-      POSTGRES_DB: smart_energy
+      POSTGRES_DB: ${DB_NAME:-smart_energy}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./init-sql/01_init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
@@ -19,39 +21,109 @@ services:
       - ./init-sql/seed_sop.sql:/docker-entrypoint-initdb.d/07_seed_sop.sql:ro
       - ./init-sql/seed_cases.sql:/docker-entrypoint-initdb.d/08_seed_cases.sql:ro
       - ./init-sql/09_workorder_audit_fixes.sql:/docker-entrypoint-initdb.d/09_workorder_audit_fixes.sql:ro
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 512M
+      - ./init-sql/10_transfer_requests.sql:/docker-entrypoint-initdb.d/10_transfer_requests.sql:ro
+      - ./init-sql/11_db_restructure_v1.sql:/docker-entrypoint-initdb.d/11_db_restructure_v1.sql:ro
+      - ./init-sql/12_account_username_format.sql:/docker-entrypoint-initdb.d/12_account_username_format.sql:ro
+      - ./init-sql/13_data_integrity_fixes.sql:/docker-entrypoint-initdb.d/13_data_integrity_fixes.sql:ro
+      - ./init-sql/14_backfill_personnel_for_existing_users.sql:/docker-entrypoint-initdb.d/14_backfill_personnel_for_existing_users.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-energy_user} -d smart_energy"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-energy_user} -d ${DB_NAME:-smart_energy}"]
       interval: 10s
       timeout: 5s
       retries: 10
-    restart: always
+    restart: unless-stopped
     networks:
       - energy_network
 
   redis:
     image: redis:7-alpine
     container_name: smart_energy_redis
-    command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redisdata:/data
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 256M
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 10
-    restart: always
+    restart: unless-stopped
+    networks:
+      - energy_network
+
+  backend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile-backend
+    container_name: smart_energy_backend
+    environment:
+      DB_URL: jdbc:postgresql://timescaledb:5432/${DB_NAME:-smart_energy}
+      DB_USERNAME: ${DB_USERNAME:-energy_user}
+      DB_PASSWORD: ${DB_PASSWORD:-energy_password}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      PREDICTION_BASE_URL: http://prediction:8000
+      JWT_SECRET: ${JWT_SECRET:-SmartEnergyMasterSecretKey}
+      # ★ 批次 0 新增 — dev 默认值让开发开箱即用,prod 部署必须覆盖以下三项
+      JWT_ALLOW_WEAK_SECRET: ${JWT_ALLOW_WEAK_SECRET:-true}
+      SENSOR_API_KEY: ${SENSOR_API_KEY:-dev-sensor-key-please-rotate-in-prod}
+      SWAGGER_PUBLIC: ${SWAGGER_PUBLIC:-true}
+      # ★ 批次 3 新增 — prod 必须显式配置以下三项
+      MYBATIS_LOG_IMPL: ${MYBATIS_LOG_IMPL:-org.apache.ibatis.logging.stdout.StdOutImpl}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:*,http://127.0.0.1:*}
+      TZ: Asia/Shanghai
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - energy_network
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile-frontend
+    container_name: smart_energy_frontend
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - energy_network
+
+  data-pump:
+    profiles: ["simulator"]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile-data-pump
+    container_name: smart_energy_data_pump
+    environment:
+      SENSOR_API_URL: http://backend:8080/api/sensor/upload
+      # ★ 批次 0 新增 — 必须与 backend 的 SENSOR_API_KEY 一致,否则上传被 401 拒绝
+      SENSOR_API_KEY: ${SENSOR_API_KEY:-dev-sensor-key-please-rotate-in-prod}
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - energy_network
+
+  prediction:
+    profiles: ["ai"]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile-prediction
+    container_name: smart_energy_prediction
+    ports:
+      - "${PREDICTION_PORT:-8000}:8000"
+    restart: unless-stopped
     networks:
       - energy_network
 

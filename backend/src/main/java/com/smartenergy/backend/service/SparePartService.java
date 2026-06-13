@@ -25,10 +25,12 @@ public interface SparePartService {
      */
     SparePartUsageVO recordUsage(SparePartUsageRequest request);
 
+    List<SparePartUsageVO> recordUsages(List<SparePartUsageRequest> requests);
+
     /**
      * 某备件的领用历史（最新在前）
      */
-    List<SparePartUsageVO> listUsages(Long partId, int limit);
+    List<SparePartUsageVO> listUsages(Long partId, String userName, int limit);
 
     /**
      * 某工单关联的领用记录

@@ -3,7 +3,7 @@
     <div class="page-header">
       <div>
         <h2 class="page-title">工单详情</h2>
-        <p class="page-subtitle">工单 ID: {{ workOrderId }}</p>
+        <p class="page-subtitle">工单序号：{{ workOrderId }}</p>
       </div>
       <el-button @click="$router.back()">返回</el-button>
     </div>
@@ -35,11 +35,11 @@
             </div>
             <div class="metric">
               <span class="m-label">压力</span>
-              <span class="m-value">{{ formatNum(order.latestPressure) }}<i>kPa</i></span>
+              <span class="m-value">{{ formatNum(order.latestPressure) }}<i>千帕</i></span>
             </div>
             <div class="metric">
               <span class="m-label">振动</span>
-              <span class="m-value">{{ formatNum(order.latestVibration) }}<i>mm/s</i></span>
+              <span class="m-value">{{ formatNum(order.latestVibration) }}<i>毫米/秒</i></span>
             </div>
           </div>
         </div>
@@ -135,7 +135,17 @@ onMounted(load)
 .page-shell { display: flex; flex-direction: column; gap: 16px; }
 
 .page-header { display: flex; justify-content: space-between; align-items: flex-start; }
-.page-title { margin: 0; font-size: 22px; font-weight: 600; color: #e0f2fe; }
+
+.page-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  background: linear-gradient(90deg, #5cdcff, #3da9ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
 .page-subtitle { margin: 4px 0 0; font-size: 12px; color: var(--text-secondary); }
 
 .loading-area { min-height: 200px; }
@@ -164,7 +174,7 @@ onMounted(load)
 .status-banner h2 {
   margin: 0 0 8px;
   font-size: 20px;
-  color: #e0f2fe;
+  color: #ffffff;
 }
 
 .meta {
@@ -201,7 +211,7 @@ onMounted(load)
   gap: 6px;
   margin: 0 0 12px;
   font-size: 14px;
-  color: #e0f2fe;
+  color: #ffffff;
   font-weight: 500;
   letter-spacing: 1px;
 }
@@ -226,7 +236,7 @@ onMounted(load)
 .m-value {
   font-size: 20px;
   font-weight: 600;
-  color: #e0f2fe;
+  color: #ffffff;
   font-family: 'SF Mono', Consolas, monospace;
 }
 .m-value i { font-style: normal; font-size: 11px; color: var(--text-secondary); margin-left: 4px; font-weight: 400; }
@@ -249,7 +259,7 @@ onMounted(load)
   color: #0f172a;
 }
 
-.assignee-block strong { font-size: 16px; color: #e0f2fe; }
+.assignee-block strong { font-size: 16px; color: #ffffff; }
 .assignee-block .time { margin: 2px 0 0; font-size: 11px; color: var(--text-secondary); }
 
 .empty { color: var(--text-secondary); font-size: 13px; }
@@ -262,7 +272,7 @@ onMounted(load)
   border-radius: 6px;
   font-size: 13px;
   line-height: 1.6;
-  color: #e0f2fe;
+  color: #ffffff;
 }
 
 .role-tag {

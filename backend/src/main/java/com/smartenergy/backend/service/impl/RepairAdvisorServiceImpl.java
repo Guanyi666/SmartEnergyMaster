@@ -36,8 +36,8 @@ public class RepairAdvisorServiceImpl implements RepairAdvisorService {
             return emptyAdvice(request, "未在知识库中找到匹配的 SOP，请补充设备/故障信息或新建 SOP。");
         }
 
-        // 2) 步骤数组（来自 SOP 的 steps JSON）
-        List<String> sopSteps = parseJsonArray(sop.getSteps());
+        // 2) 步骤数组（v4: 从 maintenance_sop_step 子表读，直接是 List<String>）
+        List<String> sopSteps = sop.getSteps() == null ? java.util.Collections.emptyList() : sop.getSteps();
         if (sopSteps.isEmpty()) {
             return emptyAdvice(request, "匹配到的 SOP 暂无具体步骤，请人工补全。");
         }

@@ -2,6 +2,7 @@
 
 ALTER TABLE sys_user
     ADD COLUMN IF NOT EXISTS nickname VARCHAR(64),
+    ADD COLUMN IF NOT EXISTS department VARCHAR(64),
     ADD COLUMN IF NOT EXISTS phone VARCHAR(32),
     ADD COLUMN IF NOT EXISTS email VARCHAR(128),
     ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(255),
@@ -11,6 +12,7 @@ ALTER TABLE sys_user
     ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
 
 CREATE INDEX IF NOT EXISTS ix_sys_user_status ON sys_user (status);
+CREATE INDEX IF NOT EXISTS ix_sys_user_department ON sys_user (department);
 
 CREATE TABLE IF NOT EXISTS maintenance_personnel (
     id BIGSERIAL PRIMARY KEY,

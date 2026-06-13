@@ -1,12 +1,26 @@
-FROM eclipse-temurin:17-jdk
+FROM maven:3.9.9-eclipse-temurin-17 AS builder
+
+WORKDIR /workspace
+COPY backend/pom.xml backend/pom.xml
+RUN mvn -f backend/pom.xml dependency:go-offline -DskipTests
+
+COPY backend/src backend/src
+RUN mvn -f backend/pom.xml package -DskipTests -Dmaven.test.skip=true
+
+FROM eclipse-temurin:17-jre-jammy
 
 WORKDIR /app
+ENV TZ=Asia/Shanghai
 
-ENV TZ="Asia/Shanghai"
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 
-COPY target/*.jar app.jar
+COPY --from=builder /workspace/backend/target/backend-0.0.1-SNAPSHOT.jar app.jar
 
 EXPOSE 8080
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=35s --retries=10 \
+  CMD curl --fail --silent --show-error http://localhost:8080/api/health >/dev/null || exit 1
 
 ENTRYPOINT ["java", "-jar", "app.jar"]

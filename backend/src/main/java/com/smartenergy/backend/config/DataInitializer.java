@@ -14,6 +14,8 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static com.smartenergy.backend.utils.AccountUsernameRules.BUILT_IN_ADMIN_USERNAME;
+
 @Component
 @RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
@@ -32,15 +34,36 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void seedDefaultUser() {
-        boolean exists = sysUserMapper.exists(new QueryWrapper<SysUser>().eq("username", "admin"));
-        if (exists) {
+        SysUser existingAdmin = sysUserMapper.selectOne(new QueryWrapper<SysUser>().eq("username", BUILT_IN_ADMIN_USERNAME));
+        boolean migratedLegacyAdmin = false;
+        if (existingAdmin == null) {
+            existingAdmin = sysUserMapper.selectOne(new QueryWrapper<SysUser>().eq("username", "admin"));
+            if (existingAdmin != null) {
+                existingAdmin.setUsername(BUILT_IN_ADMIN_USERNAME);
+                migratedLegacyAdmin = true;
+            }
+        }
+        if (existingAdmin != null) {
+            boolean needsRepair = migratedLegacyAdmin
+                    || !"ADMIN".equals(existingAdmin.getRole())
+                    || !"ACTIVE".equals(existingAdmin.getStatus());
+            if (needsRepair) {
+                existingAdmin.setUsername(BUILT_IN_ADMIN_USERNAME);
+                existingAdmin.setRole("ADMIN");
+                existingAdmin.setStatus("ACTIVE");
+                existingAdmin.setUpdatedAt(LocalDateTime.now());
+                sysUserMapper.updateById(existingAdmin);
+            }
             return;
         }
 
         SysUser admin = new SysUser();
-        admin.setUsername("admin");
+        admin.setUsername(BUILT_IN_ADMIN_USERNAME);
         admin.setPassword(passwordEncoder.encode(defaultAdminPassword));
         admin.setRole("ADMIN");
+        admin.setStatus("ACTIVE");
+        admin.setCreatedAt(LocalDateTime.now());
+        admin.setUpdatedAt(LocalDateTime.now());
         sysUserMapper.insert(admin);
     }
 

@@ -5,11 +5,11 @@
       <div>
         <h2 class="page-title">维修指挥中心</h2>
         <p class="page-subtitle">
-          拖拽卡片仅改 status，指派人由抽屉管理；每 5s 自动轮询新工单；最后同步：{{ lastSyncLabel }}
+          拖拽卡片仅改变状态，指派人由详情抽屉管理；每 5 秒自动刷新新工单；最后同步：{{ lastSyncLabel }}
         </p>
       </div>
       <div class="header-tools">
-        <el-button :icon="Plus" @click="openCreateDialog">新建工单</el-button>
+        <!-- v6.2 改造：删除"+" 新建工单按钮（OPERATOR 在 /devices 页面新建；DEVICE_MANAGER 用本页面"指派/状态变更"功能） -->
         <el-button type="primary" :icon="Plus" @click="goDispatch">智能调度</el-button>
       </div>
     </div>
@@ -192,12 +192,12 @@
         <el-form-item label="当前快照">
           <div v-if="sensorSnapshot" class="snapshot-row">
             <span>🌡 {{ formatSnapshotVal(sensorSnapshot.temperature) }} ℃</span>
-            <span>💧 {{ formatSnapshotVal(sensorSnapshot.pressure) }} kPa</span>
-            <span>📳 {{ formatSnapshotVal(sensorSnapshot.vibration) }} mm/s</span>
+            <span>压力 {{ formatSnapshotVal(sensorSnapshot.pressure) }} 千帕</span>
+            <span>振动 {{ formatSnapshotVal(sensorSnapshot.vibration) }} 毫米/秒</span>
             <span class="snapshot-time">{{ formatSnapshotTime(sensorSnapshot.time) }}</span>
           </div>
           <span v-else-if="snapshotLoading" class="snapshot-muted">加载中…</span>
-          <span v-else class="snapshot-muted">暂无传感器数据（创建时将记录为 NULL）</span>
+          <span v-else class="snapshot-muted">暂无传感器数据（创建时将记录为空值）</span>
         </el-form-item>
       </el-form>
 
@@ -220,7 +220,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+// v6.2 改造：移除 Plus icon 引用（新建工单按钮已删）
+// import { Plus } from '@element-plus/icons-vue'
 import StatBadge from '../components/StatBadge.vue'
 import WorkOrderCard from '../components/WorkOrderCard.vue'
 import WorkOrderDetailDrawer from '../components/WorkOrderDetailDrawer.vue'
@@ -516,10 +517,13 @@ onMounted(() => {
 
 .page-title {
   margin: 0;
-  font-size: 24px;
-  font-weight: 600;
-  color: #e0f2fe;
-  letter-spacing: 1px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .page-subtitle {
@@ -600,7 +604,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: #e0f2fe;
+  color: #ffffff;
 }
 
 .col-title .dot {
@@ -615,7 +619,7 @@ onMounted(() => {
 
 .count-badge :deep(.el-badge__content) {
   background: rgba(15, 23, 42, 0.7);
-  color: #e0f2fe;
+  color: #ffffff;
   border: 1px solid rgba(148, 163, 184, 0.3);
   font-weight: 600;
 }
@@ -659,7 +663,7 @@ onMounted(() => {
   border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 8px;
   font-size: 13px;
-  color: #e0f2fe;
+  color: #ffffff;
   font-family: 'SF Mono', Consolas, monospace;
 }
 .snapshot-row .snapshot-time {

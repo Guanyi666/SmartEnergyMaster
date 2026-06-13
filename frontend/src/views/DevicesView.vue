@@ -8,6 +8,8 @@
       <div class="analysis-tools">
         <el-button @click="refreshNow">立即刷新</el-button>
         <el-button type="primary" @click="openDialog()">新增设备</el-button>
+        <!-- v6.2 改造：OPERATOR 在 3 页面里能新建工单（公共组件） -->
+        <el-button type="success" @click="createOrderOpen = true">+ 新建工单</el-button>
       </div>
     </div>
 
@@ -23,7 +25,7 @@
           />
         </el-form-item>
         <el-form-item label="设备类型">
-          <el-select v-model="searchForm.type" placeholder="全部" clearable style="width: 160px">
+          <el-select v-model="searchForm.type" placeholder="全部" clearable style="width: 160px" :disabled="isDepartmentManager">
             <el-option label="电弧炉" value="ARC_FURNACE" />
             <el-option label="变压器" value="TRANSFORMER" />
             <el-option label="空压机" value="COMPRESSOR" />
@@ -122,8 +124,9 @@
         </el-table-column>
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="row.status === 'PENDING'" size="small" @click="updateOrder(row, 'IN_PROGRESS')">确认处理</el-button>
-            <el-button v-if="row.status !== 'RESOLVED'" size="small" type="success" @click="updateOrder(row, 'RESOLVED')">已修复</el-button>
+            <!-- v6.2 改造：OPERATOR 失去"维修工单模块的编辑权限"，不能点"确认处理/已修复" -->
+            <el-button v-if="canEditWorkOrder && row.status === 'PENDING'" size="small" @click="updateOrder(row, 'IN_PROGRESS')">确认处理</el-button>
+            <el-button v-if="canEditWorkOrder && row.status !== 'RESOLVED'" size="small" type="success" @click="updateOrder(row, 'RESOLVED')">已修复</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -164,6 +167,9 @@
         <el-button type="primary" @click="submitDevice">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- v6.2 改造：新建工单公共对话框（OPERATOR/DEVICE MANAGER 都能用） -->
+    <WorkOrderCreateDialog v-model="createOrderOpen" @created="onWorkOrderCreated" />
 
     <el-dialog v-model="detailVisible" title="设备详情" width="720px" destroy-on-close>
       <div v-loading="detailLoading" class="detail-body">
@@ -209,7 +215,7 @@
             <div class="detail-metrics">
               <div class="metric-chip">
                 <span>功率</span>
-                <strong>{{ formatNumber(deviceDetail.usageKwh) }} kWh</strong>
+                <strong>{{ formatNumber(deviceDetail.usageKwh) }} 千瓦时</strong>
               </div>
               <div class="metric-chip">
                 <span>碳排放</span>
@@ -221,11 +227,11 @@
               </div>
               <div class="metric-chip">
                 <span>振动</span>
-                <strong>{{ formatNumber(deviceDetail.vibration) }} mm/s</strong>
+                <strong>{{ formatNumber(deviceDetail.vibration) }} 毫米/秒</strong>
               </div>
               <div class="metric-chip">
                 <span>压力</span>
-                <strong>{{ formatNumber(deviceDetail.pressure) }} kPa</strong>
+                <strong>{{ formatNumber(deviceDetail.pressure) }} 千帕</strong>
               </div>
               <div class="metric-chip">
                 <span>电价区间</span>
@@ -308,9 +314,10 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import StatusPill from '../components/StatusPill.vue'
+import WorkOrderCreateDialog from '../components/WorkOrderCreateDialog.vue'
 import {
   createDevice, deleteDevice, getDevices, getDeviceDetail,
   getDeviceFaultHistory, getDeviceHealthScore,
@@ -318,8 +325,26 @@ import {
 } from '../api'
 import { usePollingTask } from '../composables/usePollingTask'
 import { getPriorityMeta } from '../utils/status'
+import { useAuthStore } from '../stores/auth'
 
 const priorityLabel = (p) => getPriorityMeta(p).label
+const auth = useAuthStore()
+
+// v6.2 改造：OPERATOR 失去"维修工单模块的编辑权限"，不能点"确认处理/已修复"按钮
+const canEditWorkOrder = computed(() => !['OPERATOR'].includes(auth.user?.role))
+// v6.2 改造：新建工单对话框状态（OPERATOR 也能用）
+const createOrderOpen = ref(false)
+const onWorkOrderCreated = () => { loadWorkOrders() }
+const departmentTypeMap = {
+  '炼钢设备科': 'ARC_FURNACE',
+  '公辅设备科': 'PUMP',
+  '动力设备科': 'COMPRESSOR',
+  '连铸设备科': 'CONTINUOUS_CASTER',
+  '环保设备科': 'DUST_COLLECTOR',
+  '精炼设备科': 'LADLE_FURNACE'
+}
+const managedDeviceType = departmentTypeMap[auth.user?.department] || ''
+const isDepartmentManager = auth.user?.role === 'DEVICE_MANAGER' && Boolean(managedDeviceType)
 
 const devices = ref([])
 const workOrders = ref([])
@@ -400,7 +425,7 @@ const handleSearch = () => {
 
 const handleReset = () => {
   searchForm.keyword = ''
-  searchForm.type = ''
+  searchForm.type = managedDeviceType
   searchForm.status = ''
   pagination.page = 1
   refreshNow()
@@ -508,6 +533,7 @@ const orderTimelineColor = (status) => {
 }
 
 onMounted(async () => {
+  if (isDepartmentManager) searchForm.type = managedDeviceType
   await startPolling()
 })
 </script>
@@ -519,7 +545,8 @@ onMounted(async () => {
 }
 
 .table-panel {
-  padding: 20px;
+  padding: 18px 20px;
+  margin-bottom: 14px;
 }
 
 .table-head {
@@ -568,7 +595,8 @@ onMounted(async () => {
   margin: 0 0 14px;
   font-size: 15px;
   font-weight: 700;
-  color: #dbeafe;
+  color: var(--accent-cyan);
+  letter-spacing: 2px;
   padding-bottom: 10px;
   border-bottom: 1px solid rgba(148, 163, 184, 0.15);
 }

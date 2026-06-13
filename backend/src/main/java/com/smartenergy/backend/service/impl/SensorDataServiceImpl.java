@@ -85,10 +85,14 @@ public class SensorDataServiceImpl implements SensorDataService {
         if (device == null) {
             throw new IllegalArgumentException("找不到设备编号 " + deviceCode);
         }
+        // ★ NC3 防御纵深: int 类型当前无法 SQL 注入,但强制钳制 [1, 500] 防止
+        //   ① 后续 refactor 改成 String 类型激活漏洞
+        //   ② 单次过大 LIMIT 拖垮 DB
+        int safeLimit = Math.min(Math.max(1, limit), 500);
         List<SensorData> desc = sensorDataMapper.selectList(new QueryWrapper<SensorData>()
                 .eq("device_id", device.getId())
                 .orderByDesc("time")
-                .last("LIMIT " + limit));
+                .last("LIMIT " + safeLimit));
         java.util.Collections.reverse(desc);   // 转为时间升序
         return desc;
     }

@@ -67,6 +67,9 @@ public class WorkOrderReadVO {
     @Schema(description = "触发时压力（kPa）")
     private BigDecimal latestPressure;
 
+    @Schema(description = "当前选择的维修流程 ID")
+    private Long sopId;
+
     @Schema(description = "创建时间")
     private LocalDateTime createdAt;
 

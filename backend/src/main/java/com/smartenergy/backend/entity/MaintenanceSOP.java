@@ -35,21 +35,11 @@ public class MaintenanceSOP {
     @Schema(description = "SOP 完整内容（Markdown）")
     private String content;
 
-    @Schema(description = "操作步骤列表（JSON 数组）")
-
-    private String steps;
-
-    @Schema(description = "所需技能（JSON 数组）")
-
+    @Schema(description = "所需技能（JSON 数组，保留为 TEXT）")
     private String requiredSkills;
 
-    @Schema(description = "所需工具（JSON 数组）")
-
+    @Schema(description = "所需工具（JSON 数组，保留为 TEXT）")
     private String requiredTools;
-
-    @Schema(description = "所需备件（JSON 数组）")
-
-    private String requiredParts;
 
     @Schema(description = "预计耗时（分钟）")
     private Integer estimatedMinutes;

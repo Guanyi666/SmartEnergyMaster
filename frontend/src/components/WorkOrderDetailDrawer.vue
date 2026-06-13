@@ -93,11 +93,11 @@
           </div>
           <div class="metric-cell">
             <span class="metric-label">压力</span>
-            <span class="metric-value">{{ formatNum(order.latestPressure) }}<i>kPa</i></span>
+            <span class="metric-value">{{ formatNum(order.latestPressure) }}<i>千帕</i></span>
           </div>
           <div class="metric-cell">
             <span class="metric-label">振动</span>
-            <span class="metric-value">{{ formatNum(order.latestVibration) }}<i>mm/s</i></span>
+            <span class="metric-value">{{ formatNum(order.latestVibration) }}<i>毫米/秒</i></span>
           </div>
         </div>
       </section>

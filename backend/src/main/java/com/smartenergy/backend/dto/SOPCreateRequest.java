@@ -53,6 +53,6 @@ public class SOPCreateRequest {
     @Schema(description = "是否启用", example = "true")
     private Boolean isActive;
 
-    @Schema(description = "创建人", example = "admin")
+    @Schema(description = "创建人账号", example = "2026010001")
     private String createdBy;
 }

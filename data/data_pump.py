@@ -1,4 +1,5 @@
 import argparse
+import os
 import random
 import time
 from datetime import datetime, timedelta, timezone
@@ -12,7 +13,9 @@ try:
 except ImportError:
     fetch_ucirepo = None
 
-API_URL = "http://localhost:8080/api/sensor/upload"
+API_URL = os.getenv("SENSOR_API_URL", "http://localhost:8080/api/sensor/upload")
+# ★ NH2: 传感器上传 API Key (与 backend application.yml app.sensor.api-key 一致)
+API_KEY = os.getenv("SENSOR_API_KEY", "dev-sensor-key-please-rotate-in-prod")
 DEFAULT_SLEEP_INTERVAL = 3
 DEFAULT_HISTORY_HOURS = 24
 DEFAULT_FAULT_RATE = 0.012
@@ -570,7 +573,9 @@ class DustCollectorSimulator(DeviceSimulator):
 
 
 def send_payload(payload):
-    response = requests.post(API_URL, json=payload, timeout=8)
+    # ★ NH2: 上传必须携带 X-Api-Key,服务端 SensorApiKeyFilter 会校验
+    headers = {"X-Api-Key": API_KEY} if API_KEY else {}
+    response = requests.post(API_URL, json=payload, headers=headers, timeout=8)
     response.raise_for_status()
 
 

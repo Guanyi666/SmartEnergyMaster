@@ -29,6 +29,8 @@ public interface WorkOrderService {
 
     WorkOrderVO updateStatus(Long id, WorkOrderStatusRequest request);
 
+    WorkOrderVO updateSop(Long id, Long sopId);
+
     List<WorkOrderVO> listActiveAlerts(int limit);
 
     long countActiveByDevice(Integer deviceId);

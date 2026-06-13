@@ -49,50 +49,18 @@ git clone https://github.com/Guanyi666/SmartEnergyMaster.git
 cd SmartEnergyMaster
 ```
 
-4.2 启动数据库（TimescaleDB）
+4.2 使用 Docker Compose 启动完整项目
 ```bash
-cd deploy
-docker-compose up -d
+docker compose -f deploy/docker-compose.yml --profile simulator up -d --build
 ```
 
-📌 注意：
+首次启动会构建并运行 TimescaleDB、Redis、Spring Boot 后端、Vue/Nginx 前端和数据模拟器。
 
-首次启动会自动执行 deploy/init-sql/ 下的 .sql 初始化脚本
-默认数据库端口：5432
-4.3 启动后端（Spring Boot）
+- 前端：http://localhost:5173
+- 后端：http://localhost:8080
+- Swagger：http://localhost:8080/swagger-ui.html
 
-方式一：Docker 运行（推荐）
-```bash
-cd backend
-mvn clean package -DskipTests
-
-docker build -t energy-backend -f ../deploy/Dockerfile-backend .
-
-docker run -d \
-  -p 8080:8080 \
-  --name energy-api \
-  energy-backend
-
-```
-方式二：本地运行
-```bash
-cd backend
-mvn spring-boot:run
-```
-
-📌 默认后端地址：
-http://localhost:8080
-
-4.4 启动前端（Vue 3）
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-📌 默认前端地址：
-http://localhost:5173
+完整配置、AI 预测服务和排错方式见 [deploy/README.md](deploy/README.md)。
 
 ⚙️ 5. 配置说明（重要）
 后端数据库配置（application.yml）

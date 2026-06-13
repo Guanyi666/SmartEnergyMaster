@@ -14,8 +14,9 @@ import java.util.List;
 public class MaintenancePersonnelRequest {
 
     @NotBlank(message = "工号不能为空")
-    @Pattern(regexp = "^E\\d{3,}$", message = "工号格式：E + 3 位以上数字，例如 E001")
-    @Schema(description = "工号", example = "E001")
+    @Pattern(regexp = "^(E\\d{3,}|[12]\\d{3}03(?!0000)\\d{4})$",
+            message = "工号格式必须为 E + 3 位以上数字，或维修工程师账号格式，例如 2026030001")
+    @Schema(description = "维修工程师工号", example = "2026030001")
     private String employeeNo;
 
     @NotBlank(message = "姓名不能为空")
@@ -48,4 +49,7 @@ public class MaintenancePersonnelRequest {
     @Min(value = 1, message = "max_workload 至少为 1")
     @Schema(description = "最大并行处理数", example = "5")
     private Integer maxWorkload;
+
+    @Schema(description = "关联 sys_user.id（v4 新增，可空）")
+    private Integer userId;
 }

@@ -8,6 +8,7 @@ import com.smartenergy.backend.entity.SensorData;
 import com.smartenergy.backend.entity.WorkOrder;
 import com.smartenergy.backend.mapper.DeviceMapper;
 import com.smartenergy.backend.mapper.SensorDataMapper;
+import com.smartenergy.backend.mapper.MaintenanceSOPMapper;
 import com.smartenergy.backend.mapper.WorkOrderMapper;
 import com.smartenergy.backend.service.DeviceService;
 import com.smartenergy.backend.service.MaintenanceSOPService;
@@ -37,6 +38,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     private final DeviceService deviceService;
     private final MaintenanceSOPService sopService;
     private final SparePartService sparePartService;
+    private final MaintenanceSOPMapper maintenanceSOPMapper;
 
     @Override
     @Transactional
@@ -201,11 +203,32 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     }
 
     @Override
+    @Transactional
+    public WorkOrderVO updateSop(Long id, Long sopId) {
+        WorkOrder workOrder = workOrderMapper.selectById(id);
+        if (workOrder == null) {
+            throw new IllegalArgumentException("工单不存在: " + id);
+        }
+        if ("RESOLVED".equals(workOrder.getStatus())) {
+            throw new IllegalStateException("已完成工单不能更换维修流程");
+        }
+        if (maintenanceSOPMapper.selectById(sopId) == null) {
+            throw new IllegalArgumentException("维修流程不存在: " + sopId);
+        }
+        workOrder.setSopId(sopId);
+        workOrder.setUpdatedAt(LocalDateTime.now());
+        workOrderMapper.updateById(workOrder);
+        return toVO(workOrder);
+    }
+
+    @Override
     public List<WorkOrderVO> listActiveAlerts(int limit) {
+        // ★ NC3 防御纵深: 钳制 [1, 500]
+        int safeLimit = Math.min(Math.max(1, limit), 500);
         return workOrderMapper.selectList(new QueryWrapper<WorkOrder>()
                         .in("status", List.of("PENDING", "IN_PROGRESS"))
                         .orderByDesc("created_at")
-                        .last("LIMIT " + limit))
+                        .last("LIMIT " + safeLimit))
                 .stream()
                 .map(this::toVO)
                 .toList();

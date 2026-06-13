@@ -48,10 +48,10 @@ export function formatSopCode(code) {
   if (!code) return ''
   const m = String(code).match(/^(SOP)-([A-Z]+)-([A-Z]+)-(\d+)$/)
   if (!m) return code
-  const [, prefix, devAbbrev, faultAbbrev, num] = m
+  const [, , devAbbrev, faultAbbrev, num] = m
   const devCode = DEVICE_CODE_ABBREV[devAbbrev] || devAbbrev
   const faultCode = FAULT_CODE_ABBREV[faultAbbrev] || faultAbbrev
-  return prefix + '-' + deviceLabel(devCode) + '-' + faultLabel(faultCode) + '-' + num
+  return '流程-' + deviceLabel(devCode) + '-' + faultLabel(faultCode) + '-' + num
 }
 
 export const DEVICE_TYPE_OPTIONS = Object.entries(DEVICE_LABELS).map(([value, label]) => ({ value, label }))

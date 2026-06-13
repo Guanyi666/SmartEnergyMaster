@@ -1,0 +1,12 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY data/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY data/ ./
+
+ENV SENSOR_API_URL=http://backend:8080/api/sensor/upload
+
+CMD ["python", "data_pump.py", "--interval", "3", "--history-hours", "24"]

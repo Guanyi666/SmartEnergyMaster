@@ -37,11 +37,11 @@
       </div>
       <div class="metric">
         <span class="metric-label">压力</span>
-        <span class="metric-value">{{ formatNum(order.latestPressure) }}<i>kPa</i></span>
+        <span class="metric-value">{{ formatNum(order.latestPressure) }}<i>千帕</i></span>
       </div>
       <div class="metric">
         <span class="metric-label">振动</span>
-        <span class="metric-value">{{ formatNum(order.latestVibration) }}<i>mm/s</i></span>
+        <span class="metric-value">{{ formatNum(order.latestVibration) }}<i>毫米/秒</i></span>
       </div>
     </div>
 
@@ -135,9 +135,8 @@ const timeAgo = (iso) => {
 
 <style scoped>
 .wo-card {
-  background: rgba(15, 23, 42, 0.62);
-  backdrop-filter: blur(14px);
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: linear-gradient(180deg, rgba(13, 37, 64, 0.72), rgba(10, 25, 41, 0.6));
+  border: 1px solid rgba(92, 220, 255, 0.16);
   border-radius: 12px;
   padding: 14px 14px 12px;
   margin-bottom: 12px;
@@ -153,18 +152,18 @@ const timeAgo = (iso) => {
   left: 0;
   top: 0;
   bottom: 0;
-  width: 3px;
+  width: 4px;
 }
 
-.wo-card.prio-critical::before { background: #a78bfa; }
-.wo-card.prio-high::before     { background: #ff9f43; }
-.wo-card.prio-medium::before   { background: #52c8ff; }
-.wo-card.prio-low::before      { background: #3bff9f; }
+.wo-card.prio-critical::before { background: #ff5d5d; box-shadow: 0 0 8px #ff5d5d; }
+.wo-card.prio-high::before     { background: #ff7e00; box-shadow: 0 0 8px #ff7e00; }
+.wo-card.prio-medium::before   { background: #5cdcff; box-shadow: 0 0 8px #5cdcff; }
+.wo-card.prio-low::before      { background: #3bff9f; box-shadow: 0 0 8px #3bff9f; }
 
 .wo-card:hover {
   transform: translateY(-4px);
-  border-color: rgba(82, 200, 255, 0.55);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  border-color: rgba(92, 220, 255, 0.55);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 18px rgba(92, 220, 255, 0.18);
 }
 
 /* 🔒 已闭环工单：不可拖动、视觉降级、抑制 hover 浮起 */
@@ -179,7 +178,7 @@ const timeAgo = (iso) => {
   top: 10px;
   font-size: 10px;
   color: var(--text-secondary);
-  background: rgba(15, 23, 42, 0.7);
+  background: rgba(13, 37, 64, 0.85);
   padding: 2px 6px;
   border-radius: 6px;
   border: 1px solid rgba(148, 163, 184, 0.2);
@@ -212,9 +211,9 @@ const timeAgo = (iso) => {
   letter-spacing: 1px;
 }
 
-.prio-chip.tone-critical { background: rgba(167, 139, 250, 0.2);  color: #a78bfa; }
-.prio-chip.tone-high     { background: rgba(255, 159, 67, 0.2);  color: #ff9f43; }
-.prio-chip.tone-medium   { background: rgba(82, 200, 255, 0.2);  color: #52c8ff; }
+.prio-chip.tone-critical { background: rgba(255, 93, 93, 0.2);  color: #ff5d5d; }
+.prio-chip.tone-high     { background: rgba(255, 126, 0, 0.2);  color: #ff7e00; }
+.prio-chip.tone-medium   { background: rgba(92, 220, 255, 0.2);  color: #5cdcff; }
 .prio-chip.tone-low      { background: rgba(59, 255, 159, 0.2);   color: #3bff9f; }
 
 /* 🆕 来源 chip：AUTO=告警生成（默认蓝）、MANUAL=手动创建（强调橙） */
@@ -225,8 +224,8 @@ const timeAgo = (iso) => {
   letter-spacing: 0.5px;
   margin-right: 4px;
 }
-.source-chip.source-auto   { background: rgba(82, 200, 255, 0.12); color: #52c8ff; border: 1px solid rgba(82, 200, 255, 0.3); }
-.source-chip.source-manual { background: rgba(255, 159, 67, 0.15); color: #ff9f43; border: 1px solid rgba(255, 159, 67, 0.4); font-weight: 600; }
+.source-chip.source-auto   { background: rgba(92, 220, 255, 0.12); color: #5cdcff; border: 1px solid rgba(92, 220, 255, 0.3); }
+.source-chip.source-manual { background: rgba(255, 126, 0, 0.15); color: #ff7e00; border: 1px solid rgba(255, 126, 0, 0.4); font-weight: 600; }
 
 .wo-device {
   display: flex;
@@ -245,7 +244,7 @@ const timeAgo = (iso) => {
 
 .wo-device .device-code {
   font-family: 'SF Mono', Consolas, monospace;
-  color: rgba(82, 200, 255, 0.8);
+  color: rgba(92, 220, 255, 0.8);
 }
 
 .wo-title {

@@ -1,7 +1,11 @@
 package com.smartenergy.backend.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.smartenergy.backend.entity.MaintenancePersonnel;
+import com.smartenergy.backend.entity.MaintenancePersonnelArchive;
+import com.smartenergy.backend.mapper.MaintenancePersonnelArchiveMapper;
 import com.smartenergy.backend.vo.MatchCandidateVO;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -26,7 +30,10 @@ import java.util.stream.Collectors;
  * 最低分 0，最高分 100（基础50+技能30+等级15=95，封顶95或按公式计算）
  */
 @Component
+@RequiredArgsConstructor
 public class AutoMatchEngine {
+
+    private final MaintenancePersonnelArchiveMapper archiveMapper;
 
     private static final Map<String, List<String>> FAULT_TO_SKILL = Map.ofEntries(
         Map.entry("MECHANICAL_JAM",     List.of("机械", "液压")),
@@ -65,9 +72,13 @@ public class AutoMatchEngine {
         // 1. 基础分
         int score = 50;
 
+        // v4: 从 archive 表读 specializations/skillLevel
+        MaintenancePersonnelArchive archive = archiveMapper.selectOne(
+                new QueryWrapper<MaintenancePersonnelArchive>().eq("employee_no", p.getEmployeeNo()));
+
         // 2. 技能匹配（specializations 改 String 后先解析）
         int skillBonus = 0;
-        List<String> personSkills = parseSkills(p.getSpecializations());
+        List<String> personSkills = parseSkills(archive == null ? null : archive.getSpecializations());
         if (!personSkills.isEmpty() && !requiredSkills.isEmpty()) {
             for (String required : requiredSkills) {
                 if (personSkills.stream().anyMatch(s -> s.equals(required))) {
@@ -79,8 +90,9 @@ public class AutoMatchEngine {
         score += skillBonus;
 
         // 3. 技能等级 bonus
-        if (p.getSkillLevel() != null) {
-            score += LEVEL_BONUS.getOrDefault(p.getSkillLevel(), 0);
+        String skillLevel = archive == null ? null : archive.getSkillLevel();
+        if (skillLevel != null) {
+            score += LEVEL_BONUS.getOrDefault(skillLevel, 0);
         }
 
         // 4. 负载惩罚
@@ -101,13 +113,20 @@ public class AutoMatchEngine {
                                                   int topN) {
         return personnel.stream()
                 .map(p -> {
+                    // v4: 从 archive 读档案字段
+                    MaintenancePersonnelArchive archive = archiveMapper.selectOne(
+                            new QueryWrapper<MaintenancePersonnelArchive>().eq("employee_no", p.getEmployeeNo()));
+                    String name = archive == null ? null : archive.getName();
+                    String specializationsJson = archive == null ? null : archive.getSpecializations();
+                    String skillLevel = archive == null ? null : archive.getSkillLevel();
+
                     MatchCandidateVO vo = new MatchCandidateVO();
                     vo.setPersonnelId(p.getId());
                     vo.setEmployeeNo(p.getEmployeeNo());
-                    vo.setName(p.getName());
+                    vo.setName(name);
                     vo.setAvatarColor(p.getAvatarColor());
-                    vo.setSpecializations(parseSkills(p.getSpecializations()));
-                    vo.setSkillLevel(p.getSkillLevel());
+                    vo.setSpecializations(parseSkills(specializationsJson));
+                    vo.setSkillLevel(skillLevel);
                     vo.setCurrentWorkload(p.getCurrentWorkload());
                     vo.setMaxWorkload(p.getMaxWorkload());
                     vo.setWorkloadRate(calcWorkloadRate(p));
@@ -123,7 +142,9 @@ public class AutoMatchEngine {
 
     private List<String> matchedSkills(MaintenancePersonnel p, List<String> required) {
         if (p == null || required == null) return List.of();
-        List<String> personSkills = parseSkills(p.getSpecializations());
+        MaintenancePersonnelArchive archive = archiveMapper.selectOne(
+                new QueryWrapper<MaintenancePersonnelArchive>().eq("employee_no", p.getEmployeeNo()));
+        List<String> personSkills = parseSkills(archive == null ? null : archive.getSpecializations());
         if (personSkills.isEmpty()) return List.of();
         List<String> matched = new ArrayList<>();
         for (String r : required) {

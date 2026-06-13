@@ -12,7 +12,7 @@
         <div class="summary-row">
           <span class="muted">生成策略：</span>
           <el-tag :type="advice.strategy === 'LLM' ? 'success' : 'info'" effect="dark" size="small">
-            {{ advice.strategy === 'LLM' ? 'LLM 增强' : '纯 SOP 路径' }}
+            {{ advice.strategy === 'LLM' ? '大模型增强' : '标准流程路径' }}
           </el-tag>
           <span class="muted" style="margin-left: 16px">整体置信度：</span>
           <el-progress
@@ -29,10 +29,10 @@
       <div v-if="advice.matchedSop" class="matched-sop glass-card">
         <div class="matched-header">
           <el-icon><Document /></el-icon>
-          <strong>参考 SOP</strong>
-          <el-tag size="small" effect="dark" style="margin-left: 8px">{{ advice.matchedSop.sopCode }}</el-tag>
+          <strong>参考标准维修流程</strong>
+          <el-tag size="small" effect="dark" style="margin-left: 8px">{{ formatSopCode(advice.matchedSop.sopCode) }}</el-tag>
           <el-tag size="small" type="info" effect="dark" style="margin-left: 6px">v{{ advice.matchedSop.version }}</el-tag>
-          <el-tag size="small" type="warning" effect="dark" style="margin-left: 6px">预计 {{ advice.matchedSop.estimatedMinutes }} min</el-tag>
+          <el-tag size="small" type="warning" effect="dark" style="margin-left: 6px">预计 {{ advice.matchedSop.estimatedMinutes }} 分钟</el-tag>
         </div>
         <div class="matched-title">{{ advice.matchedSop.title }}</div>
         <p class="matched-summary">{{ advice.matchedSop.summary }}</p>
@@ -41,16 +41,16 @@
       <h4 class="section-title">建议步骤（{{ advice.steps?.length || 0 }} 步）</h4>
 
       <div v-if="!advice.steps?.length" class="empty-tip">
-        未生成任何步骤，请确认 SOP 是否有具体步骤内容。
+        未生成任何步骤，请确认标准流程是否有具体步骤内容。
       </div>
 
       <ol class="advice-steps">
         <li v-for="step in advice.steps" :key="step.order" class="step-item" :class="{ 'ai-derived': step.aiDerived }">
           <div class="step-head">
             <span class="step-num">步骤 {{ step.order }}</span>
-            <el-tag v-if="step.aiDerived" type="warning" size="small" effect="dark">AI 推断</el-tag>
+            <el-tag v-if="step.aiDerived" type="warning" size="small" effect="dark">智能推断</el-tag>
             <el-tag v-else type="success" size="small" effect="dark">
-              来源 {{ step.sourceSopCode }} 步骤 {{ step.sourceStepIndex + 1 }}
+              来源 {{ formatSopCode(step.sourceSopCode) }} 步骤 {{ step.sourceStepIndex + 1 }}
             </el-tag>
             <el-progress
               v-if="step.confidence != null"
@@ -77,12 +77,13 @@
 <script setup>
 // 简单函数不需要 computed
 import { Document } from '@element-plus/icons-vue'
+import { formatSopCode } from '../utils/dict'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
   advice: { type: Object, default: null },
   loading: { type: Boolean, default: false },
-  title: { type: String, default: 'AI 维修建议' }
+  title: { type: String, default: '智能维修建议' }
 })
 
 defineEmits(['update:visible', 'regenerate'])
