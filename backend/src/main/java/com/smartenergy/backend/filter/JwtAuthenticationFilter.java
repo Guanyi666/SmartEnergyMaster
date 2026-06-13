@@ -51,10 +51,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (JWTUtil.verify(token, jwtConfig.getKeyBytes())) {
                     JWT jwt = JWTUtil.parseToken(token);
 
-                    // 校验过期时间（Hutool JWTUtil.verify 不自动检查自定义 expire_time）
-                    Object expObj = jwt.getPayload("expire_time");
-                    long expireTime = expObj instanceof Number ? ((Number) expObj).longValue() : 0L;
-                    if (expireTime == 0L || expireTime < System.currentTimeMillis()) {
+                    // ★ NM5 修复: 优先校验标准 exp (秒级), 回退到旧版 expire_time (毫秒)
+                    //   exp 由 NM5 后的新 token 携带, expire_time 由旧 token 携带, 兼容 1 个版本周期
+                    long nowMs = System.currentTimeMillis();
+                    Object expStd = jwt.getPayload("exp");
+                    Object expLegacy = jwt.getPayload("expire_time");
+                    boolean expired;
+                    if (expStd instanceof Number) {
+                        // 标准 exp 是秒级
+                        long expSec = ((Number) expStd).longValue();
+                        expired = expSec * 1000L < nowMs;
+                    } else if (expLegacy instanceof Number) {
+                        // 旧 expire_time 是毫秒级
+                        long expMs = ((Number) expLegacy).longValue();
+                        expired = expMs < nowMs;
+                    } else {
+                        // 两个声明都没有 → 视为过期
+                        expired = true;
+                    }
+                    if (expired) {
                         response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token 已过期，请重新登录");
                         return;
                     }

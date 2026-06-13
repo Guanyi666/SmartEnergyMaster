@@ -27,7 +27,10 @@ public class AuthController {
 
     @PostMapping("/login")
     @Operation(summary = "用户登录", description = "验证用户名密码，返回 JWT Token（24h 有效）")
-    @RateLimit(name = "login", limit = 3, window = 60, dimension = RateLimit.Dimension.IP,
+    // 同 IP 60 秒内最多 30 次登录尝试. 旧版 3 次/60s 对开发场景(连续测多账号)过于严格,
+    // 30 次仍能防爆破(假设字典攻击需要数千次,会被快速锁定),但允许日常测试 6+ 个账号通畅切换。
+    // prod 部署如需更严格,可通过 RateLimit 注解的 limit 参数调整 (或日后改为读 @Value).
+    @RateLimit(name = "login", limit = 30, window = 60, dimension = RateLimit.Dimension.IP,
             message = "登录尝试过于频繁，请 1 分钟后再试")
     public ResponseEntity<LoginVO> login(@Validated @RequestBody LoginRequest loginRequest) {
         return ResponseEntity.ok(userService.login(loginRequest));

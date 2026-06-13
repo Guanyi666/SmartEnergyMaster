@@ -40,6 +40,13 @@ public class SecurityConfig {
     @Value("${app.security.swagger-public:false}")
     private boolean swaggerPublic;
 
+    /**
+     * ★ NM1: CORS 允许的来源(英文逗号分隔). 默认本地开发地址,
+     * prod 必须通过 CORS_ALLOWED_ORIGINS 环境变量覆盖为正式域名白名单
+     */
+    @Value("${app.security.cors-allowed-origins:http://localhost:*,http://127.0.0.1:*}")
+    private String corsAllowedOrigins;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -86,7 +93,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("http://localhost:*", "http://127.0.0.1:*"));
+        // ★ NM1: 从配置项读取来源白名单, prod 通过 CORS_ALLOWED_ORIGINS 环境变量覆盖
+        List<String> origins = java.util.Arrays.stream(corsAllowedOrigins.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+        configuration.setAllowedOriginPatterns(origins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Api-Key"));
         configuration.setAllowCredentials(true);

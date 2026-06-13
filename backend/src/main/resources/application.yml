@@ -56,6 +56,9 @@ app:
   security:
     # ★ NH3: Swagger UI 公开开关. dev 默认 true 便于调试, prod 必须 false (要求 ADMIN 登录)
     swagger-public: ${SWAGGER_PUBLIC:true}
+    # ★ NM1: CORS 允许的来源(英文逗号分隔). dev 默认本地端口,
+    #   prod 必须 export CORS_ALLOWED_ORIGINS=https://your.domain.com,https://another.domain.com
+    cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*}
 
 # MyBatis-Plus
 mybatis-plus:
@@ -66,7 +69,10 @@ mybatis-plus:
       id-type: auto
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    # ★ NH4: SQL 日志 impl 用环境变量切换 — dev 默认 StdOut 便于调试,
+    #   prod 必须 export MYBATIS_LOG_IMPL=org.apache.ibatis.logging.slf4j.Slf4jImpl
+    #   以走 logback 路径 (避免敏感字段 / 密码哈希 / token 写入 stdout 容器日志)
+    log-impl: ${MYBATIS_LOG_IMPL:org.apache.ibatis.logging.stdout.StdOutImpl}
 
 # SpringDoc
 springdoc:

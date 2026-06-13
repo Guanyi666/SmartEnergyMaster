@@ -79,10 +79,23 @@ public class UserServiceImpl implements UserService {
             user.setUpdatedAt(LocalDateTime.now());
             sysUserMapper.updateById(user);
         }
+        // ★ NM5 修复 (2026-06-13): 改用标准 JWT 声明 (RFC 7519)
+        //   - exp: 过期时间(秒级 Unix 时间戳, 标准)
+        //   - iat: 签发时间
+        //   - nbf: 生效时间
+        //   - jti: 唯一 token ID, 后续可用于精确撤销
+        //   - 兼容: 同时保留旧的 expire_time(毫秒)字段 1 个版本周期, 待所有客户端升级后移除
+        long nowSec = System.currentTimeMillis() / 1000;
+        long expSec = nowSec + jwtConfig.getExpirationMs() / 1000;
+        String jti = java.util.UUID.randomUUID().toString();
         String token = JWT.create()
                 .setPayload("username", request.getUsername())
                 .setPayload("role", role)
-                .setPayload("expire_time", System.currentTimeMillis() + jwtConfig.getExpirationMs())
+                .setPayload("expire_time", System.currentTimeMillis() + jwtConfig.getExpirationMs())  // legacy (毫秒)
+                .setPayload("exp", expSec)        // 标准: 秒级过期时间
+                .setPayload("iat", nowSec)        // 标准: 签发时间
+                .setPayload("nbf", nowSec)        // 标准: 生效时间
+                .setPayload("jti", jti)           // 标准: token 唯一 ID, 用于精确撤销
                 .setKey(jwtConfig.getKeyBytes())
                 .sign();
         if (!loginSessionService.claim(request.getUsername(), token)) {
@@ -122,8 +135,9 @@ public class UserServiceImpl implements UserService {
             if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
                 throw new IllegalArgumentException("当前密码不正确");
             }
-            if (request.getNewPassword().length() < 6) {
-                throw new IllegalArgumentException("新密码不能少于 6 个字符");
+            // ★ NH5 修复 (2026-06-13): 密码最小长度 6 → 8 (OWASP/NIST SP 800-63B 推荐)
+            if (request.getNewPassword().length() < 8) {
+                throw new IllegalArgumentException("新密码不能少于 8 个字符");
             }
             if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
                 throw new IllegalArgumentException("新密码不能与当前密码相同");
