@@ -41,6 +41,14 @@
         "navigationStyle": "custom",
         "backgroundColor": "#0d1117"
       }
+    },
+    {
+      "path": "pages/profile/settings",
+      "style": {
+        "navigationBarTitleText": "账号设置",
+        "navigationStyle": "custom",
+        "backgroundColor": "#0d1117"
+      }
     }
   ],
   "tabBar": {

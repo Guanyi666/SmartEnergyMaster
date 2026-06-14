@@ -6,8 +6,19 @@
         <text class="nav-icon">⚡</text>
         <text class="nav-title">智驭能效 · 维修工作台</text>
       </view>
-      <view class="nav-right" @click="handleLogout">
-        <text class="logout-icon">⏻</text>
+      <view class="nav-right">
+        <view class="notify-bell" @click="handleBellTap">
+          <text class="bell-icon">🔔</text>
+          <view v-if="unreadCount > 0" class="bell-badge">
+            <text class="bell-badge-text">{{ unreadCount > 99 ? '99+' : unreadCount }}</text>
+          </view>
+        </view>
+        <view class="nav-icon-btn" @click="goSettings">
+          <text class="settings-icon">⚙</text>
+        </view>
+        <view class="nav-icon-btn" @click="handleLogout">
+          <text class="logout-icon">⏻</text>
+        </view>
       </view>
     </view>
 
@@ -18,8 +29,8 @@
           <text class="avatar-text">{{ userInfo.name?.charAt(0) || '工' }}</text>
         </view>
         <view class="worker-detail">
-          <text class="greeting">欢迎，{{ userInfo.name || '张工' }}</text>
-          <text class="role-tag">{{ userInfo.roleName || '运维工程师' }}</text>
+          <text class="greeting">欢迎，{{ userInfo.nickname || userInfo.username || '张工' }}</text>
+          <text class="role-tag">{{ roleDisplayName }}</text>
         </view>
       </view>
       <view class="status-badge">
@@ -133,22 +144,86 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { onPullDownRefresh } from '@dcloudio/uni-app'
+import { onPullDownRefresh, onShow, onHide } from '@dcloudio/uni-app'
 import { get, post } from '@/utils/request'
 
 // --- User Info ---
-const userInfo = ref({ name: '张工', roleName: '运维工程师' })
+const userInfo = ref({ nickname: '张工', username: '', role: 'MAINTENANCE_ENGINEER' })
+
+const roleDisplayName = computed(() => {
+  const r = userInfo.value.role || ''
+  if (/ADMIN/i.test(r)) return '系统管理员'
+  if (/MANAGER/i.test(r)) return '设备经理'
+  if (/OPERATOR/i.test(r)) return '操作员'
+  if (/MAINTENANCE/i.test(r)) return '运维工程师'
+  return '工作人员'
+})
 
 onMounted(() => {
   try {
     const stored = uni.getStorageSync('userInfo')
     if (stored) {
-      userInfo.value = typeof stored === 'string' ? JSON.parse(stored) : stored
+      const parsed = typeof stored === 'string' ? JSON.parse(stored) : stored
+      if (parsed && typeof parsed === 'object') {
+        userInfo.value = parsed
+      }
     }
   } catch (_) { /* use default */ }
 
   fetchOrders()
+  startNotificationPolling()
 })
+
+// --- Auto-refresh on return (Task 1) ---
+onShow(() => {
+  fetchOrders()
+})
+
+// --- Cleanup on leave ---
+let notifyTimer = null
+onHide(() => {
+  if (notifyTimer) {
+    clearInterval(notifyTimer)
+    notifyTimer = null
+  }
+})
+
+// --- Notification Polling (Task 2) ---
+const unreadCount = ref(0)
+const previousPendingIds = ref(new Set())
+
+const startNotificationPolling = () => {
+  if (notifyTimer) clearInterval(notifyTimer)
+  // Initial fetch
+  fetchPendingAlerts()
+  // Poll every 10 seconds (matches Web MainLayout notification polling)
+  notifyTimer = setInterval(fetchPendingAlerts, 10000)
+}
+
+const fetchPendingAlerts = () => {
+  get('/work-orders/active-alerts', { limit: 20 })
+    .then((data) => {
+      const pendingOnly = (data || []).filter(o => o.status === 'PENDING')
+      const newIds = new Set(pendingOnly.map(o => o.id))
+      unreadCount.value = pendingOnly.length
+
+      // Detect new orders: trigger vibration
+      if (previousPendingIds.value.size > 0) {
+        const hasNew = pendingOnly.some(o => !previousPendingIds.value.has(o.id))
+        if (hasNew) {
+          console.log('[notify] New PENDING order detected, vibrating')
+          try { uni.vibrateLong() } catch (_) { /* vibration may not be supported */ }
+        }
+      }
+      previousPendingIds.value = newIds
+    })
+    .catch(() => { /* silent background failure */ })
+}
+
+const handleBellTap = () => {
+  // Switch to PENDING tab to show the new orders
+  activeTab.value = 'pending'
+}
 
 // --- Pull to Refresh ---
 onPullDownRefresh(() => {
@@ -206,7 +281,7 @@ const getStoredUserInfo = () => {
 }
 
 const getStoredUsername = () => getStoredUserInfo().username || ''
-const getStoredNickname = () => getStoredUserInfo().name || getStoredUserInfo().username || ''
+const getStoredNickname = () => getStoredUserInfo().nickname || getStoredUserInfo().name || getStoredUserInfo().username || ''
 
 // --- Work Orders ---
 const allOrders = ref([])   // raw data from API
@@ -332,6 +407,10 @@ const handleViewOrder = (order) => {
   uni.navigateTo({ url: navUrl })
 }
 
+const goSettings = () => {
+  uni.navigateTo({ url: '/pages/profile/settings' })
+}
+
 const handleLogout = () => {
   uni.showModal({
     title: '退出登录',
@@ -385,12 +464,51 @@ const handleLogout = () => {
 }
 
 .nav-right {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
   padding: 8rpx;
+}
+
+.nav-icon-btn {
+  padding: 8rpx;
+}
+
+.settings-icon {
+  font-size: 32rpx;
+  color: #8b949e;
 }
 
 .logout-icon {
   font-size: 36rpx;
   color: #8b949e;
+}
+
+/* Notification Bell */
+.notify-bell {
+  position: relative;
+  padding: 8rpx;
+}
+.bell-icon {
+  font-size: 34rpx;
+}
+.bell-badge {
+  position: absolute;
+  top: 0;
+  right: -2rpx;
+  min-width: 32rpx;
+  height: 32rpx;
+  border-radius: 16rpx;
+  background: #e63946;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6rpx;
+}
+.bell-badge-text {
+  font-size: 18rpx;
+  color: #fff;
+  font-weight: 700;
 }
 
 /* ======== Header ======== */

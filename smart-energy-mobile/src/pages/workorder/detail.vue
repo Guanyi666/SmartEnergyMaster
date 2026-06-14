@@ -586,7 +586,7 @@ const getUserName = () => {
   try {
     const stored = uni.getStorageSync('userInfo')
     const info = typeof stored === 'string' ? JSON.parse(stored) : stored
-    return info?.name || info?.username || ''
+    return info?.nickname || info?.username || ''
   } catch (_) { return '' }
 }
 

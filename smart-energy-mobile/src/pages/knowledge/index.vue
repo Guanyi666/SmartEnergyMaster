@@ -52,9 +52,6 @@
       scroll-y
       class="sop-scroll"
       @scrolltolower="loadMore"
-      :refresher-enabled="true"
-      :refresher-triggered="refreshing"
-      @refresherrefresh="onRefresh"
     >
       <view v-if="sopList.length > 0" class="sop-list">
         <view
@@ -172,6 +169,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { onPullDownRefresh } from '@dcloudio/uni-app'
 import { get } from '@/utils/request'
 
 // --- Search & Filter State ---
@@ -181,7 +179,6 @@ const filterFaultType = ref('')
 const showFilterPicker = ref(false)
 const sopList = ref([])
 const loading = ref(false)
-const refreshing = ref(false)
 const detailSop = ref(null)
 
 // --- Filter Options ---
@@ -239,7 +236,6 @@ const fetchSOPs = () => {
     })
     .finally(() => {
       loading.value = false
-      refreshing.value = false
     })
 }
 
@@ -247,10 +243,12 @@ const doSearch = () => {
   fetchSOPs()
 }
 
-const onRefresh = () => {
-  refreshing.value = true
-  fetchSOPs()
-}
+// --- Pull to Refresh ---
+onPullDownRefresh(() => {
+  fetchSOPs().finally(() => {
+    uni.stopPullDownRefresh()
+  })
+})
 
 const loadMore = () => {
   // SOP list is not paginated in current API — no-op

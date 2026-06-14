@@ -73,18 +73,9 @@ const handleLogin = () => {
     password: password.value,
   })
     .then((data) => {
+      // Store the full LoginVO (matches Web: JSON.stringify(sanitized))
       uni.setStorageSync('token', data.token)
-      uni.setStorageSync(
-        'userInfo',
-        JSON.stringify({
-          name: data.nickname || data.username,
-          employeeNo: data.username,
-          username: data.username,
-          role: data.role,
-          department: data.department || '',
-          roleName: data.role === 'ADMIN' ? '系统管理员' : '运维工程师',
-        })
-      )
+      uni.setStorageSync('userInfo', JSON.stringify(data))
       uni.switchTab({ url: '/pages/index/index' })
     })
     .catch(() => {

@@ -42,9 +42,6 @@
       scroll-y
       class="parts-scroll"
       @scrolltolower="loadMore"
-      :refresher-enabled="true"
-      :refresher-triggered="refreshing"
-      @refresherrefresh="onRefresh"
     >
       <view v-if="partList.length > 0" class="parts-list">
         <view
@@ -157,6 +154,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { onPullDownRefresh } from '@dcloudio/uni-app'
 import { get } from '@/utils/request'
 
 // --- State ---
@@ -164,7 +162,6 @@ const keyword = ref('')
 const lowStockOnly = ref(false)
 const partList = ref([])
 const loading = ref(false)
-const refreshing = ref(false)
 const detailPart = ref(null)
 
 // --- Computed ---
@@ -192,7 +189,6 @@ const fetchParts = () => {
     })
     .finally(() => {
       loading.value = false
-      refreshing.value = false
     })
 }
 
@@ -200,10 +196,12 @@ const doSearch = () => {
   fetchParts()
 }
 
-const onRefresh = () => {
-  refreshing.value = true
-  fetchParts()
-}
+// --- Pull to Refresh ---
+onPullDownRefresh(() => {
+  fetchParts().finally(() => {
+    uni.stopPullDownRefresh()
+  })
+})
 
 const loadMore = () => {
   // Inventory API is not paginated currently
