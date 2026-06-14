@@ -70,8 +70,13 @@
           <p class="hrp-advice__body">{{ advice?.title || '系统正在分析最优策略...' }}</p>
           <p class="hrp-advice__content">{{ advice?.content || '电力时段平稳,运行状态良好。' }}</p>
           <div v-if="advice && advice.level !== 'INFO'" class="hrp-advice__actions">
-            <button class="hrp-btn hrp-btn--primary" @click="$emit('decide', 'CONFIRM')">采纳</button>
-            <button class="hrp-btn" @click="$emit('decide', 'REJECT')">忽略</button>
+            <template v-if="!adviceDecided">
+              <button class="hrp-btn hrp-btn--primary" @click="$emit('decide', 'CONFIRM')">采纳</button>
+              <button class="hrp-btn" @click="$emit('decide', 'REJECT')">忽略</button>
+            </template>
+            <span v-else class="hrp-advice__decided">
+              {{ adviceDecided === 'CONFIRM' ? '✓ 已采纳，请按建议执行' : '已忽略本次建议' }}
+            </span>
           </div>
         </div>
       </div>
@@ -114,7 +119,9 @@ const props = defineProps({
   focusCode: { type: String, default: '' },
   summary: { type: Object, default: () => ({}) },
   forecast: { type: Array, default: () => [] },
-  advice: { type: Object, default: null }
+  advice: { type: Object, default: null },
+  // 'CONFIRM' | 'REJECT' | null：当前建议是否已被采纳/忽略
+  adviceDecided: { type: String, default: null }
 })
 defineEmits(['select', 'decide'])
 
@@ -420,7 +427,12 @@ const forecastBars = computed(() => {
   color: rgba(217, 232, 245, 0.5);
   line-height: 1.5;
 }
-.hrp-advice__actions { display: flex; gap: 6px; margin-top: 6px; }
+.hrp-advice__actions { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
+.hrp-advice__decided {
+  font-size: 12px;
+  color: #3bff9f;
+  letter-spacing: 0.5px;
+}
 .hrp-btn {
   padding: 3px 12px;
   background: transparent;

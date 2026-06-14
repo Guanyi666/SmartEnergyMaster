@@ -9,7 +9,7 @@ export const statusMeta = {
   // 工单状态（PENDING/IN_PROGRESS/RESOLVED），供 StatusPill 等组件渲染中文
   PENDING: { label: '待处理', color: '#ffb347' },
   IN_PROGRESS: { label: '处理中', color: '#5bc0ff' },
-  RESOLVED: { label: '已修复', color: '#3bff9f' }
+  RESOLVED: { label: '已完成', color: '#3bff9f' }
 }
 
 export const priceTierMeta = {

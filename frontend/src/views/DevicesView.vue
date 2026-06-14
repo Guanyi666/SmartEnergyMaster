@@ -108,7 +108,7 @@
           <el-option label="全部" value="" />
           <el-option label="待处理" value="PENDING" />
           <el-option label="处理中" value="IN_PROGRESS" />
-          <el-option label="已修复" value="RESOLVED" />
+          <el-option label="已完成" value="RESOLVED" />
         </el-select>
       </div>
       <el-table :data="workOrders">
@@ -338,7 +338,7 @@ const auth = useAuthStore()
 const workOrderStatusMap = {
   PENDING: '待处理',
   IN_PROGRESS: '处理中',
-  RESOLVED: '已修复'
+  RESOLVED: '已完成'
 }
 const workOrderStatusLabel = (s) => workOrderStatusMap[s] || s || '--'
 

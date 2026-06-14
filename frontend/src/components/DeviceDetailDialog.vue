@@ -17,6 +17,15 @@ const health = shallowRef(null)
 const trendChartRef = shallowRef(null)
 const title = computed(() => `${detail.value?.deviceName || props.device?.deviceName || '设备'} · 实时详情`)
 
+// 负荷趋势可选时间范围
+const rangeHours = shallowRef(3)
+const rangeOptions = [
+  { label: '1 小时', value: 1 },
+  { label: '3 小时', value: 3 },
+  { label: '12 小时', value: 12 }
+]
+const historyLoading = shallowRef(false)
+
 const format = (value, unit = '') => value ?? value === 0 ? `${Number(value).toFixed(2)}${unit}` : '--'
 const healthColor = computed(() => {
   const score = health.value?.overallScore || 0
@@ -29,7 +38,7 @@ const load = async () => {
   try {
     const [detailResult, historyResult, faultResult, healthResult] = await Promise.all([
       getDeviceDetail(props.device.id),
-      getSensorHistory(props.device.deviceCode, 24),
+      getSensorHistory(props.device.deviceCode, rangeHours.value),
       getDeviceFaultHistory(props.device.id),
       getDeviceHealthScore(props.device.id)
     ])
@@ -42,7 +51,20 @@ const load = async () => {
   }
 }
 
+// 仅切换时间范围时，单独重新拉取负荷历史，不重载整个弹窗
+const loadHistory = async () => {
+  if (!visible.value || !props.device?.deviceCode) return
+  historyLoading.value = true
+  try {
+    history.value = await getSensorHistory(props.device.deviceCode, rangeHours.value) || []
+    await resizeTrendChart()
+  } finally {
+    historyLoading.value = false
+  }
+}
+
 watch(() => [visible.value, props.device?.id], load)
+watch(rangeHours, loadHistory)
 
 const resizeTrendChart = async () => {
   await nextTick()
@@ -78,8 +100,11 @@ const resizeTrendChart = async () => {
       </div>
 
       <div class="detail-panel">
-        <h4>过去 24 小时负荷趋势</h4>
-        <TrendChart ref="trendChartRef" :records="history" />
+        <div class="panel-row">
+          <h4>过去 {{ rangeHours }} 小时负荷趋势</h4>
+          <el-segmented v-model="rangeHours" :options="rangeOptions" size="small" />
+        </div>
+        <TrendChart ref="trendChartRef" v-loading="historyLoading" :records="history" />
       </div>
 
       <div class="detail-panel">
@@ -159,6 +184,13 @@ const resizeTrendChart = async () => {
 
 .detail-panel h4 {
   margin: 0;
+}
+
+.panel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .detail-panel :deep(.chart-box) {

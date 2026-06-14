@@ -43,6 +43,7 @@
         :summary="summary"
         :forecast="summary.forecast || []"
         :advice="summary.dispatchAdvice"
+        :advice-decided="currentAdviceDecision"
         @select="onDeviceSelect"
         @decide="decideAdvice"
       />
@@ -67,7 +68,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import gsap from 'gsap'
 
@@ -144,10 +145,23 @@ const openFullDetail = (dev) => {
   detailDevice.value = dev
   detailVisible.value = true
 }
+// 记录已处理的调度建议：用建议内容生成签名，已处理则隐藏采纳/忽略按钮，
+// 改为显示"已采纳/已忽略"。轮询刷新时若建议内容未变则保持已处理，建议变化后自动恢复可操作。
+const decidedAdviceKey = ref(null)
+const decidedAdviceDecision = ref(null)
+const adviceKey = (a) => a ? `${focusDeviceCode.value}|${a.level}|${a.title}|${a.content}` : ''
+const currentAdviceDecision = computed(() =>
+  summary.value?.dispatchAdvice && adviceKey(summary.value.dispatchAdvice) === decidedAdviceKey.value
+    ? decidedAdviceDecision.value
+    : null
+)
 const decideAdvice = async (decision) => {
+  const advice = summary.value?.dispatchAdvice
   try {
     const res = await postDispatchDecision({ deviceCode: focusDeviceCode.value, decision })
     ElMessage.success(res?.message || (decision === 'CONFIRM' ? '已采纳调度建议' : '已忽略当前建议'))
+    decidedAdviceKey.value = adviceKey(advice)
+    decidedAdviceDecision.value = decision
   } catch (e) {
     ElMessage.error('提交失败,请稍后重试')
   }

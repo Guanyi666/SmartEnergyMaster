@@ -82,15 +82,15 @@
         </el-table-column>
         <el-table-column label="当前/最大" min-width="100" align="center">
           <template #default="{ row }">
-            <span v-if="row.isMaintenance && row.currentWorkload != null" class="value-text">{{ row.currentWorkload }} / {{ row.maxWorkload }}</span>
-            <span v-else class="empty-cell">无</span>
+            <span v-if="row.role === 'MAINTENANCE_ENGINEER' && row.currentWorkload != null" class="value-text">{{ row.currentWorkload }} / {{ row.maxWorkload }}</span>
+            <span v-else class="empty-cell">—</span>
           </template>
         </el-table-column>
         <el-table-column label="负载率" min-width="120">
           <template #default="{ row }">
-            <el-progress v-if="row.isMaintenance && row.workloadRate != null" :percentage="row.workloadRate"
+            <el-progress v-if="row.role === 'MAINTENANCE_ENGINEER' && row.workloadRate != null" :percentage="row.workloadRate"
                          :color="rateColor(row.workloadRate)" :stroke-width="14" />
-            <span v-else class="empty-cell">无</span>
+            <span v-else class="empty-cell">—</span>
           </template>
         </el-table-column>
 
