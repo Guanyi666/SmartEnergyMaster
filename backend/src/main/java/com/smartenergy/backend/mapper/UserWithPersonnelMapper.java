@@ -26,7 +26,7 @@ public interface UserWithPersonnelMapper extends BaseMapper<SysUser> {
      */
     @Select("""
         <script>
-        SELECT user_id, employee_no, name, phone, email,
+        SELECT user_id, name, phone, email,
                specializations, skill_level, certification
         FROM maintenance_personnel
         WHERE user_id IN
@@ -42,7 +42,7 @@ public interface UserWithPersonnelMapper extends BaseMapper<SysUser> {
      */
     @Select("""
         <script>
-        SELECT user_id, avatar_color, current_workload, max_workload, is_on_duty
+        SELECT id, user_id, avatar_color, current_workload, max_workload, is_on_duty
         FROM workorder_maintenance_personnel
         WHERE user_id IN
         <foreach collection='userIds' item='id' open='(' separator=',' close=')'>

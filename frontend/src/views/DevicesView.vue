@@ -73,7 +73,6 @@
             {{ locationLabel(row.location) }}
           </template>
         </el-table-column>
-        <el-table-column prop="maintainer" label="维修工人" min-width="120" />
         <el-table-column label="实时指标" min-width="220">
           <template #default="{ row }">
             功率 {{ formatNumber(row.usageKwh) }} / 温度 {{ formatNumber(row.temperature) }}
@@ -159,9 +158,6 @@
         <el-form-item label="所在区域">
           <el-input v-model="form.location" />
         </el-form-item>
-        <el-form-item label="维修工人">
-          <el-input v-model="form.maintainer" />
-        </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="form.description" type="textarea" :rows="3" />
         </el-form-item>
@@ -202,10 +198,6 @@
               <div class="detail-item">
                 <span class="detail-label">所在区域</span>
                 <span class="detail-value">{{ locationLabel(deviceDetail.location) }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">维修工人</span>
-                <span class="detail-value">{{ deviceDetail.maintainer }}</span>
               </div>
               <div class="detail-item detail-full">
                 <span class="detail-label">备注</span>
@@ -402,7 +394,6 @@ const emptyForm = () => ({
   deviceType: '',
   status: 'STOPPED',
   location: '',
-  maintainer: '',
   description: ''
 })
 

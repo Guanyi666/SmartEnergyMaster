@@ -13,13 +13,6 @@ import java.util.List;
 @Schema(description = "维修人员新增/编辑请求")
 public class MaintenancePersonnelRequest {
 
-    @NotBlank(message = "工号不能为空")
-    @Pattern(regexp = "^(E\\d{3,}|[12]\\d{3}03(?!0000)\\d{4})$",
-            message = "工号格式必须为 E + 3 位以上数字，或维修工程师账号格式，例如 2026030001")
-    @Schema(description = "维修工程师工号", example = "2026030001")
-    private String employeeNo;
-
-    @NotBlank(message = "姓名不能为空")
     @Schema(description = "姓名", example = "张工")
     private String name;
 

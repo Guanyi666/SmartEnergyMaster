@@ -1,14 +1,14 @@
 <script setup>
 import { onMounted, reactive, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { createUser, deleteUser, listUsers, updateUser, updateUserStatus } from '../api'
+import { createUser, deleteUser, listUsers, updateUser } from '../api'
 import { accountFormatHint, validateAccount } from '../utils/account'
 
 const users = shallowRef([])
 const loading = shallowRef(false)
 const dialogVisible = shallowRef(false)
 const editingId = shallowRef(null)
-const filters = reactive({ keyword: '', role: '', department: '', status: '' })
+const filters = reactive({ keyword: '', role: '', department: '' })
 const pagination = reactive({ page: 1, size: 10, total: 0 })
 const form = reactive({ username: '', password: '', nickname: '', role: 'OPERATOR', department: '', phone: '', email: '' })
 const roles = [
@@ -48,13 +48,8 @@ const submit = async () => {
   editingId.value ? await updateUser(editingId.value, form) : await createUser(form)
   ElMessage.success(editingId.value ? '用户资料已更新' : '新人账号已创建并分配身份')
   dialogVisible.value = false
-  await load()
-}
-const toggleStatus = async (row, active) => {
-  await updateUserStatus(row.id, active ? 'ACTIVE' : 'DISABLED')
-  ElMessage.success(active ? '账号已启用' : '账号已禁用')
-  await load()
-}
+    await load()
+  }
 const remove = async (row) => {
   await ElMessageBox.confirm(`确认将 ${row.nickname || row.username} 从系统中移除？`, '离职人员移除', { type: 'warning' })
   await deleteUser(row.id)
@@ -84,10 +79,6 @@ onMounted(load)
       <el-select v-model="filters.department" placeholder="按部门筛选" clearable>
         <el-option v-for="item in departments" :key="item" :label="item" :value="item" />
       </el-select>
-      <el-select v-model="filters.status" placeholder="账号状态" clearable>
-        <el-option label="已启用" value="ACTIVE" />
-        <el-option label="已禁用" value="DISABLED" />
-      </el-select>
       <el-button type="primary" @click="search">查询</el-button>
     </section>
 
@@ -99,7 +90,6 @@ onMounted(load)
         <el-table-column prop="department" label="部门" min-width="130" />
         <el-table-column prop="phone" label="手机号" min-width="130" />
         <el-table-column prop="email" label="邮箱" min-width="170" />
-        <el-table-column label="启用" width="90"><template #default="{ row }"><el-switch :model-value="row.status !== 'DISABLED'" @change="toggleStatus(row, $event)" /></template></el-table-column>
         <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>

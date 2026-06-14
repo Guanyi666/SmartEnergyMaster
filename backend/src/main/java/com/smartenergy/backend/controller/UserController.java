@@ -25,15 +25,10 @@ public class UserController {
                                @RequestParam(defaultValue = "10") int size,
                                @RequestParam(required = false) String keyword,
                                @RequestParam(required = false) String role,
-                               @RequestParam(required = false) String department,
-                               @RequestParam(required = false) String status) {
-        return userService.listUsers(page, size, keyword, role, department, status);
+                               @RequestParam(required = false) String department) {
+        return userService.listUsers(page, size, keyword, role, department);
     }
 
-    /**
-     * v6 改造：人员管理合并列表
-     * 权限：HR_MANAGER / DEVICE_MANAGER / MANAGER / ADMIN（v6 决策：取并集）
-     */
     @GetMapping("/with-personnel")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'HR_MANAGER', 'DEVICE_MANAGER', 'MANAGER')")
     public PageVO<UserWithPersonnelVO> listWithPersonnel(
@@ -42,9 +37,8 @@ public class UserController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String role,
             @RequestParam(required = false) String department,
-            @RequestParam(required = false) String status,
             @RequestParam(required = false) Boolean isMaintenance) {
-        return userService.listUsersWithPersonnel(page, size, keyword, role, department, status, isMaintenance);
+        return userService.listUsersWithPersonnel(page, size, keyword, role, department, isMaintenance);
     }
 
     @PostMapping
@@ -55,11 +49,6 @@ public class UserController {
     @PutMapping("/{id}")
     public UserVO update(@PathVariable Integer id, @Valid @RequestBody UserUpsertRequest request) {
         return userService.updateUser(id, request);
-    }
-
-    @PatchMapping("/{id}/status")
-    public UserVO updateStatus(@PathVariable Integer id, @RequestParam String status) {
-        return userService.updateStatus(id, status);
     }
 
     @DeleteMapping("/{id}")

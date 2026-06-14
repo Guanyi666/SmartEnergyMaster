@@ -37,9 +37,6 @@ public class UserWithPersonnelVO {
     @Schema(description = "邮箱（sys_user.email）")
     private String email;
 
-    @Schema(description = "账号状态：ACTIVE / DISABLED / LOCKED")
-    private String status;
-
     @Schema(description = "最后登录时间")
     private LocalDateTime lastLoginAt;
 
@@ -51,9 +48,6 @@ public class UserWithPersonnelVO {
     private Boolean isMaintenance;
 
     // ===== 来自 maintenance_personnel（员工档案）=====
-    @Schema(description = "工号（maintenance_personnel.employee_no）")
-    private String employeeNo;
-
     @Schema(description = "姓名（maintenance_personnel.name）")
     private String archiveName;
 
@@ -84,6 +78,9 @@ public class UserWithPersonnelVO {
 
     @Schema(description = "负载率（百分比）")
     private Integer workloadRate;
+
+    @Schema(description = "维修排班记录 ID（workorder_maintenance_personnel.id），用于切岗等操作")
+    private Long maintenancePersonnelId;
 
     @Schema(description = "是否在岗")
     private Boolean isOnDuty;

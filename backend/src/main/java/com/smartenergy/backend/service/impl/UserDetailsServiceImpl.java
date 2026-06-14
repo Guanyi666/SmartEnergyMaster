@@ -26,7 +26,6 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         return User.withUsername(sysUser.getUsername())
                 .password(sysUser.getPassword())
                 .authorities(sysUser.getRole() != null ? sysUser.getRole() : "OPERATOR")
-                .disabled("DISABLED".equals(sysUser.getStatus()))
                 .build();
     }
 }

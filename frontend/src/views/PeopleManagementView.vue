@@ -23,13 +23,6 @@
         <el-form-item label="部门">
           <el-input v-model="filters.department" placeholder="如：维修部" clearable style="width: 160px" />
         </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="filters.status" placeholder="全部" clearable style="width: 120px">
-            <el-option label="启用" value="ACTIVE" />
-            <el-option label="禁用" value="DISABLED" />
-            <el-option label="锁定" value="LOCKED" />
-          </el-select>
-        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="onSearch">查询</el-button>
           <el-button @click="onReset">重置</el-button>
@@ -48,19 +41,13 @@
           </template>
         </el-table-column>
         <el-table-column label="部门" prop="department" min-width="100" />
-        <el-table-column label="账号状态" min-width="90">
-          <template #default="{ row }">
-            <el-tag size="small" :type="statusTagType(row.status)">{{ statusLabel(row.status) }}</el-tag>
-          </template>
-        </el-table-column>
 
-        <!-- 档案信息（仅维修人员有） -->
-        <el-table-column label="工号" prop="employeeNo" min-width="80" />
+        <!-- 档案信息 -->
         <el-table-column label="姓名（档案）" prop="archiveName" min-width="100" />
         <el-table-column label="手机" prop="archivePhone" min-width="120" />
         <el-table-column label="技能等级" min-width="100">
           <template #default="{ row }">
-            <el-tag v-if="row.skillLevel" size="small" effect="plain">{{ skillLevelLabel(row.skillLevel) }}</el-tag>
+            <el-tag v-if="row.role === 'MAINTENANCE_ENGINEER' && row.skillLevel" size="small" effect="plain">{{ skillLevelLabel(row.skillLevel) }}</el-tag>
             <span v-else class="empty-cell">—</span>
           </template>
         </el-table-column>
@@ -75,7 +62,17 @@
         <!-- 排班信息 -->
         <el-table-column label="在岗" min-width="70" align="center">
           <template #default="{ row }">
-            <el-tag v-if="row.isOnDuty === true" type="success" size="small">在岗</el-tag>
+            <el-switch
+              v-if="row.isMaintenance && canToggleDuty"
+              v-model="row.isOnDuty"
+              active-text="在岗"
+              inactive-text="离岗"
+              inline-prompt
+              :active-value="true"
+              :inactive-value="false"
+              @change="(val) => onToggleDutySwitch(row, val)"
+            />
+            <el-tag v-else-if="row.isOnDuty === true" type="success" size="small">在岗</el-tag>
             <el-tag v-else-if="row.isOnDuty === false" type="warning" size="small">离岗</el-tag>
             <span v-else class="empty-cell">—</span>
           </template>
@@ -233,7 +230,7 @@ const rows = shallowRef([])
 const loading = shallowRef(false)
 // 维修身份筛选已从界面移除：DEVICE_MANAGER 仍限定只看维修人员，HR/ADMIN 查看全部人员
 const onlyMaintenance = auth.user?.role === 'DEVICE_MANAGER' ? true : ''
-const filters = reactive({ keyword: '', role: '', department: '', status: '', isMaintenance: onlyMaintenance })
+const filters = reactive({ keyword: '', role: '', department: '', isMaintenance: onlyMaintenance })
 const pagination = reactive({ page: 1, size: 10, total: 0 })
 
 // v6.1: 编辑对话框
@@ -363,10 +360,19 @@ const onDelete = async (row) => {
 const onToggleDuty = async (row) => {
   const newDuty = !row.isOnDuty
   try {
-    await toggleDuty(row.id, newDuty)
+    await toggleDuty(row.maintenancePersonnelId, newDuty)
     row.isOnDuty = newDuty
     ElMessage.success('已切换为' + (newDuty ? '在岗' : '离岗'))
   } catch (e) {
+    ElMessage.error(e?.response?.data?.message || '切换失败')
+  }
+}
+const onToggleDutySwitch = async (row, newDuty) => {
+  try {
+    await toggleDuty(row.maintenancePersonnelId, newDuty)
+    ElMessage.success('已切换为' + (newDuty ? '在岗' : '离岗'))
+  } catch (e) {
+    row.isOnDuty = !newDuty
     ElMessage.error(e?.response?.data?.message || '切换失败')
   }
 }
@@ -403,9 +409,9 @@ const load = async () => {
   loading.value = true
   try {
     const params = { page: pagination.page, size: pagination.size }
-    Object.keys(filters).forEach((k) => {
+    for (const k of ['keyword', 'role', 'department', 'isMaintenance']) {
       if (filters[k] !== '' && filters[k] !== undefined && filters[k] !== null) params[k] = filters[k]
-    })
+    }
     const result = await listUsersWithPersonnel(params)
     rows.value = result.records || []
     pagination.total = result.total || 0
@@ -415,7 +421,7 @@ const load = async () => {
 }
 const onSearch = () => { pagination.page = 1; load() }
 const onReset = () => {
-  Object.assign(filters, { keyword: '', role: '', department: '', status: '' })
+  Object.assign(filters, { keyword: '', role: '', department: '' })
   pagination.page = 1
   load()
 }

@@ -258,7 +258,6 @@ class UserServiceImplTest {
         user.setId(id);
         user.setUsername(username);
         user.setRole(role);
-        user.setStatus("ACTIVE");
         return user;
     }
 

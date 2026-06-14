@@ -33,10 +33,9 @@ DELETE FROM maintenance_personnel           WHERE user_id IS NULL;
 --   - 维修角色 max_workload=5, is_on_duty=true
 -- ────────────────────────────────────────────────────────────────────
 INSERT INTO workorder_maintenance_personnel
-    (user_id, employee_no, avatar_color, current_workload, max_workload, is_on_duty, created_at, updated_at)
+    (user_id, avatar_color, current_workload, max_workload, is_on_duty, created_at, updated_at)
 SELECT
     u.id,
-    u.username,
     CASE
         WHEN u.role = 'MAINTENANCE_ENGINEER' THEN '#52c8ff'
         WHEN u.role = 'MANAGER'              THEN '#ffaa00'
@@ -63,10 +62,9 @@ WHERE NOT EXISTS (
 --   - phone / email 从 sys_user 复制
 -- ────────────────────────────────────────────────────────────────────
 INSERT INTO maintenance_personnel
-    (user_id, employee_no, name, phone, email, specializations, skill_level, certification, created_at, updated_at)
+    (user_id, name, phone, email, specializations, skill_level, certification, created_at, updated_at)
 SELECT
     u.id,
-    u.username,
     COALESCE(NULLIF(u.nickname, ''), u.username),
     u.phone,
     u.email,
