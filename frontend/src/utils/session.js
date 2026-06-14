@@ -1,31 +1,61 @@
-export const TOKEN_KEY = 'smart-energy-token'
-export const USER_KEY = 'smart-energy-user'
+const LEGACY_TOKEN_KEY = 'smart-energy-token'
+const LEGACY_USER_KEY = 'smart-energy-user'
+
+let sessionToken = ''
+let sessionUser = null
+
+const stripSensitiveUserFields = (user) => {
+  if (!user || typeof user !== 'object' || Array.isArray(user)) {
+    return user
+  }
+  const { token, password, ...safeUser } = user
+  return safeUser
+}
+
+export const setSessionToken = (token) => {
+  sessionToken = token || ''
+  if (sessionToken) {
+    localStorage.setItem(LEGACY_TOKEN_KEY, sessionToken)
+  }
+}
+
+export const setSessionUser = (user) => {
+  sessionUser = stripSensitiveUserFields(user)
+  if (sessionUser) {
+    localStorage.setItem(LEGACY_USER_KEY, JSON.stringify(sessionUser))
+  }
+}
+
+export const getSessionToken = () => sessionToken
+
+const clearLegacyPersistentSession = () => {
+  localStorage.removeItem(LEGACY_TOKEN_KEY)
+  localStorage.removeItem(LEGACY_USER_KEY)
+}
 
 export const clearStoredSession = () => {
-  localStorage.removeItem(TOKEN_KEY)
-  localStorage.removeItem(USER_KEY)
+  sessionToken = ''
+  sessionUser = null
+  clearLegacyPersistentSession()
 }
 
 export const readStoredSession = () => {
-  const token = localStorage.getItem(TOKEN_KEY) || ''
-  const rawUser = localStorage.getItem(USER_KEY)
-
-  if (!token && !rawUser) return { token: '', user: null }
-
-  // Token 与用户信息必须同时存在；任意一项损坏都按失效会话处理。
-  if (!token || !rawUser) {
-    clearStoredSession()
-    return { token: '', user: null }
+  // 优先从内存读取（当前会话），F5 刷新后回退到 localStorage
+  if (sessionToken && sessionUser) {
+    return { token: sessionToken, user: sessionUser }
   }
-
-  try {
-    const user = JSON.parse(rawUser)
-    if (!user || typeof user !== 'object' || Array.isArray(user)) {
-      throw new TypeError('Stored user is not an object')
-    }
-    return { token, user }
-  } catch {
-    clearStoredSession()
-    return { token: '', user: null }
+  // 页面刷新后内存丢失，从 localStorage 恢复
+  const storedToken = localStorage.getItem(LEGACY_TOKEN_KEY)
+  const storedUser = localStorage.getItem(LEGACY_USER_KEY)
+  if (storedToken && storedUser) {
+    try {
+      const user = JSON.parse(storedUser)
+      if (user && typeof user === 'object' && !Array.isArray(user)) {
+        sessionToken = storedToken
+        sessionUser = stripSensitiveUserFields(user)
+        return { token: sessionToken, user: sessionUser }
+      }
+    } catch { /* corrupt data, fall through */ }
   }
+  return { token: '', user: null }
 }

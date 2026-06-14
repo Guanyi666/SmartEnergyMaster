@@ -25,6 +25,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -105,7 +106,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
         wo.setFaultType(req.getFaultType());
         wo.setDescription(req.getDescription());
         wo.setStatus("PENDING");
-        wo.setPriority(req.getPriority().toUpperCase());
+        wo.setPriority(req.getPriority().toUpperCase(Locale.ROOT));
         wo.setAssignee(null);                              // 🔒 手动创建不预填指派人，避免幽灵指派人
         wo.setSource("MANUAL");                            // 🆕 操作员手动创建
         wo.setSourceTime(latest != null ? latest.getTime() : OffsetDateTime.now());
@@ -137,7 +138,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     public List<WorkOrderVO> listWorkOrders(String status) {
         QueryWrapper<WorkOrder> wrapper = new QueryWrapper<WorkOrder>().orderByDesc("created_at");
         if (StringUtils.hasText(status)) {
-            wrapper.eq("status", status.toUpperCase());
+            wrapper.eq("status", status.toUpperCase(Locale.ROOT));
         }
         return workOrderMapper.selectList(wrapper)
                 .stream()
@@ -153,7 +154,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
             throw new IllegalArgumentException("工单不存在: " + id);
         }
 
-        String targetStatus = request.getStatus().toUpperCase();
+        String targetStatus = request.getStatus().toUpperCase(Locale.ROOT);
         if (!List.of("PENDING", "IN_PROGRESS", "RESOLVED").contains(targetStatus)) {
             throw new IllegalArgumentException("不支持的工单状态: " + request.getStatus());
         }

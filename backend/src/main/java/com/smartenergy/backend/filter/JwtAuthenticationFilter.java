@@ -74,7 +74,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         return;
                     }
 
-                    String username = (String) jwt.getPayload("username");
+                    Object usernamePayload = jwt.getPayload("username");
+                    String username = usernamePayload instanceof String value ? value : null;
                     if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                         if (!loginSessionService.validateAndRefresh(username, token)) {
                             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "该登录会话已失效，请重新登录");

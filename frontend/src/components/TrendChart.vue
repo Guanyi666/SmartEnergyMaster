@@ -15,6 +15,16 @@ let chart
 let resizeObserver
 let resizeFrame
 
+const priceAreaColor = (tier) => {
+  if (tier === 'CRITICAL_PEAK' || tier === 'PEAK') {
+    return 'rgba(255, 93, 93, 0.16)'
+  }
+  if (tier === 'VALLEY' || tier === 'DEEP_VALLEY') {
+    return 'rgba(59, 255, 159, 0.14)'
+  }
+  return 'rgba(92, 220, 255, 0.10)'
+}
+
 const markAreas = computed(() => {
   if (!props.records.length) return []
   const areas = []
@@ -24,12 +34,7 @@ const markAreas = computed(() => {
     const prev = props.records[i - 1]
     const current = props.records[i]
     if (!current || current.xianPriceTier !== prev.xianPriceTier) {
-      const color =
-        prev.xianPriceTier === 'CRITICAL_PEAK' || prev.xianPriceTier === 'PEAK'
-          ? 'rgba(255, 93, 93, 0.16)'
-          : prev.xianPriceTier === 'VALLEY' || prev.xianPriceTier === 'DEEP_VALLEY'
-            ? 'rgba(59, 255, 159, 0.14)'
-            : 'rgba(92, 220, 255, 0.10)'
+      const color = priceAreaColor(prev.xianPriceTier)
       areas.push([
         { xAxis: start, itemStyle: { color } },
         { xAxis: i - 1 }

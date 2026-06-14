@@ -6,12 +6,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -65,7 +67,7 @@ public class RateLimitAspect {
             allowed = stringRedisTemplate.execute(script, Collections.singletonList(key),
                     String.valueOf(now), String.valueOf(windowMillis),
                     String.valueOf(rateLimit.limit()), member);
-        } catch (Exception e) {
+        } catch (DataAccessException | IllegalArgumentException e) {
             // 限流组件异常时放行，不因 Redis 抖动阻断正常业务
             log.warn("限流脚本执行失败，放行 key={}: {}", key, e.getMessage());
             return joinPoint.proceed();
@@ -87,9 +89,8 @@ public class RateLimitAspect {
     }
 
     private String clientIp() {
-        ServletRequestAttributes attrs =
-                (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        if (attrs == null) {
+        RequestAttributes rawAttrs = RequestContextHolder.getRequestAttributes();
+        if (!(rawAttrs instanceof ServletRequestAttributes attrs)) {
             return "unknown";
         }
         HttpServletRequest request = attrs.getRequest();

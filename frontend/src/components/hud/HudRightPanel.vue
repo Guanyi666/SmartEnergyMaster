@@ -139,8 +139,11 @@ const statusText = (s) => STATUS_TEXT[s] || '未知'
 const focus = computed(() => props.devices.find(d => d.deviceCode === props.focusCode) || null)
 const deviceTypeLabel = computed(() => DEVICE_TYPE_LABELS[focus.value?.deviceType] || '设备')
 const loadPct = computed(() => {
+  // 使用后端返回的 eafLoadRate，若无则按 45MW 额定计算
+  const s = props.summary || {}
+  if (s.eafLoadRate != null) return Number(s.eafLoadRate)
   const u = Number(focus.value?.usageKwh) || 0
-  return Math.max(0, Math.min(100, Math.round(u / 1.2)))
+  return Math.max(0, Math.min(100, Math.round(u / 450)))
 })
 const humidity = computed(() => {
   // 基于温度反向推导一个伪湿度(实际项目可接真实传感器)
@@ -170,22 +173,23 @@ const trendData = computed(() => trendCache.value.length ? trendCache.value.slic
 // ============ 3 条预测进度条 ============
 const forecastBars = computed(() => {
   const f = props.forecast || []
+  const currentLoad = Number(focus.value?.usageKwh || 0)
   const at = (min) => {
-    if (!f.length) return Number(focus.value?.usageKwh || 0) * (min / 60)
+    if (!f.length) return currentLoad
     let best = f[0]
     for (const p of f) {
       if (Math.abs(p.minutesAhead - min) < Math.abs(best.minutesAhead - min)) best = p
     }
-    return Number(best.mean || 0)
+    return Number(best.mean || currentLoad)
   }
-  const h1 = at(60)
-  const h12 = at(60) * 12
-  const h24 = at(60) * 24
-  const max = Math.max(h1, h12, h24, 1)
+  const now = currentLoad
+  const h15 = at(15)
+  const h30 = at(30)
+  const max = Math.max(now, h15, h30, 1)
   return [
-    { label: '1H',  value: h1.toFixed(0),  unit: 'kWh', pct: Math.round((h1 / max) * 100) },
-    { label: '12H', value: h12.toFixed(0), unit: 'kWh', pct: Math.round((h12 / max) * 100) },
-    { label: '24H', value: h24.toFixed(0), unit: 'kWh', pct: Math.round((h24 / max) * 100) }
+    { label: '当前', value: (now / 1000).toFixed(1), unit: 'MW', pct: Math.round((now / max) * 100) },
+    { label: '15min', value: (h15 / 1000).toFixed(1), unit: 'MW', pct: Math.round((h15 / max) * 100) },
+    { label: '30min', value: (h30 / 1000).toFixed(1), unit: 'MW', pct: Math.round((h30 / max) * 100) }
   ]
 })
 </script>

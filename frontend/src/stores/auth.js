@@ -1,12 +1,12 @@
 import { defineStore } from 'pinia'
 import { loginApi, logoutApi } from '../api'
 import { normalizeRole } from '../utils/role'
-import { clearStoredSession, readStoredSession, TOKEN_KEY, USER_KEY } from '../utils/session'
+import { clearStoredSession, readStoredSession, setSessionToken, setSessionUser } from '../utils/session'
 
-// 拿到后端返回的 user 时归一化 role：防御 "HR MANAGER" / "HR_MANAGER " 等空格脏数据导致路由死循环
 const sanitizeUser = (u) => {
   if (!u) return u
-  return { ...u, role: normalizeRole(u.role) }
+  const { token, password, ...profile } = u
+  return { ...profile, role: normalizeRole(profile.role) }
 }
 
 export const useAuthStore = defineStore('auth', {
@@ -20,11 +20,13 @@ export const useAuthStore = defineStore('auth', {
   actions: {
     async login(payload) {
       const result = await loginApi(payload)
+      const token = result.token || ''
       const sanitized = sanitizeUser(result)
-      this.token = sanitized.token
+
+      this.token = token
       this.user = sanitized
-      localStorage.setItem(TOKEN_KEY, sanitized.token)
-      localStorage.setItem(USER_KEY, JSON.stringify(sanitized))
+      setSessionToken(token)
+      setSessionUser(sanitized)
       return sanitized
     },
     async logout() {
@@ -42,7 +44,7 @@ export const useAuthStore = defineStore('auth', {
     updateContactInfo({ phone, email }) {
       if (!this.user) return
       this.user = { ...this.user, phone, email }
-      localStorage.setItem(USER_KEY, JSON.stringify(this.user))
+      setSessionUser(this.user)
     }
   }
 })

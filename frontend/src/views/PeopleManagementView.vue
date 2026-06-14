@@ -43,7 +43,6 @@
         <el-table-column label="部门" prop="department" min-width="100" />
 
         <!-- 档案信息 -->
-        <el-table-column label="姓名（档案）" prop="archiveName" min-width="100" />
         <el-table-column label="手机" prop="archivePhone" min-width="120" />
         <el-table-column label="技能等级" min-width="100">
           <template #default="{ row }">
@@ -171,9 +170,6 @@
         <!-- 维修人员信息（仅维修角色显示） -->
         <fieldset v-if="form.role === 'MAINTENANCE_ENGINEER'" class="form-section">
           <legend>维修人员档案 / 排班</legend>
-          <el-form-item label="姓名（档案）" required>
-            <el-input v-model="form.archiveName" placeholder="维修人员显示名（可与昵称不同）" />
-          </el-form-item>
           <el-form-item label="技能等级" required>
             <el-select v-model="form.skillLevel" clearable style="width: 100%">
               <el-option label="初级 JUNIOR" value="JUNIOR" />
@@ -190,12 +186,6 @@
           </el-form-item>
           <el-form-item label="证书">
             <el-input v-model="form.certification" placeholder="如：高级工程师 / 15年" />
-          </el-form-item>
-          <el-form-item label="手机（维修）">
-            <el-input v-model="form.archivePhone" />
-          </el-form-item>
-          <el-form-item label="邮箱（维修）">
-            <el-input v-model="form.archiveEmail" />
           </el-form-item>
           <el-form-item label="最大工作负载">
             <el-input-number v-model="form.maxWorkload" :min="1" :max="20" />
@@ -292,8 +282,8 @@ const onSubmit = async () => {
   if (!form.role) return ElMessage.warning('请选择角色')
   const accountError = validateAccount(form.username, form.role)
   if (accountError) return ElMessage.warning(accountError)
-  if (form.role === 'MAINTENANCE_ENGINEER' && !form.archiveName) {
-    return ElMessage.warning('请输入维修人员档案姓名')
+  if (form.role === 'MAINTENANCE_ENGINEER' && !form.nickname && !form.archiveName) {
+    return ElMessage.warning('请输入姓名')
   }
   if (form.role === 'MAINTENANCE_ENGINEER' && !form.skillLevel) {
     return ElMessage.warning('请选择维修人员技能等级')
@@ -321,12 +311,12 @@ const onSubmit = async () => {
       phone: form.phone,
       email: form.email,
       maintenanceProfile: form.role === 'MAINTENANCE_ENGINEER' ? {
-        name: form.archiveName,
+        name: form.archiveName || form.nickname,
         skillLevel: form.skillLevel,
         specializations: form.specializationsList,
         certification: form.certification,
-        phone: form.archivePhone,
-        email: form.archiveEmail,
+        phone: form.archivePhone || form.phone,
+        email: form.archiveEmail || form.email,
         maxWorkload: form.maxWorkload
       } : undefined
     }
