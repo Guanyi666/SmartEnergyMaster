@@ -64,6 +64,7 @@ ai_models/**/*.pkl
 ai_models/**/*.pt
 ai_models/**/*.pth
 ai_models/**/*.onnx
+ai_models/figures/
 
 # 7. 敏感配置 (如数据库密码、云服务器秘钥)
 .env
