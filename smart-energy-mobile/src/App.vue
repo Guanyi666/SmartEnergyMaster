@@ -6,11 +6,7 @@ export default {
     // Auto-login: if token exists, skip login and go straight to workbench
     const token = uni.getStorageSync('token')
     if (token) {
-      // Ensure we're on the workbench, not stuck on login page
-      const pages = getCurrentPages()
-      if (pages.length === 0 || pages[pages.length - 1]?.route === 'pages/login/login') {
-        uni.reLaunch({ url: '/pages/index/index' })
-      }
+      uni.switchTab({ url: '/pages/index/index' })
     }
   },
   onShow: function () {

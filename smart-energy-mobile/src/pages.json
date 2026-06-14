@@ -10,7 +10,25 @@
     {
       "path": "pages/index/index",
       "style": {
-        "navigationBarTitleText": "智驭能效",
+        "navigationBarTitleText": "工单",
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true,
+        "backgroundColor": "#0d1117"
+      }
+    },
+    {
+      "path": "pages/knowledge/index",
+      "style": {
+        "navigationBarTitleText": "知识库",
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true,
+        "backgroundColor": "#0d1117"
+      }
+    },
+    {
+      "path": "pages/inventory/index",
+      "style": {
+        "navigationBarTitleText": "库存",
         "navigationStyle": "custom",
         "enablePullDownRefresh": true,
         "backgroundColor": "#0d1117"
@@ -25,6 +43,26 @@
       }
     }
   ],
+  "tabBar": {
+    "color": "#8b949e",
+    "selectedColor": "#f0a500",
+    "backgroundColor": "#161b22",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "工单"
+      },
+      {
+        "pagePath": "pages/knowledge/index",
+        "text": "知识库"
+      },
+      {
+        "pagePath": "pages/inventory/index",
+        "text": "库存"
+      }
+    ]
+  },
   "globalStyle": {
     "navigationBarTextStyle": "white",
     "navigationBarTitleText": "智驭能效",

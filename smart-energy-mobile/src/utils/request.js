@@ -62,6 +62,10 @@ export const put = (url, data = {}) => {
   return request({ url, method: 'PUT', data })
 }
 
+export const patch = (url, data = {}) => {
+  return request({ url, method: 'PATCH', data })
+}
+
 export const del = (url, params = {}) => {
   return request({ url, method: 'DELETE', data: params })
 }
@@ -70,5 +74,6 @@ export default {
   get,
   post,
   put,
+  patch,
   del,
 }

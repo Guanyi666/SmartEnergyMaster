@@ -77,13 +77,15 @@ const handleLogin = () => {
       uni.setStorageSync(
         'userInfo',
         JSON.stringify({
-          name: data.username,
+          name: data.nickname || data.username,
           employeeNo: data.username,
+          username: data.username,
           role: data.role,
+          department: data.department || '',
           roleName: data.role === 'ADMIN' ? '系统管理员' : '运维工程师',
         })
       )
-      uni.reLaunch({ url: '/pages/index/index' })
+      uni.switchTab({ url: '/pages/index/index' })
     })
     .catch(() => {
       // Toast already shown by request interceptor

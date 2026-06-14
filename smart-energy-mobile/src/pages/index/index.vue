@@ -51,39 +51,50 @@
       </view>
     </view>
 
-    <!-- Pending Orders Summary -->
+    <!-- Tab Switcher -->
+    <view class="tab-bar">
+      <view
+        v-for="tab in tabs"
+        :key="tab.key"
+        :class="['tab-item', { active: activeTab === tab.key }]"
+        @click="switchTab(tab.key)"
+      >
+        <text class="tab-text">{{ tab.label }}</text>
+        <view v-if="activeTab === tab.key" class="tab-underline"></view>
+      </view>
+    </view>
+
+    <!-- Summary Card -->
     <view class="summary-card">
       <view class="summary-left">
-        <text class="summary-number">{{ pendingOrders.length }}</text>
-        <text class="summary-label">待处理工单</text>
+        <text class="summary-number">{{ displayOrders.length }}</text>
+        <text class="summary-label">{{ currentTabLabel }}</text>
       </view>
       <view class="summary-divider"></view>
       <view class="summary-right">
         <view class="priority-row">
           <view class="priority-dot critical"></view>
-          <text class="priority-text">紧急 {{ criticalCount }}</text>
+          <text class="priority-text">紧急 {{ tabCriticalCount }}</text>
         </view>
         <view class="priority-row">
           <view class="priority-dot high"></view>
-          <text class="priority-text">高 {{ highCount }}</text>
+          <text class="priority-text">高 {{ tabHighCount }}</text>
         </view>
         <view class="priority-row">
           <view class="priority-dot medium"></view>
-          <text class="priority-text">中 {{ mediumCount }}</text>
+          <text class="priority-text">中 {{ tabMediumCount }}</text>
         </view>
       </view>
     </view>
 
-    <!-- Pending Orders List -->
-    <view class="section-title">待处理工单列表</view>
-
+    <!-- Orders List -->
     <view v-if="ordersLoading" class="loading-row">
       <text class="loading-text">加载中...</text>
     </view>
 
     <view v-else class="order-list">
       <view
-        v-for="order in pendingOrders"
+        v-for="order in displayOrders"
         :key="order.id"
         class="order-card"
         @click="handleViewOrder(order)"
@@ -110,9 +121,9 @@
     </view>
 
     <!-- Empty State -->
-    <view v-if="pendingOrders.length === 0" class="empty-state">
-      <text class="empty-icon">✅</text>
-      <text class="empty-text">暂无待处理工单</text>
+    <view v-if="!ordersLoading && displayOrders.length === 0" class="empty-state">
+      <text class="empty-icon">{{ emptyIcon }}</text>
+      <text class="empty-text">{{ emptyText }}</text>
     </view>
 
     <!-- Safe Bottom -->
@@ -122,7 +133,8 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { get } from '@/utils/request'
+import { onPullDownRefresh } from '@dcloudio/uni-app'
+import { get, post } from '@/utils/request'
 
 // --- User Info ---
 const userInfo = ref({ name: '张工', roleName: '运维工程师' })
@@ -139,11 +151,11 @@ onMounted(() => {
 })
 
 // --- Pull to Refresh ---
-const onPullDownRefresh = () => {
+onPullDownRefresh(() => {
   fetchOrders().finally(() => {
     uni.stopPullDownRefresh()
   })
-}
+})
 
 // --- Date ---
 const currentDate = computed(() => {
@@ -156,68 +168,112 @@ const currentDate = computed(() => {
   return `${y}年${m}月${day}日 星期${w}`
 })
 
+// --- Tabs ---
+const activeTab = ref('pending')
+const tabs = [
+  { key: 'pending', label: '待处理' },
+  { key: 'in_progress', label: '执行中' },
+  { key: 'history', label: '历史' },
+]
+
+const currentTabLabel = computed(() => {
+  const t = tabs.find(t => t.key === activeTab.value)
+  return t ? t.label + '工单' : '工单'
+})
+
+const emptyIcon = computed(() => {
+  if (activeTab.value === 'pending') return '📋'
+  if (activeTab.value === 'in_progress') return '🔧'
+  return '📁'
+})
+
+const emptyText = computed(() => {
+  if (activeTab.value === 'pending') return '暂无待处理工单'
+  if (activeTab.value === 'in_progress') return '暂无执行中工单'
+  return '暂无历史工单'
+})
+
+const switchTab = (key) => {
+  activeTab.value = key
+}
+
+// --- Get worker identity ---
+const getStoredUserInfo = () => {
+  try {
+    const stored = uni.getStorageSync('userInfo')
+    return typeof stored === 'string' ? JSON.parse(stored) : (stored || {})
+  } catch (_) { return {} }
+}
+
+const getStoredUsername = () => getStoredUserInfo().username || ''
+const getStoredNickname = () => getStoredUserInfo().name || getStoredUserInfo().username || ''
+
 // --- Work Orders ---
-const pendingOrders = ref([])
+const allOrders = ref([])   // raw data from API
 const ordersLoading = ref(false)
 
 const fetchOrders = () => {
   ordersLoading.value = true
-  return get('/work-orders/active-alerts', { limit: 20 })
-    .then((data) => {
-      pendingOrders.value = (data || []).map((o) => ({
+  return Promise.all([
+    get('/workorder/orders', { status: 'PENDING', pageNum: 1, pageSize: 50 }),
+    get('/workorder/orders', { status: 'IN_PROGRESS', pageNum: 1, pageSize: 50 }),
+    get('/workorder/orders', { status: 'RESOLVED', pageNum: 1, pageSize: 50 }),
+  ])
+    .then(([pending, inProgress, resolved]) => {
+      const mapOrder = (o) => ({
         id: o.id,
         orderNo: o.orderNo,
         deviceName: o.deviceName || o.deviceCode || '未知设备',
+        deviceType: o.deviceType || '',
         faultType: o.title || o.faultType || '未指定故障',
         priority: o.priority || 'MEDIUM',
+        status: o.status || 'PENDING',
+        assigneeName: o.assigneeName || o.assignee || '',
+        assigneeId: o.assigneeId || null,
+        activeAssignments: o.activeAssignments || [],
         createdAt: formatTime(o.createdAt),
-      }))
+      })
+      const pList = (pending?.records || pending || []).map(mapOrder)
+      const iList = (inProgress?.records || inProgress || []).map(mapOrder)
+      const rList = (resolved?.records || resolved || []).map(mapOrder)
+      allOrders.value = [...pList, ...iList, ...rList]
     })
     .catch(() => {
-      // use mock data as fallback when backend unreachable
-      pendingOrders.value = [
-        {
-          id: 1,
-          orderNo: 'WO-20240612-001',
-          deviceName: '电弧炉 EAF-01',
-          faultType: '机械卡涩 — 振动异常超标',
-          priority: 'CRITICAL',
-          createdAt: '2024-06-12 08:35',
-        },
-        {
-          id: 2,
-          orderNo: 'WO-20240612-002',
-          deviceName: '循环水泵 CWP-02',
-          faultType: '冷却中断 — 温度过高 / 压力过低',
-          priority: 'CRITICAL',
-          createdAt: '2024-06-12 09:12',
-        },
-        {
-          id: 3,
-          orderNo: 'WO-20240611-015',
-          deviceName: '空压机 ACP-01',
-          faultType: '轴承磨损 — 振动持续偏高',
-          priority: 'HIGH',
-          createdAt: '2024-06-11 23:45',
-        },
-        {
-          id: 4,
-          orderNo: 'WO-20240611-012',
-          deviceName: '电弧炉 EAF-01',
-          faultType: '炉膛温度传感器读数间歇波动',
-          priority: 'MEDIUM',
-          createdAt: '2024-06-11 18:20',
-        },
-      ]
+      allOrders.value = []
     })
     .finally(() => {
       ordersLoading.value = false
     })
 }
 
+// --- Display orders filtered by tab + worker ---
+const displayOrders = computed(() => {
+  const username = getStoredUsername()
+  const nickname = getStoredNickname()
+  return allOrders.value.filter((o) => {
+    if (activeTab.value === 'pending') return o.status === 'PENDING'
+    if (activeTab.value === 'in_progress') return o.status === 'IN_PROGRESS' && matchesWorker(o, username, nickname)
+    if (activeTab.value === 'history') return o.status === 'RESOLVED' && matchesWorker(o, username, nickname)
+    return false
+  })
+})
+
+const matchesWorker = (order, storedUsername, storedNickname) => {
+  if (!storedUsername && !storedNickname) return false
+  // Primary: match by employeeNo in activeAssignments (reliable, from same table as login username)
+  if (storedUsername && order.activeAssignments?.length) {
+    const hasMatch = order.activeAssignments.some(a => a.employeeNo === storedUsername)
+    if (hasMatch) return true
+  }
+  // Fallback: match by assigneeName against stored nickname (may differ across tables)
+  if (storedNickname && order.assigneeName && order.assigneeName === storedNickname) return true
+  // Final fallback: match by assignee name against stored username
+  if (storedUsername && order.assigneeName && order.assigneeName === storedUsername) return true
+  return false
+}
+
 const formatTime = (t) => {
   if (!t) return ''
-  // handles both ISO string and array format from backend
   const d = new Date(t)
   if (isNaN(d.getTime())) return t
   const y = d.getFullYear()
@@ -228,10 +284,10 @@ const formatTime = (t) => {
   return `${y}-${m}-${day} ${h}:${min}`
 }
 
-// --- Priority Computed ---
-const criticalCount = computed(() => pendingOrders.value.filter(o => o.priority === 'CRITICAL').length)
-const highCount = computed(() => pendingOrders.value.filter(o => o.priority === 'HIGH').length)
-const mediumCount = computed(() => pendingOrders.value.filter(o => o.priority === 'MEDIUM' || o.priority === 'LOW').length)
+// --- Tab-aware priority counts ---
+const tabCriticalCount = computed(() => displayOrders.value.filter(o => o.priority === 'CRITICAL').length)
+const tabHighCount = computed(() => displayOrders.value.filter(o => o.priority === 'HIGH').length)
+const tabMediumCount = computed(() => displayOrders.value.filter(o => o.priority === 'MEDIUM' || o.priority === 'LOW').length)
 
 const priorityClass = (p) => {
   if (p === 'CRITICAL') return 'critical'
@@ -250,28 +306,30 @@ const priorityLabel = (p) => {
 
 // --- Actions ---
 const handleScanCode = () => {
-  // #ifdef APP-PLUS
-  uni.scanCode({
-    scanType: ['barCode', 'qrCode'],
-    success: (res) => {
-      uni.showToast({ title: `设备: ${res.result}`, icon: 'success' })
-    },
-    fail: () => {
-      uni.showToast({ title: '扫码取消', icon: 'none' })
-    },
-  })
-  // #endif
-  // #ifdef H5
-  uni.showToast({ title: '设备: EAF-01 (H5模拟)', icon: 'success' })
-  // #endif
+  try {
+    uni.scanCode({
+      scanType: ['barCode', 'qrCode'],
+      success: (res) => {
+        uni.showToast({ title: `设备: ${res.result}`, icon: 'success' })
+      },
+      fail: () => {
+        uni.showToast({ title: '扫码取消', icon: 'none' })
+      },
+    })
+  } catch (_) {
+    // Bug 2 fix: graceful fallback when scanCode is unavailable (H5, desktop, etc.)
+    uni.showToast({ title: '当前环境不支持摄像头扫码', icon: 'none' })
+  }
 }
 
 const handleCreateOrder = () => {
-  uni.showToast({ title: '跳转到报修页面...', icon: 'none' })
+  uni.showToast({ title: '报修页面开发中', icon: 'none' })
 }
 
 const handleViewOrder = (order) => {
-  uni.navigateTo({ url: `/pages/workorder/detail?id=${order.id}` })
+  const navUrl = '/pages/workorder/detail?id=' + order.id
+  console.log('[index] navigating to:', navUrl, 'order.id:', order.id, 'order.orderNo:', order.orderNo)
+  uni.navigateTo({ url: navUrl })
 }
 
 const handleLogout = () => {
@@ -280,6 +338,8 @@ const handleLogout = () => {
     content: '确定要退出当前账号吗？',
     success: (res) => {
       if (res.confirm) {
+        // Bug 1 fix: call backend logout before clearing local storage
+        post('/auth/logout', {}).catch(() => { /* best-effort */ })
         uni.removeStorageSync('token')
         uni.removeStorageSync('userInfo')
         uni.reLaunch({ url: '/pages/login/login' })
@@ -475,6 +535,42 @@ const handleLogout = () => {
 .action-desc {
   font-size: 22rpx;
   color: #6b7280;
+}
+
+/* ======== Tab Bar ======== */
+.tab-bar {
+  display: flex;
+  padding: 0 32rpx;
+  background: #161b22;
+  border-bottom: 1rpx solid #21262d;
+}
+
+.tab-item {
+  flex: 1;
+  text-align: center;
+  padding: 20rpx 0 14rpx;
+  position: relative;
+}
+
+.tab-text {
+  font-size: 28rpx;
+  color: #8b949e;
+  font-weight: 600;
+}
+
+.tab-item.active .tab-text {
+  color: #f0a500;
+}
+
+.tab-underline {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 48rpx;
+  height: 4rpx;
+  background: #f0a500;
+  border-radius: 2rpx;
 }
 
 /* ======== Summary Card ======== */
