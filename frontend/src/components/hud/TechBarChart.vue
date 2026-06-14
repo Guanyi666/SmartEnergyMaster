@@ -74,9 +74,10 @@ const render = () => {
     },
     series: [
       {
+        // 主柱:暗青(底) → 亮青(顶) 垂直渐变
         type: 'bar',
         barWidth: '50%',
-        // 暗青(底) → 亮青(顶) 垂直渐变
+        stack: 'cap',           // ★ 与盖子堆叠,盖子自动落在主柱顶部
         itemStyle: {
           borderRadius: [2, 2, 0, 0],
           color: new echarts.graphic.LinearGradient(0, 1, 0, 0, [
@@ -88,6 +89,24 @@ const render = () => {
           shadowBlur: 6
         },
         data: values
+      },
+      {
+        // ★ 立体盖子: 极亮青色 (#00FFFF), 短条叠在原柱顶,
+        //    与主柱 stack 相同 → 形成"金属盖"轮廓
+        type: 'bar',
+        barWidth: '50%',
+        stack: 'cap',
+        silent: true,            // 不参与 tooltip
+        itemStyle: {
+          color: '#00FFFF',
+          shadowColor: 'rgba(0, 255, 255, 0.95)',
+          shadowBlur: 14,
+          borderColor: 'rgba(180, 255, 255, 1)',
+          borderWidth: 1,
+          borderRadius: [2, 2, 0, 0]
+        },
+        // 取主柱顶端 2% 厚度作为盖子高度,最小 1.2 保证可见
+        data: values.map(v => v === 0 ? 0 : Math.max(v * 0.020, 1.2))
       }
     ]
   })

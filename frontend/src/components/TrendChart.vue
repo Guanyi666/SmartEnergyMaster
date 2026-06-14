@@ -12,6 +12,8 @@ const props = defineProps({
 
 const chartRef = ref()
 let chart
+let resizeObserver
+let resizeFrame
 
 const markAreas = computed(() => {
   if (!props.records.length) return []
@@ -39,7 +41,7 @@ const markAreas = computed(() => {
 })
 
 const renderChart = () => {
-  if (!chartRef.value) return
+  if (!chartRef.value?.clientWidth || !chartRef.value?.clientHeight) return
   if (!chart) {
     chart = echarts.init(chartRef.value)
   }
@@ -112,15 +114,32 @@ const renderChart = () => {
   })
 }
 
+const resize = () => {
+  cancelAnimationFrame(resizeFrame)
+  resizeFrame = requestAnimationFrame(() => {
+    if (chart) {
+      chart.resize()
+    } else {
+      renderChart()
+    }
+  })
+}
+
+defineExpose({ resize })
+
 onMounted(() => {
   renderChart()
-  window.addEventListener('resize', renderChart)
+  resizeObserver = new ResizeObserver(resize)
+  resizeObserver.observe(chartRef.value)
+  window.addEventListener('resize', resize)
 })
 
 watch(() => props.records, renderChart, { deep: true })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', renderChart)
+  window.removeEventListener('resize', resize)
+  resizeObserver?.disconnect()
+  cancelAnimationFrame(resizeFrame)
   chart?.dispose()
 })
 </script>

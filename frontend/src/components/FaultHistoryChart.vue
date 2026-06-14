@@ -87,13 +87,20 @@ const render = async () => {
 }
 
 const resize = () => chart?.resize()
+let resizeObserver
 watch(() => props.points, render, { deep: true })
 onMounted(() => {
   render()
   window.addEventListener('resize', resize)
+  // 容器宽度变化（如布局收窄）时同步缩放图表，避免画布过宽撑破栅格列
+  if (chartElement.value) {
+    resizeObserver = new ResizeObserver(() => resize())
+    resizeObserver.observe(chartElement.value)
+  }
 })
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resize)
+  resizeObserver?.disconnect()
   chart?.dispose()
 })
 </script>

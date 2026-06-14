@@ -1,9 +1,7 @@
 import { defineStore } from 'pinia'
 import { loginApi, logoutApi } from '../api'
 import { normalizeRole } from '../utils/role'
-
-const TOKEN_KEY = 'smart-energy-token'
-const USER_KEY = 'smart-energy-user'
+import { clearStoredSession, readStoredSession, TOKEN_KEY, USER_KEY } from '../utils/session'
 
 // 拿到后端返回的 user 时归一化 role：防御 "HR MANAGER" / "HR_MANAGER " 等空格脏数据导致路由死循环
 const sanitizeUser = (u) => {
@@ -12,10 +10,13 @@ const sanitizeUser = (u) => {
 }
 
 export const useAuthStore = defineStore('auth', {
-  state: () => ({
-    token: localStorage.getItem(TOKEN_KEY) || '',
-    user: sanitizeUser(JSON.parse(localStorage.getItem(USER_KEY) || 'null'))
-  }),
+  state: () => {
+    const session = readStoredSession()
+    return {
+      token: session.token,
+      user: sanitizeUser(session.user)
+    }
+  },
   actions: {
     async login(payload) {
       const result = await loginApi(payload)
@@ -36,8 +37,7 @@ export const useAuthStore = defineStore('auth', {
     clearSession() {
       this.token = ''
       this.user = null
-      localStorage.removeItem(TOKEN_KEY)
-      localStorage.removeItem(USER_KEY)
+      clearStoredSession()
     },
     updateContactInfo({ phone, email }) {
       if (!this.user) return

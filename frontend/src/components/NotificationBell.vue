@@ -131,3 +131,18 @@ watch(() => props.alerts.map((item) => item.id).join(','), () => {
   color: var(--text-secondary);
 }
 </style>
+
+<!-- el-popover 被 teleport 到 body，scoped 样式无法命中，这里用全局样式把弹层背景改为深色 -->
+<style>
+.el-popover.el-popper.notification-popover {
+  background: rgba(8, 22, 40, 0.97);
+  border: 1px solid rgba(92, 220, 255, 0.32);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+  color: #ffffff;
+}
+
+.el-popover.el-popper.notification-popover .el-popper__arrow::before {
+  background: rgba(8, 22, 40, 0.97);
+  border: 1px solid rgba(92, 220, 255, 0.32);
+}
+</style>

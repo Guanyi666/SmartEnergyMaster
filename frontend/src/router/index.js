@@ -3,6 +3,7 @@ import MainLayout from '../layouts/MainLayout.vue'
 import LoginView from '../views/LoginView.vue'
 import { useAuthStore } from '../stores/auth'
 import { defaultHomeForRole, normalizeRole } from '../utils/role'
+import { readStoredSession } from '../utils/session'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -19,7 +20,7 @@ const router = createRouter({
       children: [
         {
           path: '',
-          redirect: () => defaultHomeForRole(JSON.parse(localStorage.getItem('smart-energy-user') || 'null')?.role)
+          redirect: () => defaultHomeForRole(readStoredSession().user?.role)
         },
         {
           path: '/dashboard',
@@ -142,8 +143,9 @@ const router = createRouter({
 // 🟠 重要问题 #4 修复：完整重写守卫加 meta.roles 检查
 router.beforeEach((to) => {
   const authStore = useAuthStore()
-  const token = authStore.token || localStorage.getItem('smart-energy-token')
-  const rawUser = authStore.user || JSON.parse(localStorage.getItem('smart-energy-user') || 'null')
+  const storedSession = readStoredSession()
+  const token = authStore.token || storedSession.token
+  const rawUser = authStore.user || storedSession.user
   const user = rawUser ? { ...rawUser, role: normalizeRole(rawUser.role) } : rawUser
 
   // 1. 未登录

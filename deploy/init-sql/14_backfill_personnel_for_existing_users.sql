@@ -21,22 +21,27 @@
 -- ====================================================================
 
 -- ────────────────────────────────────────────────────────────────────
--- Step 1: 清理孤儿档案与孤儿排班 (user_id IS NULL)
+-- Step 1: 清理孤儿记录（user_id IS NULL 且 sys_user 中不存在对应账号）
+--         改为精准清理：只删确实无主的数据，不碰有 user_id 的
 -- ────────────────────────────────────────────────────────────────────
-DELETE FROM workorder_maintenance_personnel WHERE user_id IS NULL;
-DELETE FROM maintenance_personnel           WHERE user_id IS NULL;
+DELETE FROM workorder_maintenance_personnel
+ WHERE user_id IS NULL
+   AND NOT EXISTS (SELECT 1 FROM sys_user u WHERE u.id = user_id);
+
+DELETE FROM maintenance_personnel
+ WHERE user_id IS NULL
+   AND NOT EXISTS (SELECT 1 FROM sys_user u WHERE u.id = user_id);
 
 -- ────────────────────────────────────────────────────────────────────
--- Step 2: 回填排班表 workorder_maintenance_personnel
+-- Step 2: 回填排班表 workorder_maintenance_personnel（UPSERT 模式）
 --   - employee_no 用 sys_user.username (规范化为 2026xxxxxx 格式)
 --   - 非维修角色 max_workload=0, is_on_duty=false
 --   - 维修角色 max_workload=5, is_on_duty=true
 -- ────────────────────────────────────────────────────────────────────
 INSERT INTO workorder_maintenance_personnel
-    (user_id, employee_no, avatar_color, current_workload, max_workload, is_on_duty, created_at, updated_at)
+    (user_id, avatar_color, current_workload, max_workload, is_on_duty, created_at, updated_at)
 SELECT
     u.id,
-    u.username,
     CASE
         WHEN u.role = 'MAINTENANCE_ENGINEER' THEN '#52c8ff'
         WHEN u.role = 'MANAGER'              THEN '#ffaa00'
@@ -63,10 +68,9 @@ WHERE NOT EXISTS (
 --   - phone / email 从 sys_user 复制
 -- ────────────────────────────────────────────────────────────────────
 INSERT INTO maintenance_personnel
-    (user_id, employee_no, name, phone, email, specializations, skill_level, certification, created_at, updated_at)
+    (user_id, name, phone, email, specializations, skill_level, certification, created_at, updated_at)
 SELECT
     u.id,
-    u.username,
     COALESCE(NULLIF(u.nickname, ''), u.username),
     u.phone,
     u.email,

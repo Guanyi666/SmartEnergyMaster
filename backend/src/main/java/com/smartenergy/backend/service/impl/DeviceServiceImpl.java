@@ -206,7 +206,6 @@ public class DeviceServiceImpl implements DeviceService {
         device.setDeviceName(request.getDeviceName());
         device.setDeviceType(request.getDeviceType());
         device.setLocation(request.getLocation());
-        device.setMaintainer(request.getMaintainer());
         device.setDescription(request.getDescription());
         if (StringUtils.hasText(request.getStatus())) {
             device.setStatus(request.getStatus().toUpperCase());

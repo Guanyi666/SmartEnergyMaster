@@ -18,13 +18,15 @@ public class LoginSessionService {
 
     private final StringRedisTemplate redisTemplate;
 
-    public boolean claim(String username, String token) {
+    /**
+     * v7 改造：新登录强制踢掉旧会话（SET 覆盖而非 SETNX 拒绝）。
+     * 每次登录都无条件写入新 token，旧 token 自然失效。
+     */
+    public void claim(String username, String token) {
         try {
-            Boolean claimed = redisTemplate.opsForValue()
-                    .setIfAbsent(key(username), token, SESSION_TTL);
-            return Boolean.TRUE.equals(claimed);
+            redisTemplate.opsForValue().set(key(username), token, SESSION_TTL);
         } catch (Exception exception) {
-            log.error("登录会话互斥检查失败 username={}: {}", username, exception.getMessage());
+            log.error("登录会话创建失败 username={}: {}", username, exception.getMessage());
             throw new IllegalStateException("登录会话服务暂不可用，请稍后重试");
         }
     }
@@ -42,11 +44,15 @@ public class LoginSessionService {
      */
     public boolean validateAndRefresh(String username, String token) {
         try {
-            String activeToken = redisTemplate.opsForValue().get(key(username));
+            String key = key(username);
+            String activeToken = redisTemplate.opsForValue().get(key);
             if (!token.equals(activeToken)) {
                 return false;
             }
-            // ⚠️ 不再 expire() 续期，让 TTL 自然到期
+            // 滑动续期：活跃会话每次校验都把 TTL 重置为 15 分钟。
+            // 关闭页面后不再有请求 → 会话在 15 分钟空闲后自然过期（兜底回收），
+            // 既保证活跃用户不会用着用着被踢，又不会让已关闭的会话永久残留。
+            redisTemplate.expire(key, SESSION_TTL);
             return true;
         } catch (Exception exception) {
             // ★ 架构#1: fail-closed — Redis 故障时拒绝, 避免已登出 token 在故障窗口复活

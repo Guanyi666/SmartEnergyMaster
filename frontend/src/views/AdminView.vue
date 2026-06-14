@@ -4,6 +4,9 @@ import MetricCard from '../components/MetricCard.vue'
 import InsightChart from '../components/InsightChart.vue'
 import { getDashboardSummary, getDevices, getSensorHistory } from '../api'
 import { usePollingTask } from '../composables/usePollingTask'
+import { getStatusMeta } from '../utils/status'
+
+const statusLabel = (s) => getStatusMeta(s).label
 
 const summary = shallowRef({})
 const devices = shallowRef([])
@@ -31,7 +34,11 @@ const ranking = computed(() => [...devices.value].sort((a, b) => Number(b.usageK
 const load = async () => {
   const deviceResult = await getDevices({ size: 999 })
   devices.value = deviceResult.records || []
-  const focusCode = devices.value[0]?.deviceCode || 'EAF-01'
+  // 趋势焦点取实时能耗最高的设备：仿真器只向部分设备推送遥测，
+  // 若盲取第一台（可能停机/离线/无历史）会导致能耗、碳排趋势曲线为空
+  const focusCode = [...devices.value]
+    .sort((a, b) => Number(b.usageKwh || 0) - Number(a.usageKwh || 0))[0]?.deviceCode
+    || devices.value[0]?.deviceCode || 'EAF-01'
   const [summaryResult, historyResult] = await Promise.all([getDashboardSummary(focusCode), getSensorHistory(focusCode, period.value === 'month' ? 720 : period.value === 'week' ? 168 : 24)])
   summary.value = summaryResult
   history.value = historyResult || []
@@ -64,7 +71,7 @@ onMounted(start)
         <InsightChart :labels="trendLabels" :series="carbonSeries" :height="250" />
         <div class="quota">
           <div><span>本月配额已用</span><strong>63%</strong></div>
-          <el-progress :percentage="63" color="#a78bfa" :stroke-width="12" />
+          <el-progress :percentage="63" color="#a78bfa" :stroke-width="12" :show-text="false" />
           <small>剩余配额 184.6 吨二氧化碳</small>
         </div>
       </section>
@@ -76,7 +83,9 @@ onMounted(start)
           <el-table-column label="实时能耗" width="110">
             <template #default="{ row }">{{ Number(row.usageKwh || 0).toFixed(1) }}</template>
           </el-table-column>
-          <el-table-column label="状态" prop="status" width="110" />
+          <el-table-column label="状态" width="110">
+            <template #default="{ row }">{{ statusLabel(row.status) }}</template>
+          </el-table-column>
         </el-table>
       </section>
       <section class="glass-panel panel execution">
