@@ -84,16 +84,13 @@ CREATE INDEX ix_work_order_status_created_at ON work_order (status, created_at D
 -- Epic 05：维修人员调度模块（与 workorder-backend 合并后统一建表）
 -- ============================================================
 
+-- 🆕 V2 重构：workorder_maintenance_personnel 只保留排班独有字段
+--     姓名/电话/邮箱/技能 → maintenance_personnel（员工档案）
+--     工号 → sys_user.username（主表统一）
 CREATE TABLE workorder_maintenance_personnel (
     id BIGSERIAL PRIMARY KEY,
-    employee_no VARCHAR(32) UNIQUE NOT NULL,
-    name VARCHAR(64) NOT NULL,
-    phone VARCHAR(32),
-    email VARCHAR(128),
+    user_id INTEGER REFERENCES sys_user(id) ON DELETE RESTRICT,
     avatar_color VARCHAR(16) DEFAULT '#52c8ff',
-    specializations JSONB DEFAULT '[]'::jsonb,
-    skill_level VARCHAR(16) NOT NULL DEFAULT 'JUNIOR',
-    certification VARCHAR(255),
     current_workload INT NOT NULL DEFAULT 0,
     max_workload INT NOT NULL DEFAULT 5,
     is_on_duty BOOLEAN NOT NULL DEFAULT TRUE,
@@ -101,7 +98,7 @@ CREATE TABLE workorder_maintenance_personnel (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX ix_personnel_skill_level ON workorder_maintenance_personnel (skill_level);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_workorder_personnel_user ON workorder_maintenance_personnel(user_id);
 CREATE INDEX ix_personnel_on_duty ON workorder_maintenance_personnel (is_on_duty);
 
 CREATE TABLE workorder_assignment (
@@ -118,7 +115,7 @@ CREATE INDEX ix_assignment_work_order ON workorder_assignment (work_order_id);
 CREATE INDEX ix_assignment_personnel ON workorder_assignment (personnel_id);
 CREATE INDEX ix_assignment_active ON workorder_assignment (work_order_id, personnel_id) WHERE released_at IS NULL;
 
--- 维修人员种子数据已移除（6 人：张工/李工/王工/赵工/孙工/周工）
+-- 维修人员种子数据 → 由 seed_all.sql 统一管理（sys_user + maintenance_personnel + workorder_maintenance_personnel 三表联动）
 
 -- =====================================================================
 -- Epic 07-1/07-2: 维修知识体系

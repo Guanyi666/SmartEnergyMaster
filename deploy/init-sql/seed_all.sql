@@ -18,7 +18,75 @@ INSERT INTO device (device_code, device_name, device_type, status, location, mai
 ('DC-01',  '主除尘系统', 'DUST_COLLECTOR',    'STOPPED', '环保站',   '', '电弧炉烟气捕集与布袋除尘——环保合规')
 ON CONFLICT (device_code) DO NOTHING;
 
--- 维修人员种子数据已移除（6 人：张工/李工/王工/赵工/孙工/周工）
+-- ===== 6名维修工程师（sys_user 账号 + 员工档案 + 排班）=====
+-- 密码均为 123456（BCrypt）
+-- 账号格式：2026(入职年份) + 03(MAINTENANCE_ENGINEER) + 0001~0006(序号)
+
+-- Step 1: 创建 sys_user 登录账号
+INSERT INTO sys_user (username, password, role, nickname, phone, department) VALUES
+('2026030001', '$2a$10$QiUD0hIi91K2NzBx8YN/R.4KXD3.0H8A3s1mg2x9Ew.atUPOE6S7q', 'MAINTENANCE_ENGINEER', '张工', '13800000001', '设备运维部'),
+('2026030002', '$2a$10$QiUD0hIi91K2NzBx8YN/R.4KXD3.0H8A3s1mg2x9Ew.atUPOE6S7q', 'MAINTENANCE_ENGINEER', '李工', '13800000002', '设备运维部'),
+('2026030003', '$2a$10$QiUD0hIi91K2NzBx8YN/R.4KXD3.0H8A3s1mg2x9Ew.atUPOE6S7q', 'MAINTENANCE_ENGINEER', '王工', '13800000003', '设备运维部'),
+('2026030004', '$2a$10$QiUD0hIi91K2NzBx8YN/R.4KXD3.0H8A3s1mg2x9Ew.atUPOE6S7q', 'MAINTENANCE_ENGINEER', '赵工', '13800000004', '设备运维部'),
+('2026030005', '$2a$10$QiUD0hIi91K2NzBx8YN/R.4KXD3.0H8A3s1mg2x9Ew.atUPOE6S7q', 'MAINTENANCE_ENGINEER', '孙工', '13800000005', '设备运维部'),
+('2026030006', '$2a$10$QiUD0hIi91K2NzBx8YN/R.4KXD3.0H8A3s1mg2x9Ew.atUPOE6S7q', 'MAINTENANCE_ENGINEER', '周工', '13800000006', '设备运维部')
+ON CONFLICT (username) DO NOTHING;
+
+-- Step 2: 创建 maintenance_personnel 员工档案
+INSERT INTO maintenance_personnel (user_id, name, phone, email, specializations, skill_level, certification)
+SELECT u.id, u.nickname, u.phone, u.email,
+       CASE u.username
+           WHEN '2026030001' THEN '["电气","自动化"]'::jsonb
+           WHEN '2026030002' THEN '["机械","液压"]'::jsonb
+           WHEN '2026030003' THEN '["电气","机械","液压"]'::jsonb
+           WHEN '2026030004' THEN '["仪表","自动化"]'::jsonb
+           WHEN '2026030005' THEN '["机械","焊接"]'::jsonb
+           WHEN '2026030006' THEN '["电气","仪表","自动化"]'::jsonb
+       END,
+       CASE u.username
+           WHEN '2026030001' THEN 'EXPERT'
+           WHEN '2026030002' THEN 'SENIOR'
+           WHEN '2026030003' THEN 'SENIOR'
+           WHEN '2026030004' THEN 'INTERMEDIATE'
+           WHEN '2026030005' THEN 'INTERMEDIATE'
+           WHEN '2026030006' THEN 'JUNIOR'
+       END,
+       CASE u.username
+           WHEN '2026030001' THEN '高级工程师 / 15年'
+           WHEN '2026030002' THEN '机械工程师 / 10年'
+           WHEN '2026030003' THEN '复合技师 / 8年'
+           WHEN '2026030004' THEN '仪表技师 / 5年'
+           WHEN '2026030005' THEN '机修工 / 3年'
+           WHEN '2026030006' THEN '助理工程师 / 1年'
+       END
+FROM sys_user u
+WHERE u.role = 'MAINTENANCE_ENGINEER'
+  AND NOT EXISTS (SELECT 1 FROM maintenance_personnel mp WHERE mp.user_id = u.id);
+
+-- Step 3: 创建 workorder_maintenance_personnel 排班记录
+INSERT INTO workorder_maintenance_personnel (user_id, avatar_color, current_workload, max_workload, is_on_duty)
+SELECT u.id,
+       CASE u.username
+           WHEN '2026030001' THEN '#52c8ff'
+           WHEN '2026030002' THEN '#ff9f43'
+           WHEN '2026030003' THEN '#a78bfa'
+           WHEN '2026030004' THEN '#3bff9f'
+           WHEN '2026030005' THEN '#ffd24a'
+           WHEN '2026030006' THEN '#ff6b9d'
+       END,
+       0,
+       CASE u.username
+           WHEN '2026030001' THEN 5
+           WHEN '2026030002' THEN 4
+           WHEN '2026030003' THEN 4
+           WHEN '2026030004' THEN 3
+           WHEN '2026030005' THEN 3
+           WHEN '2026030006' THEN 2
+       END,
+       TRUE
+FROM sys_user u
+WHERE u.role = 'MAINTENANCE_ENGINEER'
+  AND NOT EXISTS (SELECT 1 FROM workorder_maintenance_personnel wp WHERE wp.user_id = u.id);
 
 -- ===== 4条SOP标准操作规程 =====
 INSERT INTO maintenance_sop (sop_code, device_type, fault_type, title, summary, content, steps, required_skills, required_tools, required_parts, estimated_minutes, created_by) VALUES

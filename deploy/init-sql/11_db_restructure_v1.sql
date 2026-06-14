@@ -46,51 +46,61 @@ BEGIN
 END $$;
 
 -- ============================================================================
--- B. 改动组 1：两张人员表明确定位
+-- B. 改动组 1：两张人员表分工（幂等：仅当旧列存在时执行迁移）
 -- ============================================================================
-BEGIN;
+DO $$
+BEGIN
+    -- 检查是否为旧版 schema（workorder_maintenance_personnel 有 name 列 = 旧版）
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'workorder_maintenance_personnel' AND column_name = 'name') THEN
 
--- 0. P0-1 修复：先在 workorder_maintenance_personnel 加 user_id 列（原表无此列）
-ALTER TABLE workorder_maintenance_personnel ADD COLUMN IF NOT EXISTS user_id INTEGER;
+        -- 0. P0-1 修复：先加 user_id 列（旧表无此列）
+        ALTER TABLE workorder_maintenance_personnel ADD COLUMN IF NOT EXISTS user_id INTEGER;
 
--- 1. 把 workorder_maintenance_personnel 的冗余字段搬到 maintenance_personnel
-INSERT INTO maintenance_personnel (user_id, employee_no, name, phone, email, specializations, skill_level, certification)
-SELECT NULL, wmp.employee_no, wmp.name, wmp.phone, wmp.email,
-       wmp.specializations::jsonb, wmp.skill_level, wmp.certification
-FROM workorder_maintenance_personnel wmp
-ON CONFLICT (employee_no) DO NOTHING;
+        -- 1. 把 workorder_maintenance_personnel 的冗余字段搬到 maintenance_personnel
+        INSERT INTO maintenance_personnel (user_id, name, phone, email, specializations, skill_level, certification)
+        SELECT NULL, wmp.name, wmp.phone, wmp.email,
+               wmp.specializations::jsonb, wmp.skill_level, wmp.certification
+        FROM workorder_maintenance_personnel wmp
+        ON CONFLICT DO NOTHING;
 
--- 2. 关联 sys_user（用 employee_no 当登录账号匹配）—— 默认只有首位维修工程师能匹配
-UPDATE maintenance_personnel mp
-SET user_id = su.id
-FROM sys_user su
-WHERE su.username = mp.employee_no AND mp.user_id IS NULL;
+        -- 2. 关联 sys_user
+        UPDATE maintenance_personnel mp
+        SET user_id = su.id
+        FROM sys_user su
+        WHERE su.username = mp.employee_no AND mp.user_id IS NULL;
 
--- 3. 同步 user_id 到 workorder_maintenance_personnel
-UPDATE workorder_maintenance_personnel wmp
-SET user_id = mp.user_id
-FROM maintenance_personnel mp
-WHERE mp.employee_no = wmp.employee_no AND wmp.user_id IS NULL;
+        -- 3. 同步 user_id 到 workorder_maintenance_personnel
+        UPDATE workorder_maintenance_personnel wmp
+        SET user_id = mp.user_id
+        FROM maintenance_personnel mp
+        WHERE mp.employee_no = wmp.employee_no AND wmp.user_id IS NULL;
 
--- 4. M-1 修复：先 DROP 引用 current_workload/max_workload 的 CHECK 约束
-ALTER TABLE maintenance_personnel DROP CONSTRAINT IF EXISTS ck_maintenance_personnel_workload;
+        -- 4. M-1 修复：先 DROP 引用排班字段的 CHECK 约束
+        ALTER TABLE maintenance_personnel DROP CONSTRAINT IF EXISTS ck_maintenance_personnel_workload;
 
--- 5. M-2 修复：从 maintenance_personnel 删排班列
-ALTER TABLE maintenance_personnel
-  DROP COLUMN IF EXISTS current_workload,
-  DROP COLUMN IF EXISTS max_workload,
-  DROP COLUMN IF EXISTS is_on_duty;
+        -- 5. M-2 修复：从 maintenance_personnel 删排班列
+        ALTER TABLE maintenance_personnel
+          DROP COLUMN IF EXISTS current_workload,
+          DROP COLUMN IF EXISTS max_workload,
+          DROP COLUMN IF EXISTS is_on_duty;
 
--- 6. 删 workorder_maintenance_personnel 的冗余列
-ALTER TABLE workorder_maintenance_personnel
-  DROP COLUMN IF EXISTS name,
-  DROP COLUMN IF EXISTS phone,
-  DROP COLUMN IF EXISTS email,
-  DROP COLUMN IF EXISTS specializations,
-  DROP COLUMN IF EXISTS skill_level,
-  DROP COLUMN IF EXISTS certification;
+        -- 6. 删 workorder_maintenance_personnel 的冗余列
+        ALTER TABLE workorder_maintenance_personnel
+          DROP COLUMN IF EXISTS name,
+          DROP COLUMN IF EXISTS phone,
+          DROP COLUMN IF EXISTS email,
+          DROP COLUMN IF EXISTS specializations,
+          DROP COLUMN IF EXISTS skill_level,
+          DROP COLUMN IF EXISTS certification;
 
--- 7. 加 FK（ON DELETE RESTRICT，不强制 NOT NULL）
+        RAISE NOTICE '11_db_restructure: Group B 迁移完成（旧 schema → 新 schema）';
+    ELSE
+        RAISE NOTICE '11_db_restructure: Group B 跳过（已是目标 schema）';
+    END IF;
+END $$;
+
+-- 7. 加 FK + UNIQUE 索引（新老部署都需要，幂等）
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -104,16 +114,11 @@ BEGIN
     END IF;
 END $$;
 
--- 8. 加 UNIQUE 索引（仅约束非 NULL 值）
 CREATE UNIQUE INDEX IF NOT EXISTS ux_workorder_personnel_user
   ON workorder_maintenance_personnel(user_id);
 
-COMMIT;
-
 -- ============================================================================
--- C. 改动组 2：删除 1 个真死字段 + 新增 spare_part_usage.user_id FK（带 backfill）
--- ============================================================================
-BEGIN;
+-- C. 改动组 2：删除 spare_part_usage.created_at + 加 user_id FK
 
 ALTER TABLE spare_part_usage DROP COLUMN IF EXISTS created_at;
 
