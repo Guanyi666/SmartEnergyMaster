@@ -92,12 +92,8 @@ const faultLabel = (f) => getFaultTypeMeta(f).label
 
 const formatNum = (v) => (v == null ? '—' : Number(v).toFixed(1))
 
-// 🆕 二次迭代：层叠头像
-// 优先用后端返回的 activeAssignments（完整列表）；无则回退到 JOIN 的 assigneeName（单字段）
-// ⚠️ 注意：不要再兜底到 work_order.assignee 老字段——它只是同步用的遗留字符串，
-//   故障自动创建工单时会被 device.maintainer（设备主负责人）预填，与真实指派人无关。
-//   此兜底会导致卡片显示"张工"但抽屉显示"尚未指派"的不一致。
-//   行为与 WorkOrderDetailDrawer 对齐：没有活跃指派就老老实实显示"待指派"。
+// 优先用后端返回的 activeAssignments（完整列表）；无则回退到 JOIN 的 assigneeName（单字段），
+// 最后兜底到 work_order.assignee 老字段（维修工程师主动接单时仅写入该字段）。
 const activeList = computed(() => {
   if (Array.isArray(props.order.activeAssignments) && props.order.activeAssignments.length > 0) {
     return props.order.activeAssignments
@@ -106,6 +102,17 @@ const activeList = computed(() => {
     return [{
       personnelId: props.order.assigneeId,
       name: props.order.assigneeName,
+      avatarColor: null
+    }]
+  }
+  // 兜底：主动接单（MaintenanceView 中维修工程师点击"接单"）仅写入了
+  // work_order.assignee 老字段，未创建 workorder_assignment 记录。
+  // createWorkOrder / createWorkOrderFromFault 均已将 assignee 初始化为 null，
+  // 这里只有真实的接单人，不存在 device.maintainer 预填脏数据风险。
+  if (props.order.assignee) {
+    return [{
+      personnelId: null,
+      name: props.order.assignee,
       avatarColor: null
     }]
   }

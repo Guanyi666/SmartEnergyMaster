@@ -215,19 +215,32 @@ const selectOrder = async (item) => {
 
 const changeStatus = async (status) => {
   if (!selected.value) return
+  const orderId = selected.value.id
   const payload = { status, note: note.value }
-  // 开始维修时把工单认领给当前工程师，使其从公共池进入"我的进行中"，
-  // 维修完成后才转入"我的已完成"，工单不会中途从列表消失。
-  if (status === 'IN_PROGRESS' && !selected.value.assignee) {
+  if (status === 'IN_PROGRESS') {
     payload.assignee = auth.user?.nickname || auth.user?.username
   }
-  await patchWorkOrderStatus(selected.value.id, payload)
+  await patchWorkOrderStatus(orderId, payload)
   ElMessage.success(status === 'RESOLVED' ? '维修已完成并写入个人维修记录' : '已接单，开始维修')
   note.value = ''
-  await load()
-  // 动作完成后自动切到对应页签并保留选中
+  // 先切换页签再刷新数据：load() 内依赖 tab.value 计算 filteredOrders，
+  // 若仍在"待接单"页签调用 load()，已变为 IN_PROGRESS 的工单会从过滤列表消失，
+  // 导致 selectedId 被清空，后续页签切换无法恢复选中。
   if (status === 'IN_PROGRESS') tab.value = 'progress'
   if (status === 'RESOLVED') tab.value = 'done'
+  // 乐观更新本地工单状态与指派人，确保 isMine() 命中，避免 load() 返回
+  // 数据与当前用户不匹配时工单从 Tab 列表消失（维修工程师接单场景）
+  const idx = orders.value.findIndex(o => o.id === orderId)
+  if (idx !== -1) {
+    const updated = { ...orders.value[idx], status }
+    if (status === 'IN_PROGRESS') {
+      updated.assignee = auth.user?.nickname || auth.user?.username
+    }
+    orders.value = [...orders.value.slice(0, idx), updated, ...orders.value.slice(idx + 1)]
+  }
+  await load()
+  // 兜底：确保刚才操作的工单仍被选中（即使 load() 内 filteredOrders 匹配失败）
+  selectedId.value = orderId
 }
 
 const startRepair = async () => {

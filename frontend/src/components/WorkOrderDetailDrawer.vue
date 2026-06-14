@@ -279,7 +279,6 @@ const avatarBg = (color) => {
   return `linear-gradient(135deg, ${color}, #a78bfa)`
 }
 
-// 指派人列表（兼容老字段 assigneeName）
 const activeList = computed(() => {
   if (Array.isArray(props.order?.activeAssignments) && props.order.activeAssignments.length > 0) {
     return props.order.activeAssignments
@@ -288,6 +287,17 @@ const activeList = computed(() => {
     return [{
       personnelId: props.order.assigneeId,
       name: props.order.assigneeName,
+      employeeNo: '',
+      avatarColor: null,
+      role: 'PRIMARY'
+    }]
+  }
+  // 兜底：主动接单（MaintenanceView 中维修工程师点击"接单"）仅写入了
+  // work_order.assignee 老字段，未创建 workorder_assignment 记录。
+  if (props.order?.assignee) {
+    return [{
+      personnelId: null,
+      name: props.order.assignee,
       employeeNo: '',
       avatarColor: null,
       role: 'PRIMARY'
