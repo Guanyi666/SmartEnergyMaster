@@ -26,22 +26,23 @@ public interface WorkOrderQueryMapper {
             wo.id, wo.order_no, wo.device_id, wo.title, wo.fault_type, wo.description,
             wo.status, wo.priority, wo.assignee, wo.source,
             wo.source_time, wo.accepted_at, wo.resolved_at,
-            wo.latest_temperature, wo.latest_vibration, wo.latest_pressure,
+            wo.latest_temperature, wo.latest_vibration, wo.latest_pressure, wo.sop_id,
             wo.created_at, wo.updated_at,
             d.device_code, d.device_name, d.device_type, d.location AS device_location,
-            a.personnel_id AS assignee_id, p.name AS assignee_name, a.assigned_at,
+            a.personnel_id AS assignee_id, pa.name AS assignee_name, a.assigned_at,
             COALESCE(
                 (SELECT json_agg(json_build_object(
                     'id', a2.id,
                     'personnel_id', a2.personnel_id,
-                    'name', p2.name,
-                    'employee_no', p2.employee_no,
+                    'name', pa2.name,
+                    'employee_no', CAST(p2.user_id AS text),
                     'avatar_color', p2.avatar_color,
                     'role', a2.role,
                     'assigned_at', a2.assigned_at
                 ) ORDER BY a2.assigned_at ASC)::text
                 FROM workorder_assignment a2
                 LEFT JOIN workorder_maintenance_personnel p2 ON a2.personnel_id = p2.id
+                LEFT JOIN maintenance_personnel pa2 ON p2.user_id = pa2.user_id
                 WHERE a2.work_order_id = wo.id AND a2.released_at IS NULL),
                 '[]'
             ) AS active_assignments_json,
@@ -57,6 +58,7 @@ public interface WorkOrderQueryMapper {
             LIMIT 1
         ) a ON TRUE
         LEFT JOIN workorder_maintenance_personnel p ON a.personnel_id = p.id
+        LEFT JOIN maintenance_personnel pa ON p.user_id = pa.user_id
         WHERE (#{status}::text IS NULL OR wo.status = #{status})
         ORDER BY wo.created_at DESC
         LIMIT #{limit} OFFSET #{offset}
@@ -80,22 +82,23 @@ public interface WorkOrderQueryMapper {
             wo.id, wo.order_no, wo.device_id, wo.title, wo.fault_type, wo.description,
             wo.status, wo.priority, wo.assignee, wo.source,
             wo.source_time, wo.accepted_at, wo.resolved_at,
-            wo.latest_temperature, wo.latest_vibration, wo.latest_pressure,
+            wo.latest_temperature, wo.latest_vibration, wo.latest_pressure, wo.sop_id,
             wo.created_at, wo.updated_at,
             d.device_code, d.device_name, d.device_type, d.location AS device_location,
-            a.personnel_id AS assignee_id, p.name AS assignee_name, a.assigned_at,
+            a.personnel_id AS assignee_id, pa.name AS assignee_name, a.assigned_at,
             COALESCE(
                 (SELECT json_agg(json_build_object(
                     'id', a2.id,
                     'personnel_id', a2.personnel_id,
-                    'name', p2.name,
-                    'employee_no', p2.employee_no,
+                    'name', pa2.name,
+                    'employee_no', CAST(p2.user_id AS text),
                     'avatar_color', p2.avatar_color,
                     'role', a2.role,
                     'assigned_at', a2.assigned_at
                 ) ORDER BY a2.assigned_at ASC)::text
                 FROM workorder_assignment a2
                 LEFT JOIN workorder_maintenance_personnel p2 ON a2.personnel_id = p2.id
+                LEFT JOIN maintenance_personnel pa2 ON p2.user_id = pa2.user_id
                 WHERE a2.work_order_id = wo.id AND a2.released_at IS NULL),
                 '[]'
             ) AS active_assignments_json,
@@ -111,6 +114,7 @@ public interface WorkOrderQueryMapper {
             LIMIT 1
         ) a ON TRUE
         LEFT JOIN workorder_maintenance_personnel p ON a.personnel_id = p.id
+        LEFT JOIN maintenance_personnel pa ON p.user_id = pa.user_id
         WHERE wo.id = #{id}
         """)
     WorkOrderReadVO selectOrderById(@Param("id") Long id);
@@ -122,9 +126,10 @@ public interface WorkOrderQueryMapper {
         SELECT
             a.id, a.work_order_id, a.personnel_id, a.role,
             a.assigned_at, a.released_at, a.note,
-            p.name AS personnel_name, p.employee_no, p.avatar_color
+            pa.name AS personnel_name, CAST(p.user_id AS text) AS employee_no, p.avatar_color
         FROM workorder_assignment a
         JOIN workorder_maintenance_personnel p ON a.personnel_id = p.id
+        LEFT JOIN maintenance_personnel pa ON p.user_id = pa.user_id
         WHERE a.work_order_id = #{workOrderId}
         ORDER BY a.assigned_at DESC
         """)

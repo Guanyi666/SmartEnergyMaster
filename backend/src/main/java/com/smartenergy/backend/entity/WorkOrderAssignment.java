@@ -31,5 +31,8 @@ public class WorkOrderAssignment {
     @TableField("released_at")
     private LocalDateTime releasedAt;
 
+    @Schema(description = "指派状态：ACTIVE / RELEASED / TRANSFERRED（v4 新增，H 修复：与 released_at 一致）")
+    private String status;
+
     private String note;
 }

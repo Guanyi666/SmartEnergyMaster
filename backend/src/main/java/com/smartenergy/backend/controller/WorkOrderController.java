@@ -2,6 +2,7 @@ package com.smartenergy.backend.controller;
 
 import com.smartenergy.backend.dto.WorkOrderCreateRequest;
 import com.smartenergy.backend.dto.WorkOrderStatusRequest;
+import com.smartenergy.backend.dto.WorkOrderSopRequest;
 import com.smartenergy.backend.service.WorkOrderService;
 import com.smartenergy.backend.vo.WorkOrderVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -64,5 +65,13 @@ public class WorkOrderController {
             @Parameter(description = "工单 ID") @PathVariable Long id,
             @Valid @RequestBody WorkOrderStatusRequest request) {
         return workOrderService.updateStatus(id, request);
+    }
+
+    @PatchMapping("/{id}/sop")
+    @Operation(summary = "选择工单维修流程")
+    public WorkOrderVO updateSop(
+            @PathVariable Long id,
+            @Valid @RequestBody WorkOrderSopRequest request) {
+        return workOrderService.updateSop(id, request.getSopId());
     }
 }

@@ -54,14 +54,14 @@
         </el-table-column>
         <el-table-column prop="supplier" label="供应商" min-width="140" show-overflow-tooltip class-name="hidden-md" />
         <el-table-column prop="location" label="位置" min-width="100" show-overflow-tooltip class-name="hidden-md" />
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column label="操作" min-width="210">
           <template #default="{ row }">
-            <!-- 宽屏：按钮组 -->
+            <!-- 宽屏：按钮组（实心按钮，白字高对比，不用 link 以免被全局实心背景盖成同色字） -->
             <span class="btn-group-wide">
-              <el-button link type="primary" size="small" @click.stop="openPartDialog(row)">编辑</el-button>
-              <el-button link type="warning" size="small" @click.stop="openUsageDialog(row)">领用</el-button>
-              <el-button link type="info" size="small" @click.stop="openHistory(row)">记录</el-button>
-              <el-button link type="danger" size="small" @click.stop="handleDelete(row)">删除</el-button>
+              <el-button type="primary" size="small" @click.stop="openPartDialog(row)">编辑</el-button>
+              <el-button type="warning" size="small" @click.stop="openUsageDialog(row)">领用</el-button>
+              <el-button type="info" size="small" @click.stop="openHistory(row)">记录</el-button>
+              <el-button type="danger" size="small" @click.stop="handleDelete(row)">删除</el-button>
             </span>
             <!-- 窄屏：下拉菜单 -->
             <span class="btn-group-narrow">
@@ -131,7 +131,7 @@
           <el-input-number v-model="usageForm.quantity" :min="1" :max="usageForm.maxQuantity" :step="1" />
         </el-form-item>
         <el-form-item label="关联工单">
-          <el-input v-model="usageForm.workOrderId" placeholder="可选，工单 ID" />
+          <el-input v-model="usageForm.workOrderId" placeholder="可选，工单序号" />
         </el-form-item>
         <el-form-item label="领用人">
           <el-input v-model="usageForm.userName" placeholder="如 张工" />
@@ -327,6 +327,12 @@ onMounted(() => loadParts())
 .table-panel {
   padding: 18px 20px;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+/* v6.2 改造：5 页面（备件库存）加横向滑动适配屏幕 */
+.table-panel :deep(.el-table) {
+  min-width: 1100px;
+  white-space: nowrap;
 }
 
 @media (max-width: 1200px) {
@@ -408,6 +414,18 @@ onMounted(() => loadParts())
 
 /* 宽屏显示按钮组，窄屏显示下拉菜单 */
 .btn-group-narrow { display: none; }
+
+/* 操作列 4 个按钮排在一行，不换行、不重叠 */
+.btn-group-wide {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 10px;
+  white-space: nowrap;
+}
+.btn-group-wide .el-button.is-link + .el-button.is-link {
+  margin-left: 0;
+}
 
 @media (max-width: 900px) {
   .btn-group-wide   { display: none; }

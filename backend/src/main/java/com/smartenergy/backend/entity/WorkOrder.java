@@ -55,12 +55,15 @@ public class WorkOrder {
     @Schema(description = "解决时间")
     private LocalDateTime resolvedAt;
 
+    /** 故障触发时刻的传感器快照。完整时序在 sensor_data 表，本字段仅用于工单详情快速展示。 */
     @Schema(description = "触发时温度（°C）")
     private BigDecimal latestTemperature;
 
+    /** 故障触发时刻的传感器快照。完整时序在 sensor_data 表，本字段仅用于工单详情快速展示。 */
     @Schema(description = "触发时振动（mm/s）")
     private BigDecimal latestVibration;
 
+    /** 故障触发时刻的传感器快照。完整时序在 sensor_data 表，本字段仅用于工单详情快速展示。 */
     @Schema(description = "触发时压力（kPa）")
     private BigDecimal latestPressure;
 

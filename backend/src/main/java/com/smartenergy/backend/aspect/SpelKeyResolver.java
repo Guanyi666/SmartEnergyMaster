@@ -2,6 +2,7 @@ package com.smartenergy.backend.aspect;
 
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.Signature;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.core.DefaultParameterNameDiscoverer;
 import org.springframework.core.ParameterNameDiscoverer;
@@ -29,7 +30,10 @@ final class SpelKeyResolver {
         if (expression == null || expression.isBlank()) {
             return "";
         }
-        MethodSignature signature = (MethodSignature) joinPoint.getSignature();
+        Signature rawSignature = joinPoint.getSignature();
+        if (!(rawSignature instanceof MethodSignature signature)) {
+            throw new IllegalArgumentException("Rate-limit/lock SpEL key requires a method signature");
+        }
         Method method = signature.getMethod();
         Object[] args = joinPoint.getArgs();
 

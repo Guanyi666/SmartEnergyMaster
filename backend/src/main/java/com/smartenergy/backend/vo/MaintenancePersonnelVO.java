@@ -13,8 +13,8 @@ public class MaintenancePersonnelVO {
     @Schema(description = "主键 ID")
     private Long id;
 
-    @Schema(description = "工号")
-    private String employeeNo;
+    @Schema(description = "关联 sys_user.id（v4 新增）")
+    private Integer userId;
 
     @Schema(description = "姓名")
     private String name;

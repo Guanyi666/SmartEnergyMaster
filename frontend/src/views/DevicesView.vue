@@ -8,6 +8,8 @@
       <div class="analysis-tools">
         <el-button @click="refreshNow">立即刷新</el-button>
         <el-button type="primary" @click="openDialog()">新增设备</el-button>
+        <!-- v6.2 改造：OPERATOR 在 3 页面里能新建工单（公共组件） -->
+        <el-button type="success" @click="createOrderOpen = true">+ 新建工单</el-button>
       </div>
     </div>
 
@@ -23,7 +25,7 @@
           />
         </el-form-item>
         <el-form-item label="设备类型">
-          <el-select v-model="searchForm.type" placeholder="全部" clearable style="width: 160px">
+          <el-select v-model="searchForm.type" placeholder="全部" clearable style="width: 160px" :disabled="isDepartmentManager">
             <el-option label="电弧炉" value="ARC_FURNACE" />
             <el-option label="变压器" value="TRANSFORMER" />
             <el-option label="空压机" value="COMPRESSOR" />
@@ -71,7 +73,6 @@
             {{ locationLabel(row.location) }}
           </template>
         </el-table-column>
-        <el-table-column prop="maintainer" label="维修工人" min-width="120" />
         <el-table-column label="实时指标" min-width="220">
           <template #default="{ row }">
             功率 {{ formatNumber(row.usageKwh) }} / 温度 {{ formatNumber(row.temperature) }}
@@ -79,9 +80,9 @@
         </el-table-column>
         <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
-            <el-button link type="success" @click="openDetail(row)">详情</el-button>
-            <el-button link type="primary" @click="openDialog(row)">编辑</el-button>
-            <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button size="small" class="op-btn" @click="openDetail(row)">详情</el-button>
+            <el-button size="small" class="op-btn" @click="openDialog(row)">编辑</el-button>
+            <el-button size="small" class="op-btn" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -106,7 +107,7 @@
           <el-option label="全部" value="" />
           <el-option label="待处理" value="PENDING" />
           <el-option label="处理中" value="IN_PROGRESS" />
-          <el-option label="已修复" value="RESOLVED" />
+          <el-option label="已完成" value="RESOLVED" />
         </el-select>
       </div>
       <el-table :data="workOrders">
@@ -114,7 +115,11 @@
         <el-table-column prop="deviceName" label="设备" min-width="140" />
         <el-table-column prop="title" label="故障主题" min-width="180" />
         <el-table-column prop="assignee" label="维修工人" min-width="120" />
-        <el-table-column prop="status" label="状态" min-width="130" />
+        <el-table-column label="状态" min-width="130">
+          <template #default="{ row }">
+            {{ workOrderStatusLabel(row.status) }}
+          </template>
+        </el-table-column>
         <el-table-column label="关键指标" min-width="220">
           <template #default="{ row }">
             温度 {{ formatNumber(row.latestTemperature) }} / 压力 {{ formatNumber(row.latestPressure) }} / 振动 {{ formatNumber(row.latestVibration) }}
@@ -122,8 +127,9 @@
         </el-table-column>
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="row.status === 'PENDING'" size="small" @click="updateOrder(row, 'IN_PROGRESS')">确认处理</el-button>
-            <el-button v-if="row.status !== 'RESOLVED'" size="small" type="success" @click="updateOrder(row, 'RESOLVED')">已修复</el-button>
+            <!-- v6.2 改造：OPERATOR 失去"维修工单模块的编辑权限"，不能点"确认处理/已修复" -->
+            <el-button v-if="canEditWorkOrder && row.status === 'PENDING'" size="small" @click="updateOrder(row, 'IN_PROGRESS')">确认处理</el-button>
+            <el-button v-if="canEditWorkOrder && row.status !== 'RESOLVED'" size="small" type="success" @click="updateOrder(row, 'RESOLVED')">已修复</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -152,9 +158,6 @@
         <el-form-item label="所在区域">
           <el-input v-model="form.location" />
         </el-form-item>
-        <el-form-item label="维修工人">
-          <el-input v-model="form.maintainer" />
-        </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="form.description" type="textarea" :rows="3" />
         </el-form-item>
@@ -164,6 +167,9 @@
         <el-button type="primary" @click="submitDevice">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- v6.2 改造：新建工单公共对话框（OPERATOR/DEVICE MANAGER 都能用） -->
+    <WorkOrderCreateDialog v-model="createOrderOpen" @created="onWorkOrderCreated" />
 
     <el-dialog v-model="detailVisible" title="设备详情" width="720px" destroy-on-close>
       <div v-loading="detailLoading" class="detail-body">
@@ -193,10 +199,6 @@
                 <span class="detail-label">所在区域</span>
                 <span class="detail-value">{{ locationLabel(deviceDetail.location) }}</span>
               </div>
-              <div class="detail-item">
-                <span class="detail-label">维修工人</span>
-                <span class="detail-value">{{ deviceDetail.maintainer }}</span>
-              </div>
               <div class="detail-item detail-full">
                 <span class="detail-label">备注</span>
                 <span class="detail-value">{{ deviceDetail.description || '--' }}</span>
@@ -209,7 +211,7 @@
             <div class="detail-metrics">
               <div class="metric-chip">
                 <span>功率</span>
-                <strong>{{ formatNumber(deviceDetail.usageKwh) }} kWh</strong>
+                <strong>{{ formatNumber(deviceDetail.usageKwh) }} 千瓦时</strong>
               </div>
               <div class="metric-chip">
                 <span>碳排放</span>
@@ -221,11 +223,11 @@
               </div>
               <div class="metric-chip">
                 <span>振动</span>
-                <strong>{{ formatNumber(deviceDetail.vibration) }} mm/s</strong>
+                <strong>{{ formatNumber(deviceDetail.vibration) }} 毫米/秒</strong>
               </div>
               <div class="metric-chip">
                 <span>压力</span>
-                <strong>{{ formatNumber(deviceDetail.pressure) }} kPa</strong>
+                <strong>{{ formatNumber(deviceDetail.pressure) }} 千帕</strong>
               </div>
               <div class="metric-chip">
                 <span>电价区间</span>
@@ -308,9 +310,10 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import StatusPill from '../components/StatusPill.vue'
+import WorkOrderCreateDialog from '../components/WorkOrderCreateDialog.vue'
 import {
   createDevice, deleteDevice, getDevices, getDeviceDetail,
   getDeviceFaultHistory, getDeviceHealthScore,
@@ -318,8 +321,34 @@ import {
 } from '../api'
 import { usePollingTask } from '../composables/usePollingTask'
 import { getPriorityMeta } from '../utils/status'
+import { useAuthStore } from '../stores/auth'
 
 const priorityLabel = (p) => getPriorityMeta(p).label
+const auth = useAuthStore()
+
+// 工单状态 → 中文（设备管理页维修工单表）
+const workOrderStatusMap = {
+  PENDING: '待处理',
+  IN_PROGRESS: '处理中',
+  RESOLVED: '已完成'
+}
+const workOrderStatusLabel = (s) => workOrderStatusMap[s] || s || '--'
+
+// v6.2 改造：OPERATOR 失去"维修工单模块的编辑权限"，不能点"确认处理/已修复"按钮
+const canEditWorkOrder = computed(() => !['OPERATOR'].includes(auth.user?.role))
+// v6.2 改造：新建工单对话框状态（OPERATOR 也能用）
+const createOrderOpen = ref(false)
+const onWorkOrderCreated = () => { loadWorkOrders() }
+const departmentTypeMap = {
+  '炼钢设备科': 'ARC_FURNACE',
+  '公辅设备科': 'PUMP',
+  '动力设备科': 'COMPRESSOR',
+  '连铸设备科': 'CONTINUOUS_CASTER',
+  '环保设备科': 'DUST_COLLECTOR',
+  '精炼设备科': 'LADLE_FURNACE'
+}
+const managedDeviceType = departmentTypeMap[auth.user?.department] || ''
+const isDepartmentManager = auth.user?.role === 'DEVICE_MANAGER' && Boolean(managedDeviceType)
 
 const devices = ref([])
 const workOrders = ref([])
@@ -365,7 +394,6 @@ const emptyForm = () => ({
   deviceType: '',
   status: 'STOPPED',
   location: '',
-  maintainer: '',
   description: ''
 })
 
@@ -400,7 +428,7 @@ const handleSearch = () => {
 
 const handleReset = () => {
   searchForm.keyword = ''
-  searchForm.type = ''
+  searchForm.type = managedDeviceType
   searchForm.status = ''
   pagination.page = 1
   refreshNow()
@@ -508,6 +536,7 @@ const orderTimelineColor = (status) => {
 }
 
 onMounted(async () => {
+  if (isDepartmentManager) searchForm.type = managedDeviceType
   await startPolling()
 })
 </script>
@@ -519,7 +548,8 @@ onMounted(async () => {
 }
 
 .table-panel {
-  padding: 20px;
+  padding: 18px 20px;
+  margin-bottom: 14px;
 }
 
 .table-head {
@@ -556,6 +586,25 @@ onMounted(async () => {
   margin-top: 16px;
 }
 
+/* 操作列按钮：深色背景 + 高对比文字，不使用红/绿/蓝彩色 link 文字 */
+.op-btn.el-button {
+  background: rgba(15, 30, 52, 0.92);
+  border: 1px solid rgba(120, 160, 200, 0.35);
+  color: #e8f1ff;
+  padding: 5px 12px;
+}
+
+.op-btn.el-button + .op-btn.el-button {
+  margin-left: 8px;
+}
+
+.op-btn.el-button:hover,
+.op-btn.el-button:focus {
+  background: rgba(28, 52, 84, 1);
+  border-color: var(--accent-cyan);
+  color: #ffffff;
+}
+
 .detail-body {
   min-height: 200px;
 }
@@ -568,7 +617,8 @@ onMounted(async () => {
   margin: 0 0 14px;
   font-size: 15px;
   font-weight: 700;
-  color: #dbeafe;
+  color: var(--accent-cyan);
+  letter-spacing: 2px;
   padding-bottom: 10px;
   border-bottom: 1px solid rgba(148, 163, 184, 0.15);
 }

@@ -9,7 +9,7 @@ import lombok.Data;
 public class LoginRequest {
 
     @NotBlank(message = "用户名不能为空")
-    @Schema(description = "用户名", example = "admin")
+    @Schema(description = "账号", example = "2026010001")
     private String username;
 
     @NotBlank(message = "密码不能为空")

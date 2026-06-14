@@ -2,7 +2,7 @@
   <div class="page-shell">
     <div class="page-header">
       <div>
-        <h2 class="page-title">历史负荷与 AI 调度页</h2>
+        <h2 class="page-title">历史负荷与智能调度页</h2>
         <p class="page-subtitle">页面每 10 秒自动刷新一次，负荷曲线会持续吸收最新的实时数据。</p>
       </div>
       <div class="analysis-tools">
@@ -19,7 +19,7 @@
           <el-tab-pane label="过去 24 小时负荷" name="history">
             <TrendChart :records="history" />
           </el-tab-pane>
-          <el-tab-pane label="AI 能耗预测对比" name="forecast">
+          <el-tab-pane label="智能能耗预测对比" name="forecast">
             <ForecastChart :history="history" :forecast="forecast" />
             <p class="forecast-note">
               蓝色实线为实际平滑负荷，橙色虚线为模型预测的未来 +15/+30 分钟负荷，橙色阴影为 95% 置信区间。
@@ -30,7 +30,7 @@
 
       <div class="analysis-side">
         <div class="glass-panel advice-panel">
-          <h3 class="card-title">AI 智能调度建议</h3>
+          <h3 class="card-title">智能调度建议</h3>
           <div class="advice-banner" :class="`banner-${(advice.level || 'INFO').toLowerCase()}`">
             <strong>{{ advice.title || '暂无建议' }}</strong>
             <p>{{ advice.content || '等待数据加载。' }}</p>

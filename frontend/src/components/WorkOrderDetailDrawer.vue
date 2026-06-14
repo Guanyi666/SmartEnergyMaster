@@ -93,11 +93,11 @@
           </div>
           <div class="metric-cell">
             <span class="metric-label">压力</span>
-            <span class="metric-value">{{ formatNum(order.latestPressure) }}<i>kPa</i></span>
+            <span class="metric-value">{{ formatNum(order.latestPressure) }}<i>千帕</i></span>
           </div>
           <div class="metric-cell">
             <span class="metric-label">振动</span>
-            <span class="metric-value">{{ formatNum(order.latestVibration) }}<i>mm/s</i></span>
+            <span class="metric-value">{{ formatNum(order.latestVibration) }}<i>毫米/秒</i></span>
           </div>
         </div>
       </section>
@@ -279,7 +279,6 @@ const avatarBg = (color) => {
   return `linear-gradient(135deg, ${color}, #a78bfa)`
 }
 
-// 指派人列表（兼容老字段 assigneeName）
 const activeList = computed(() => {
   if (Array.isArray(props.order?.activeAssignments) && props.order.activeAssignments.length > 0) {
     return props.order.activeAssignments
@@ -288,6 +287,17 @@ const activeList = computed(() => {
     return [{
       personnelId: props.order.assigneeId,
       name: props.order.assigneeName,
+      employeeNo: '',
+      avatarColor: null,
+      role: 'PRIMARY'
+    }]
+  }
+  // 兜底：主动接单（MaintenanceView 中维修工程师点击"接单"）仅写入了
+  // work_order.assignee 老字段，未创建 workorder_assignment 记录。
+  if (props.order?.assignee) {
+    return [{
+      personnelId: null,
+      name: props.order.assignee,
       employeeNo: '',
       avatarColor: null,
       role: 'PRIMARY'

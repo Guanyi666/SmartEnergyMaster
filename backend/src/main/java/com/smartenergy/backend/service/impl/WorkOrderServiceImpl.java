@@ -8,6 +8,7 @@ import com.smartenergy.backend.entity.SensorData;
 import com.smartenergy.backend.entity.WorkOrder;
 import com.smartenergy.backend.mapper.DeviceMapper;
 import com.smartenergy.backend.mapper.SensorDataMapper;
+import com.smartenergy.backend.mapper.MaintenanceSOPMapper;
 import com.smartenergy.backend.mapper.WorkOrderMapper;
 import com.smartenergy.backend.service.DeviceService;
 import com.smartenergy.backend.service.MaintenanceSOPService;
@@ -24,6 +25,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -37,6 +39,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     private final DeviceService deviceService;
     private final MaintenanceSOPService sopService;
     private final SparePartService sparePartService;
+    private final MaintenanceSOPMapper maintenanceSOPMapper;
 
     @Override
     @Transactional
@@ -103,7 +106,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
         wo.setFaultType(req.getFaultType());
         wo.setDescription(req.getDescription());
         wo.setStatus("PENDING");
-        wo.setPriority(req.getPriority().toUpperCase());
+        wo.setPriority(req.getPriority().toUpperCase(Locale.ROOT));
         wo.setAssignee(null);                              // 🔒 手动创建不预填指派人，避免幽灵指派人
         wo.setSource("MANUAL");                            // 🆕 操作员手动创建
         wo.setSourceTime(latest != null ? latest.getTime() : OffsetDateTime.now());
@@ -135,7 +138,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     public List<WorkOrderVO> listWorkOrders(String status) {
         QueryWrapper<WorkOrder> wrapper = new QueryWrapper<WorkOrder>().orderByDesc("created_at");
         if (StringUtils.hasText(status)) {
-            wrapper.eq("status", status.toUpperCase());
+            wrapper.eq("status", status.toUpperCase(Locale.ROOT));
         }
         return workOrderMapper.selectList(wrapper)
                 .stream()
@@ -151,7 +154,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
             throw new IllegalArgumentException("工单不存在: " + id);
         }
 
-        String targetStatus = request.getStatus().toUpperCase();
+        String targetStatus = request.getStatus().toUpperCase(Locale.ROOT);
         if (!List.of("PENDING", "IN_PROGRESS", "RESOLVED").contains(targetStatus)) {
             throw new IllegalArgumentException("不支持的工单状态: " + request.getStatus());
         }
@@ -201,11 +204,32 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     }
 
     @Override
+    @Transactional
+    public WorkOrderVO updateSop(Long id, Long sopId) {
+        WorkOrder workOrder = workOrderMapper.selectById(id);
+        if (workOrder == null) {
+            throw new IllegalArgumentException("工单不存在: " + id);
+        }
+        if ("RESOLVED".equals(workOrder.getStatus())) {
+            throw new IllegalStateException("已完成工单不能更换维修流程");
+        }
+        if (maintenanceSOPMapper.selectById(sopId) == null) {
+            throw new IllegalArgumentException("维修流程不存在: " + sopId);
+        }
+        workOrder.setSopId(sopId);
+        workOrder.setUpdatedAt(LocalDateTime.now());
+        workOrderMapper.updateById(workOrder);
+        return toVO(workOrder);
+    }
+
+    @Override
     public List<WorkOrderVO> listActiveAlerts(int limit) {
+        // ★ NC3 防御纵深: 钳制 [1, 500]
+        int safeLimit = Math.min(Math.max(1, limit), 500);
         return workOrderMapper.selectList(new QueryWrapper<WorkOrder>()
                         .in("status", List.of("PENDING", "IN_PROGRESS"))
                         .orderByDesc("created_at")
-                        .last("LIMIT " + limit))
+                        .last("LIMIT " + safeLimit))
                 .stream()
                 .map(this::toVO)
                 .toList();

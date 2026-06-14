@@ -1,7 +1,9 @@
 import request from './http'
 
 export const loginApi = (payload) => request.post('/auth/login', payload)
-export const registerApi = (payload) => request.post('/auth/register', payload)
+export const logoutApi = () => request.post('/auth/logout')
+export const getAccountSettings = () => request.get('/account-settings')
+export const updateAccountSettings = (payload) => request.put('/account-settings', payload)
 export const getDashboardSummary = (deviceCode) => request.get('/dashboard/summary', { params: { deviceCode } })
 export const getDispatchAdvice = (deviceCode) => request.get('/dashboard/dispatch-advice', { params: { deviceCode } })
 export const getForecast = (deviceCode) => request.get('/dashboard/forecast', { params: { deviceCode } })
@@ -19,6 +21,13 @@ export const deleteDevice = (id) => request.delete(`/devices/${id}`)
 export const getWorkOrders = (status) => request.get('/work-orders', { params: { status } })
 export const updateWorkOrderStatus = (id, payload) => request.patch(`/work-orders/${id}/status`, payload)
 export const getActiveAlerts = (limit = 5) => request.get('/work-orders/active-alerts', { params: { limit } })
+export const listUsers = (params) => request.get('/users', { params })
+export const listUsersWithPersonnel = (params) => request.get('/users/with-personnel', { params })
+export const createUser = (payload) => request.post('/users', payload)
+export const updateUser = (id, payload) => request.put(`/users/${id}`, payload)
+export const updateUserStatus = (id, status) => request.patch(`/users/${id}/status`, null, { params: { status } })
+export const deleteUser = (id) => request.delete(`/users/${id}`)
+export const listAuditLogs = (params) => request.get('/audit-logs', { params })
 
 // ============ Epic 07：维修知识库 & 备件管理 ============
 // SOP
@@ -44,4 +53,5 @@ export const createSparePart = (payload) => request.post('/spare-parts', payload
 export const updateSparePart = (id, payload) => request.put(`/spare-parts/${id}`, payload)
 export const deleteSparePart = (id) => request.delete(`/spare-parts/${id}`)
 export const recordSparePartUsage = (payload) => request.post('/spare-parts/usage', payload)
+export const recordSparePartUsages = (items) => request.post('/spare-parts/usage/batch', { items })
 export const listSparePartUsages = (params) => request.get('/spare-parts/usage', { params })

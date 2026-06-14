@@ -8,7 +8,11 @@ import com.fasterxml.jackson.databind.node.MissingNode;
 import com.smartenergy.backend.dto.SOPCreateRequest;
 import com.smartenergy.backend.dto.SOPUpdateRequest;
 import com.smartenergy.backend.entity.MaintenanceSOP;
+import com.smartenergy.backend.entity.MaintenanceSOPRequiredPart;
+import com.smartenergy.backend.entity.MaintenanceSOPStep;
 import com.smartenergy.backend.mapper.MaintenanceSOPMapper;
+import com.smartenergy.backend.mapper.MaintenanceSOPRequiredPartMapper;
+import com.smartenergy.backend.mapper.MaintenanceSOPStepMapper;
 import com.smartenergy.backend.service.MaintenanceSOPService;
 import com.smartenergy.backend.vo.SOPDetailVO;
 import lombok.RequiredArgsConstructor;
@@ -21,13 +25,18 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
+/**
+ * v4 改造：步骤/备件改读子表 maintenance_sop_step / maintenance_sop_required_part
+ * （不再存 JSON 在 maintenance_sop.steps / required_parts）
+ */
 @Service
 @RequiredArgsConstructor
 public class MaintenanceSOPServiceImpl implements MaintenanceSOPService {
 
     private final MaintenanceSOPMapper sopMapper;
+    private final MaintenanceSOPStepMapper stepMapper;
+    private final MaintenanceSOPRequiredPartMapper requiredPartMapper;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -57,17 +66,20 @@ public class MaintenanceSOPServiceImpl implements MaintenanceSOPService {
     @Transactional
     public SOPDetailVO createSOP(SOPCreateRequest request) {
         MaintenanceSOP sop = new MaintenanceSOP();
-        BeanUtils.copyProperties(request, sop, "steps", "requiredSkills", "requiredTools", "requiredParts");
-        sop.setSteps(writeJsonArray(request.getSteps()));
+        BeanUtils.copyProperties(request, sop, "steps", "requiredSkills", "requiredTools", "requiredParts", "steps", "requiredPartCodes");
         sop.setRequiredSkills(writeJsonArray(request.getRequiredSkills()));
         sop.setRequiredTools(writeJsonArray(request.getRequiredTools()));
-        sop.setRequiredParts(writeJsonArray(request.getRequiredParts()));
         sop.setIsActive(request.getIsActive() == null ? Boolean.TRUE : request.getIsActive());
         sop.setVersion(1);
         LocalDateTime now = LocalDateTime.now();
         sop.setCreatedAt(now);
         sop.setUpdatedAt(now);
         sopMapper.insert(sop);
+
+        // v4: 写子表
+        replaceSteps(sop.getId(), request.getSteps());
+        replaceRequiredParts(sop.getId(), request.getRequiredParts());
+
         return toVO(sop);
     }
 
@@ -75,11 +87,9 @@ public class MaintenanceSOPServiceImpl implements MaintenanceSOPService {
     @Transactional
     public SOPDetailVO updateSOP(Long id, SOPUpdateRequest request) {
         MaintenanceSOP sop = requireSOP(id);
-        BeanUtils.copyProperties(request, sop, "steps", "requiredSkills", "requiredTools", "requiredParts");
-        sop.setSteps(writeJsonArray(request.getSteps()));
+        BeanUtils.copyProperties(request, sop, "steps", "requiredSkills", "requiredTools", "requiredParts", "steps", "requiredPartCodes");
         sop.setRequiredSkills(writeJsonArray(request.getRequiredSkills()));
         sop.setRequiredTools(writeJsonArray(request.getRequiredTools()));
-        sop.setRequiredParts(writeJsonArray(request.getRequiredParts()));
         if (request.getIsActive() != null) {
             sop.setIsActive(request.getIsActive());
         }
@@ -89,6 +99,14 @@ public class MaintenanceSOPServiceImpl implements MaintenanceSOPService {
         sop.setVersion(sop.getVersion() + 1);
         sop.setUpdatedAt(LocalDateTime.now());
         sopMapper.updateById(sop);
+
+        // v4: 重写子表
+        if (request.getSteps() != null) {
+            replaceSteps(sop.getId(), request.getSteps());
+        }
+        if (request.getRequiredParts() != null) {
+            replaceRequiredParts(sop.getId(), request.getRequiredParts());
+        }
         return toVO(sop);
     }
 
@@ -96,6 +114,7 @@ public class MaintenanceSOPServiceImpl implements MaintenanceSOPService {
     @Transactional
     public void deleteSOP(Long id) {
         requireSOP(id);
+        // ON DELETE CASCADE 会自动删除子表
         sopMapper.deleteById(id);
     }
 
@@ -143,13 +162,58 @@ public class MaintenanceSOPServiceImpl implements MaintenanceSOPService {
         return sop;
     }
 
+    /** v4: 替换 SOP 步骤子表 */
+    private void replaceSteps(Long sopId, List<String> steps) {
+        stepMapper.delete(new QueryWrapper<MaintenanceSOPStep>().eq("sop_id", sopId));
+        if (steps == null) return;
+        int stepNo = 1;
+        LocalDateTime now = LocalDateTime.now();
+        for (String s : steps) {
+            if (!StringUtils.hasText(s)) continue;
+            MaintenanceSOPStep step = new MaintenanceSOPStep();
+            step.setSopId(sopId);
+            step.setStepNo(stepNo++);
+            step.setTitle("步骤 " + (stepNo - 1));
+            step.setContent(s);
+            step.setCreatedAt(now);
+            step.setUpdatedAt(now);
+            stepMapper.insert(step);
+        }
+    }
+
+    /** v4: 替换 SOP 所需备件子表 */
+    private void replaceRequiredParts(Long sopId, List<String> partCodes) {
+        requiredPartMapper.delete(new QueryWrapper<MaintenanceSOPRequiredPart>().eq("sop_id", sopId));
+        if (partCodes == null) return;
+        LocalDateTime now = LocalDateTime.now();
+        for (String code : partCodes) {
+            if (!StringUtils.hasText(code)) continue;
+            MaintenanceSOPRequiredPart req = new MaintenanceSOPRequiredPart();
+            req.setSopId(sopId);
+            req.setPartCode(code.trim());
+            req.setQuantity(1);
+            req.setIsMandatory(true);
+            req.setCreatedAt(now);
+            req.setUpdatedAt(now);
+            requiredPartMapper.insert(req);
+        }
+    }
+
     private SOPDetailVO toVO(MaintenanceSOP sop) {
         SOPDetailVO vo = new SOPDetailVO();
         BeanUtils.copyProperties(sop, vo, "steps", "requiredSkills", "requiredTools", "requiredParts");
-        vo.setSteps(parseJson(sop.getSteps()));
+        // v4: 步骤从子表读
+        List<MaintenanceSOPStep> steps = stepMapper.selectList(new QueryWrapper<MaintenanceSOPStep>()
+                .eq("sop_id", sop.getId())
+                .orderByAsc("step_no"));
+        vo.setSteps(steps.stream().map(MaintenanceSOPStep::getContent).collect(java.util.stream.Collectors.toList()));
+        // v4: 所需备件从子表读
+        List<MaintenanceSOPRequiredPart> parts = requiredPartMapper.selectList(new QueryWrapper<MaintenanceSOPRequiredPart>()
+                .eq("sop_id", sop.getId()));
+        vo.setRequiredParts(parts.stream().map(p -> p.getPartCode()).collect(java.util.stream.Collectors.toList()));
+        // requiredSkills/requiredTools 仍从主表的 JSON 字段读
         vo.setRequiredSkills(parseJson(sop.getRequiredSkills()));
         vo.setRequiredTools(parseJson(sop.getRequiredTools()));
-        vo.setRequiredParts(parseJson(sop.getRequiredParts()));
         return vo;
     }
 

@@ -4,12 +4,14 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.smartenergy.backend.dto.BatchWorkOrderAssignRequest;
 import com.smartenergy.backend.dto.WorkOrderAssignRequest;
 import com.smartenergy.backend.dto.WorkOrderReplaceRequest;
-import com.smartenergy.backend.entity.WorkOrder;
 import com.smartenergy.backend.entity.MaintenancePersonnel;
+import com.smartenergy.backend.entity.MaintenancePersonnelArchive;
+import com.smartenergy.backend.entity.WorkOrder;
 import com.smartenergy.backend.entity.WorkOrderAssignment;
-import com.smartenergy.backend.mapper.WorkOrderMapper;
+import com.smartenergy.backend.mapper.MaintenancePersonnelArchiveMapper;
 import com.smartenergy.backend.mapper.MaintenancePersonnelMapper;
 import com.smartenergy.backend.mapper.WorkOrderAssignmentMapper;
+import com.smartenergy.backend.mapper.WorkOrderMapper;
 import com.smartenergy.backend.service.AutoMatchEngine;
 import com.smartenergy.backend.service.WorkOrderAssignmentService;
 // 🆕 合并 workorder-backend: 删 WorkOrderClient（跨进程 HTTP），改用同模块 WorkOrderSyncService（本地调用）
@@ -35,6 +37,7 @@ public class WorkOrderAssignmentServiceImpl implements WorkOrderAssignmentServic
 
     private final WorkOrderAssignmentMapper assignmentMapper;
     private final MaintenancePersonnelMapper personnelMapper;
+    private final MaintenancePersonnelArchiveMapper archiveMapper;
     private final WorkOrderMapper workOrderMapper;
     // 🆕 合并 workorder-backend: 改用本地 WorkOrderSyncService 同步老字段
     private final WorkOrderSyncService workOrderSyncService;
@@ -139,7 +142,7 @@ public class WorkOrderAssignmentServiceImpl implements WorkOrderAssignmentServic
         // 5. 同步老字段
         syncAssigneeTo8080(workOrderId, workOrder.getStatus());
         log.info("[ReleaseOne] workOrderId={} 释放 personnelId={} ({})",
-                workOrderId, personnelId, personnel == null ? "<已删除>" : personnel.getName());
+                workOrderId, personnelId, personnel == null ? "<已删除>" : nameOf(personnel));
     }
 
     @Override
@@ -191,8 +194,8 @@ public class WorkOrderAssignmentServiceImpl implements WorkOrderAssignmentServic
 
         log.info("[Replace] workOrderId={} {} → {}",
                 workOrderId,
-                oldP == null ? "<已删除>" : oldP.getName(),
-                newP.getName());
+                oldP == null ? "<已删除>" : nameOf(oldP),
+                nameOf(newP));
     }
 
     @Override
@@ -291,7 +294,7 @@ public class WorkOrderAssignmentServiceImpl implements WorkOrderAssignmentServic
             throw new IllegalArgumentException("人员不存在: id=" + personnelId);
         }
         if (Boolean.FALSE.equals(p.getIsOnDuty())) {
-            throw new IllegalStateException(p.getName() + " 当前离岗，无法指派");
+            throw new IllegalStateException(nameOf(p) + " 当前离岗，无法指派");
         }
         if (workOrderId != null) {
             // 重复指派检查
@@ -300,14 +303,14 @@ public class WorkOrderAssignmentServiceImpl implements WorkOrderAssignmentServic
                     .eq("personnel_id", personnelId)
                     .isNull("released_at"));
             if (dup != null && dup > 0) {
-                throw new IllegalStateException(p.getName() + " 已经在该工单上有活跃指派");
+                throw new IllegalStateException(nameOf(p) + " 已经在该工单上有活跃指派");
             }
         }
         int current = p.getCurrentWorkload() == null ? 0 : p.getCurrentWorkload();
         int max = p.getMaxWorkload() == null ? 0 : p.getMaxWorkload();
         if (current >= max) {
             throw new IllegalStateException(
-                p.getName() + " 已达最大工作负载 " + max + "，无法再指派"
+                nameOf(p) + " 已达最大工作负载 " + max + "，无法再指派"
             );
         }
         return p;
@@ -344,12 +347,20 @@ public class WorkOrderAssignmentServiceImpl implements WorkOrderAssignmentServic
                         .orderByAsc("assigned_at"));
         for (WorkOrderAssignment a : actives) {
             MaintenancePersonnel p = personnelMapper.selectById(a.getPersonnelId());
-            if (p != null) activeNames.add(p.getName());
+            if (p != null) activeNames.add(nameOf(p));
         }
         // 🆕 合并 workorder-backend: 本地调用，不再走 HTTP/RestTemplate
         //  - 不需要 try/catch（不会有 8080 同步失败的异常）
         //  - 同一 @Transactional 边界，写 workorder_assignment 失败会一起回滚 updateAssignee 写的 work_order.assignee
         workOrderSyncService.sync(workOrderId,
                 activeNames.isEmpty() ? null : activeNames);
+    }
+
+    /** v4: 从 archive 查人员姓名（personnel.getName() 已删） */
+    private String nameOf(MaintenancePersonnel p) {
+        if (p == null) return null;
+        MaintenancePersonnelArchive archive = archiveMapper.selectOne(
+                new QueryWrapper<MaintenancePersonnelArchive>().eq("user_id", p.getUserId()));
+        return archive == null ? null : archive.getName();
     }
 }

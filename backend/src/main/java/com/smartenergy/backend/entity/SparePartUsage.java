@@ -35,6 +35,6 @@ public class SparePartUsage {
     @Schema(description = "领用时间")
     private LocalDateTime usedAt;
 
-    @Schema(description = "记录创建时间")
-    private LocalDateTime createdAt;
+    @Schema(description = "关联 sys_user.id（v4 新增，I 修复：从 user_name backfill，'SOP自动'等无法 join 的留 NULL）")
+    private Integer userId;
 }

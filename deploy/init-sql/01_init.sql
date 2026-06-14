@@ -13,7 +13,7 @@ CREATE TABLE sys_user (
 );
 
 INSERT INTO sys_user (username, password, role)
-VALUES ('admin', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', 'ADMIN');  -- 明文: admin123
+VALUES ('2026010001', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', 'ADMIN');  -- 明文: admin123
 
 CREATE TABLE device (
     id SERIAL PRIMARY KEY,
@@ -30,12 +30,12 @@ CREATE TABLE device (
 
 INSERT INTO device (device_code, device_name, device_type, status, location, maintainer, description)
 VALUES
-    ('EAF-01', '1号电弧炉', 'ARC_FURNACE', 'RUNNING', '炼钢一车间', '张工', '核心高耗能设备——废钢熔化与初步合金化'),
-    ('PUMP-01', '循环水泵', 'PUMP', 'STOPPED', '公辅站', '李工', '冷却系统关键泵组——向电弧炉及连铸机提供冷却水'),
-    ('COMP-01', '空压机A', 'COMPRESSOR', 'STOPPED', '动力站', '王工', '压缩空气主设备——气动阀门与仪表风气源'),
-    ('LF-01', '钢包精炼炉', 'LADLE_FURNACE', 'STOPPED', '炼钢一车间', '赵工', '钢水二次精炼——合金化、脱硫、成分与温度调整'),
-    ('CC-01', '1号连铸机', 'CONTINUOUS_CASTER', 'STOPPED', '连铸跨', '钱工', '钢水连续浇铸成坯——弧形连铸机'),
-    ('DC-01', '主除尘系统', 'DUST_COLLECTOR', 'STOPPED', '环保站', '孙工', '电弧炉烟气捕集与布袋除尘——环保合规');
+    ('EAF-01', '1号电弧炉', 'ARC_FURNACE', 'RUNNING', '炼钢一车间', '', '核心高耗能设备——废钢熔化与初步合金化'),
+    ('PUMP-01', '循环水泵', 'PUMP', 'STOPPED', '公辅站', '', '冷却系统关键泵组——向电弧炉及连铸机提供冷却水'),
+    ('COMP-01', '空压机A', 'COMPRESSOR', 'STOPPED', '动力站', '', '压缩空气主设备——气动阀门与仪表风气源'),
+    ('LF-01', '钢包精炼炉', 'LADLE_FURNACE', 'STOPPED', '炼钢一车间', '', '钢水二次精炼——合金化、脱硫、成分与温度调整'),
+    ('CC-01', '1号连铸机', 'CONTINUOUS_CASTER', 'STOPPED', '连铸跨', '', '钢水连续浇铸成坯——弧形连铸机'),
+    ('DC-01', '主除尘系统', 'DUST_COLLECTOR', 'STOPPED', '环保站', '', '电弧炉烟气捕集与布袋除尘——环保合规');
 
 CREATE TABLE sensor_data (
     id BIGSERIAL NOT NULL,
@@ -84,16 +84,13 @@ CREATE INDEX ix_work_order_status_created_at ON work_order (status, created_at D
 -- Epic 05：维修人员调度模块（与 workorder-backend 合并后统一建表）
 -- ============================================================
 
+-- 🆕 V2 重构：workorder_maintenance_personnel 只保留排班独有字段
+--     姓名/电话/邮箱/技能 → maintenance_personnel（员工档案）
+--     工号 → sys_user.username（主表统一）
 CREATE TABLE workorder_maintenance_personnel (
     id BIGSERIAL PRIMARY KEY,
-    employee_no VARCHAR(32) UNIQUE NOT NULL,
-    name VARCHAR(64) NOT NULL,
-    phone VARCHAR(32),
-    email VARCHAR(128),
+    user_id INTEGER REFERENCES sys_user(id) ON DELETE RESTRICT,
     avatar_color VARCHAR(16) DEFAULT '#52c8ff',
-    specializations JSONB DEFAULT '[]'::jsonb,
-    skill_level VARCHAR(16) NOT NULL DEFAULT 'JUNIOR',
-    certification VARCHAR(255),
     current_workload INT NOT NULL DEFAULT 0,
     max_workload INT NOT NULL DEFAULT 5,
     is_on_duty BOOLEAN NOT NULL DEFAULT TRUE,
@@ -101,7 +98,7 @@ CREATE TABLE workorder_maintenance_personnel (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX ix_personnel_skill_level ON workorder_maintenance_personnel (skill_level);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_workorder_personnel_user ON workorder_maintenance_personnel(user_id);
 CREATE INDEX ix_personnel_on_duty ON workorder_maintenance_personnel (is_on_duty);
 
 CREATE TABLE workorder_assignment (
@@ -118,26 +115,7 @@ CREATE INDEX ix_assignment_work_order ON workorder_assignment (work_order_id);
 CREATE INDEX ix_assignment_personnel ON workorder_assignment (personnel_id);
 CREATE INDEX ix_assignment_active ON workorder_assignment (work_order_id, personnel_id) WHERE released_at IS NULL;
 
--- 维修人员种子数据（6 人）
-INSERT INTO workorder_maintenance_personnel
-    (employee_no, name, phone, specializations, skill_level, certification, max_workload)
-VALUES
-    ('E001', '张工', '13800000001', '["电气","自动化"]',       'EXPERT',       '高级工程师 / 15年', 5),
-    ('E002', '李工', '13800000002', '["机械","液压"]',         'SENIOR',       '机械工程师 / 10年', 4),
-    ('E003', '王工', '13800000003', '["电气","机械","液压"]',  'SENIOR',       '复合技师 / 8年',   4),
-    ('E004', '赵工', '13800000004', '["仪表","自动化"]',       'INTERMEDIATE', '仪表技师 / 5年',    3),
-    ('E005', '孙工', '13800000005', '["机械","焊接"]',         'INTERMEDIATE', '机修工 / 3年',      3),
-    ('E006', '周工', '13800000006', '["电气","仪表","自动化"]', 'JUNIOR',       '助理工程师 / 1年',  2)
-ON CONFLICT (employee_no) DO NOTHING;
-
--- 维修工程师登录账号（E001 / 123456）
-INSERT INTO sys_user (username, password, role)
-VALUES (
-    'E001',
-    '$2a$10$QiUD0hIi91K2NzBx8YN/R.4KXD3.0H8A3s1mg2x9Ew.atUPOE6S7q',
-    'MAINTENANCE_ENGINEER'
-)
-ON CONFLICT (username) DO NOTHING;
+-- 维修人员种子数据 → 由 seed_all.sql 统一管理（sys_user + maintenance_personnel + workorder_maintenance_personnel 三表联动）
 
 -- =====================================================================
 -- Epic 07-1/07-2: 维修知识体系

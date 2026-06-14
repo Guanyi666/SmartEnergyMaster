@@ -1,31 +1,50 @@
 import { defineStore } from 'pinia'
-import { loginApi, registerApi } from '../api'
+import { loginApi, logoutApi } from '../api'
+import { normalizeRole } from '../utils/role'
+import { clearStoredSession, readStoredSession, setSessionToken, setSessionUser } from '../utils/session'
 
-const TOKEN_KEY = 'smart-energy-token'
-const USER_KEY = 'smart-energy-user'
+const sanitizeUser = (u) => {
+  if (!u) return u
+  const { token, password, ...profile } = u
+  return { ...profile, role: normalizeRole(profile.role) }
+}
 
 export const useAuthStore = defineStore('auth', {
-  state: () => ({
-    token: localStorage.getItem(TOKEN_KEY) || '',
-    user: JSON.parse(localStorage.getItem(USER_KEY) || 'null')
-  }),
+  state: () => {
+    const session = readStoredSession()
+    return {
+      token: session.token,
+      user: sanitizeUser(session.user)
+    }
+  },
   actions: {
     async login(payload) {
       const result = await loginApi(payload)
-      this.token = result.token
-      this.user = result
-      localStorage.setItem(TOKEN_KEY, result.token)
-      localStorage.setItem(USER_KEY, JSON.stringify(result))
-      return result
+      const token = result.token || ''
+      const sanitized = sanitizeUser(result)
+
+      this.token = token
+      this.user = sanitized
+      setSessionToken(token)
+      setSessionUser(sanitized)
+      return sanitized
     },
-    async register(payload) {
-      return registerApi(payload)
+    async logout() {
+      try {
+        if (this.token) await logoutApi()
+      } finally {
+        this.clearSession()
+      }
     },
-    logout() {
+    clearSession() {
       this.token = ''
       this.user = null
-      localStorage.removeItem(TOKEN_KEY)
-      localStorage.removeItem(USER_KEY)
+      clearStoredSession()
+    },
+    updateContactInfo({ phone, email }) {
+      if (!this.user) return
+      this.user = { ...this.user, phone, email }
+      setSessionUser(this.user)
     }
   }
 })

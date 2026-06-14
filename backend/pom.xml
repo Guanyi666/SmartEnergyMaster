@@ -133,10 +133,17 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
+                    <!-- ★ NM4 修复 (2026-06-13): 显式排除 DevTools, 防御性保证它不会
+                         意外被打进生产 jar / docker image, 暴露远程调试 + 自动重启面 -->
+                    <excludeDevtools>true</excludeDevtools>
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok</artifactId>
+                        </exclude>
+                        <exclude>
+                            <groupId>org.springframework.boot</groupId>
+                            <artifactId>spring-boot-devtools</artifactId>
                         </exclude>
                     </excludes>
                 </configuration>

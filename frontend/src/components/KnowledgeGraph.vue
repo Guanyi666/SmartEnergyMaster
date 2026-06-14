@@ -21,17 +21,17 @@ let chartInstance = null
 let resizeObserver = null
 
 const categoryColors = {
-  device_type: '#52c8ff',
-  fault_type: '#ff9f43',
+  device_type: '#5cdcff',
+  fault_type: '#ff7e00',
   sop: '#3bff9f',
-  case: '#c084fc',
-  cause: '#f472b6'
+  case: '#a78bfa',
+  cause: '#ff5d5d'
 }
 
 const categoryLabels = {
   device_type: '设备类型',
   fault_type: '故障类型',
-  sop: 'SOP',
+  sop: '标准流程',
   case: '案例',
   cause: '根因'
 }
@@ -46,7 +46,7 @@ const buildOption = (data) => {
           const desc = params.data.description ? '<br/>' + params.data.description : ''
           return '<strong>' + params.data.name + '</strong><br/>类别: ' + cat + desc
         }
-        return params.data.source + ' -> ' + params.data.target + '<br/>关系: ' + (params.data.label || '')
+        return params.data.source + ' 到 ' + params.data.target + '<br/>关系：' + (params.data.label || '')
       }
     },
     legend: [{
@@ -80,7 +80,7 @@ const buildOption = (data) => {
         source: l.source,
         target: l.target,
         label: { show: false },
-        lineStyle: { color: 'rgba(148, 163, 184, 0.4)', curveness: 0.1 }
+        lineStyle: { color: 'rgba(92, 220, 255, 0.4)', curveness: 0.1, width: 1.5 }
       })),
       categories: categoryKeys.map((key) => ({
         name: key,
