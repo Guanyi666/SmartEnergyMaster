@@ -68,6 +68,7 @@ import gsap from 'gsap'
 
 const props = defineProps({
   devices: { type: Array, default: () => [] },
+  alerts:  { type: Array, default: () => [] },         // ★ 新增:工单/告警列表,用于交叉匹配
   highlightDeviceId: { type: [Number, String], default: null }
 })
 const emit = defineEmits(['device-click', 'ready'])
@@ -93,6 +94,13 @@ let resizeObserver
 let clock = new THREE.Clock()
 let pmrem
 const deviceObjects = []  // [{ root, model, halo, label, cssObj, device, type, ledMaterials }]
+const pipeMaterials = []  // 共享管线 UV 滚动材质集合
+// ★ 故障红光:每台故障设备各持一盏红色 PointLight
+//   Map<deviceType, { light: PointLight, entry: deviceObject }>
+//   触发条件: device.status ∈ FAULT_STATUSES,或该设备有 PENDING/IN_PROGRESS 工单
+const faultLights = new Map()
+const FAULT_STATUSES = ['FAULT', 'CRITICAL', 'MAINTENANCE']
+const ACTIVE_ORDER_STATUSES = ['PENDING', 'IN_PROGRESS']
 let hoveredObject = null
 
 // ============ 设备布局表 ============
@@ -298,9 +306,9 @@ function setupLights () {
   hemi.position.set(0, 30, 0)
   scene.add(hemi)
 
-  // ③ 主光 —— Directional, 模拟厂房高位钠灯/聚光顶照
-  //    色温稍暖(0xfff2dc), 强度 1.5, 大范围正交阴影
-  const key = new THREE.DirectionalLight(0xfff2dc, 1.55)
+  // ③ 主光 —— Directional, 模拟厂房高位冷白聚光顶照
+  //    色温冷白(0xeaf3ff), 强度 1.3, 大范围正交阴影
+  const key = new THREE.DirectionalLight(0xeaf3ff, 1.30)
   key.position.set(14, 28, 18)
   key.castShadow = true
   key.shadow.mapSize.width = 2048
@@ -316,17 +324,19 @@ function setupLights () {
   key.shadow.radius = 6  // PCF 软化半径
   scene.add(key)
 
-  // ④ 三盏局部低强度 PointLight 作为分区补光
-  //    强度受控, 不会触发 Bloom (距离衰减后亮度低于 0.85)
+  // ④ 三盏 SpotLight 配向下锥角 → 只打在设备顶面,不再溅射地面
+  //    角度 Math.PI/5 (~36°),penumbra 0.45 让边缘柔和
   const accents = [
-    { x: -16, y: 8, z: 0, color: 0x6ec5ff, intensity: 0.6 }, // 左泵房 冷蓝
-    { x:   0, y: 8, z: 0, color: 0xffd6a5, intensity: 0.7 }, // 中炼钢 暖橙(低)
-    { x:  16, y: 8, z: 0, color: 0x8bf3c3, intensity: 0.55 } // 右冷却 冷绿
+    { lx: -16, ly: 18, lz: 0, tx: -9, ty: 0, tz: 3,  color: 0x6ec5ff, intensity: 1.8 }, // 左泵房冷蓝 → 照 PUMP
+    { lx:   0, ly: 18, lz: 0, tx:  0, ty: 0, tz: -2, color: 0xffd6a5, intensity: 1.6 }, // 中炼钢暖橙 → 照 ARC_FURNACE
+    { lx:  16, ly: 18, lz: 0, tx:  9, ty: 0, tz: -1, color: 0x8bf3c3, intensity: 0.9 }  // 右冷却冷绿 → 照 LADLE/CC
   ]
-  accents.forEach(({ x, y, z, color, intensity }) => {
-    const p = new THREE.PointLight(color, intensity, 22, 1.8)
-    p.position.set(x, y, z)
-    scene.add(p)
+  accents.forEach(({ lx, ly, lz, tx, ty, tz, color, intensity }) => {
+    const s = new THREE.SpotLight(color, intensity, 24, Math.PI / 5, 0.45, 1.4)
+    s.position.set(lx, ly, lz)
+    s.target.position.set(tx, ty, tz)
+    scene.add(s)
+    scene.add(s.target)
   })
 
   // ⑤ 微弱补光打亮设备正面(避免侧光后正面漆黑)
@@ -336,38 +346,30 @@ function setupLights () {
 }
 
 // ====================================================================
-// 4. 反射打蜡水泥地
+// 4. 反射打蜡水泥地 —— 镜面物理材质地板 + 网格叠层
 // ====================================================================
 function setupFloor () {
-  // 主反射地面 —— 100×100m, 深碳灰, 低粗糙度 → 反射上方设备
-  const floorGeo = new THREE.PlaneGeometry(100, 100)
-  const floorMat = new THREE.MeshStandardMaterial({
-    color: 0x050505,
-    metalness: 0.65,      // 半金属感, 反射但仍有漫反射
-    roughness: 0.10,      // 极低粗糙 → 镜面反射
-    envMapIntensity: 1.4
+  // 4.1 暗色镜面物理材质地板(GridHelper 正下方)
+  //     颜色 #02050A, metalness 0.75, roughness 0.22(再上调一档,反射柔到"打蜡"而非"水镜")
+  //     走 MeshPhysicalMaterial: 启用 clearcoat 提升高光锐度
+  const mirrorGeo = new THREE.PlaneGeometry(160, 160)
+  const mirrorMat = new THREE.MeshPhysicalMaterial({
+    color: 0x02050A,             // 深空蓝黑,与 HUD 主题契合
+    metalness: 0.75,             // 略降金属感,降低对光源的镜面反射强度
+    roughness: 0.22,             // 再上调,反射柔和到打蜡地板水平,不再像纯镜
+    clearcoat: 0.45,             // 配合粗糙度,清漆层也降一档
+    clearcoatRoughness: 0.18,
+    envMapIntensity: 0.85,       // 从 1.10 再下调,防止 IBL 反射遮蔽设备轮廓
+    reflectivity: 0.65
   })
-  const floor = new THREE.Mesh(floorGeo, floorMat)
-  floor.rotation.x = -Math.PI / 2
-  floor.position.y = 0
-  floor.receiveShadow = true
-  scene.add(floor)
+  const mirrorFloor = new THREE.Mesh(mirrorGeo, mirrorMat)
+  mirrorFloor.rotation.x = -Math.PI / 2
+  // y = -0.002 略低于原 base,保证 GridHelper(0.01/0.012)叠在它正上方
+  mirrorFloor.position.y = -0.002
+  mirrorFloor.receiveShadow = true
+  scene.add(mirrorFloor)
 
-  // 次级亚光地基（避免完全镜面看起来像水面;给地板加一点厚度感）
-  const baseGeo = new THREE.PlaneGeometry(100, 100)
-  const baseMat = new THREE.MeshStandardMaterial({
-    color: 0x0a0e16,
-    metalness: 0.0,
-    roughness: 0.95,
-    transparent: true,
-    opacity: 0.55
-  })
-  const base = new THREE.Mesh(baseGeo, baseMat)
-  base.rotation.x = -Math.PI / 2
-  base.position.y = -0.005
-  scene.add(base)
-
-  // 浅色技术网格 (LineSegments, 不触发 Bloom)
+  // 4.2 浅色技术网格 (LineSegments, 位于镜面地板之上,不参与 Bloom)
   const gridMain = new THREE.GridHelper(80, 40, 0x1a2840, 0x121822)
   gridMain.material.opacity = 0.45
   gridMain.material.transparent = true
@@ -380,6 +382,14 @@ function setupFloor () {
   gridFine.material.transparent = true
   gridFine.position.y = 0.012
   scene.add(gridFine)
+
+  // 4.3 设备 mesh 强制开启阴影投射/接收(遍历所有当前场景对象)
+  scene.traverse(obj => {
+    if (obj.isMesh) {
+      obj.castShadow = true
+      obj.receiveShadow = true
+    }
+  })
 }
 
 // ====================================================================
@@ -457,18 +467,20 @@ function getGltfLoader () {
   return _gltfLoader
 }
 
-/** GLTF 模型材质升级为 PBR (深灰金属化, 不触发 Bloom) */
+/** GLTF 模型材质升级为 PBR (MeshPhysicalMaterial + IBL 高光) */
 function enhanceLoadedPBR (model) {
   model.traverse((child) => {
     if (!child.isMesh) return
     child.castShadow = true
     child.receiveShadow = true
     const old = child.material
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = new THREE.MeshPhysicalMaterial({
       color: old?.color?.clone() || new THREE.Color(0x5b6470),
-      metalness: 0.9,
-      roughness: 0.32,
-      envMapIntensity: 1.1,
+      metalness: 0.92,
+      roughness: 0.22,
+      envMapIntensity: 1.30,
+      clearcoat: 0.45,
+      clearcoatRoughness: 0.18,
       map: old?.map || null
     })
     if (old?.map) old.map.colorSpace = THREE.SRGBColorSpace
@@ -675,18 +687,22 @@ function collectLEDs (model) {
 //    *** 只有少量 LED MeshBasicMaterial 触发 Bloom ***
 // ====================================================================
 function pbrMetalDark (color = 0x4a525e, opts = {}) {
-  return new THREE.MeshStandardMaterial({
-    color, metalness: 0.92, roughness: 0.28, envMapIntensity: 1.15, ...opts
+  // MeshPhysicalMaterial:金属感拉满,roughness 0.2 配合 IBL 反射
+  return new THREE.MeshPhysicalMaterial({
+    color, metalness: 0.92, roughness: 0.20, envMapIntensity: 1.35,
+    clearcoat: 0.4, clearcoatRoughness: 0.18, ...opts
   })
 }
 function pbrMetalLight (color = 0x6c7480, opts = {}) {
-  return new THREE.MeshStandardMaterial({
-    color, metalness: 0.88, roughness: 0.42, envMapIntensity: 1.05, ...opts
+  return new THREE.MeshPhysicalMaterial({
+    color, metalness: 0.88, roughness: 0.22, envMapIntensity: 1.25,
+    clearcoat: 0.3, clearcoatRoughness: 0.20, ...opts
   })
 }
 function pbrPainted (color = 0x2a3344, opts = {}) {
-  return new THREE.MeshStandardMaterial({
-    color, metalness: 0.5, roughness: 0.55, envMapIntensity: 0.85, ...opts
+  return new THREE.MeshPhysicalMaterial({
+    color, metalness: 0.70, roughness: 0.20, envMapIntensity: 1.05,
+    clearcoat: 0.55, clearcoatRoughness: 0.12, ...opts
   })
 }
 function makeLED (color, size = 0.1) {
@@ -1021,6 +1037,9 @@ function rebuildDevices () {
   })
   deviceObjects.length = 0
 
+  // ★ 清理上一轮所有故障红光
+  clearAllFaultLights()
+
   DEVICE_TYPES.forEach(type => {
     const layout = DEVICE_LAYOUT[type]
     const dev = props.devices.find(d => d.deviceType === type) || {
@@ -1033,6 +1052,67 @@ function rebuildDevices () {
     }
     loadDeviceModel(type, layout, dev)
   })
+
+  // ★ 重建后,对全部 6 台设备执行故障状态判定
+  syncAllFaultLights()
+}
+
+// 移除并释放所有故障红光 + 标签 is-fault 类
+function clearAllFaultLights () {
+  faultLights.forEach(({ light, entry }) => {
+    scene.remove(light)
+    light.dispose?.()
+    entry.label?.classList.remove('is-fault')
+  })
+  faultLights.clear()
+}
+
+// 为某台设备添加故障红光(若已存在则忽略)
+function addFaultLight (entry) {
+  if (faultLights.has(entry.type)) return
+  const light = new THREE.PointLight(0xff0000, 2.5, 14, 1.8)
+  light.position.set(entry.root.position.x, 3.0, entry.root.position.z)
+  scene.add(light)
+  faultLights.set(entry.type, { light, entry })
+  entry.label?.classList.add('is-fault')
+}
+
+// 移除某台设备的故障红光
+function removeFaultLight (type) {
+  const rec = faultLights.get(type)
+  if (!rec) return
+  scene.remove(rec.light)
+  rec.light.dispose?.()
+  rec.entry.label?.classList.remove('is-fault')
+  faultLights.delete(type)
+}
+
+// 同步所有 6 台设备的故障状态(差量增删)
+// 判定逻辑(任一满足即视为告警):
+//   1. device.status ∈ FAULT_STATUSES   (后端已标记 FAULT/CRITICAL/MAINTENANCE)
+//   2. 该设备有 PENDING/IN_PROGRESS 工单(交叉匹配 alerts)
+function syncAllFaultLights () {
+  // 预先索引活跃工单 → Set<deviceId 或 deviceCode>
+  const activeOrderDeviceKeys = new Set()
+  ;(props.alerts || []).forEach(a => {
+    if (!ACTIVE_ORDER_STATUSES.includes(a.status)) return
+    if (a.deviceId   != null) activeOrderDeviceKeys.add(`id:${a.deviceId}`)
+    if (a.deviceCode)         activeOrderDeviceKeys.add(`code:${a.deviceCode}`)
+  })
+
+  deviceObjects.forEach(entry => {
+    const dev = entry.device
+    let isFault = FAULT_STATUSES.includes(dev.status)
+    if (!isFault) {
+      // 状态没标,但有活跃工单 → 视为故障
+      if ((dev.id        != null && activeOrderDeviceKeys.has(`id:${dev.id}`)) ||
+          (dev.deviceCode && activeOrderDeviceKeys.has(`code:${dev.deviceCode}`))) {
+        isFault = true
+      }
+    }
+    if (isFault) addFaultLight(entry)
+    else         removeFaultLight(entry.type)
+  })
 }
 
 function disposeObject (obj) {
@@ -1043,6 +1123,60 @@ function disposeObject (obj) {
       else o.material.dispose()
     }
   })
+}
+
+// ====================================================================
+// 9.4 管线 UV 流动贴图 —— 程序化生成横向虚线箭头纹理(共享给所有管道)
+// ====================================================================
+function makePipeFlowTexture () {
+  const c = document.createElement('canvas')
+  c.width = 512
+  c.height = 64
+  const ctx = c.getContext('2d')
+
+  // 背景透明 → 仅箭头可见,叠加在 PBR 金属外管上
+  ctx.clearRect(0, 0, c.width, c.height)
+
+  // 绘制 8 组箭头(循环间隔 64px)
+  const arrowCount = 8
+  for (let i = 0; i < arrowCount; i++) {
+    const x0 = i * 64 + 8
+    const yMid = 32
+    // 箭头杆(细虚线)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)'
+    ctx.lineWidth = 3
+    ctx.lineCap = 'round'
+    ctx.setLineDash([12, 8])
+    ctx.beginPath()
+    ctx.moveTo(x0, yMid)
+    ctx.lineTo(x0 + 36, yMid)
+    ctx.stroke()
+    // 箭头三角
+    ctx.setLineDash([])
+    ctx.fillStyle = 'rgba(0, 255, 255, 0.95)'
+    ctx.beginPath()
+    ctx.moveTo(x0 + 36, yMid - 8)
+    ctx.lineTo(x0 + 50, yMid)
+    ctx.lineTo(x0 + 36, yMid + 8)
+    ctx.closePath()
+    ctx.fill()
+  }
+  // 上下边缘高光
+  const grad = ctx.createLinearGradient(0, 0, 0, c.height)
+  grad.addColorStop(0,   'rgba(255, 255, 255, 0.35)')
+  grad.addColorStop(0.5, 'rgba(255, 255, 255, 0)')
+  grad.addColorStop(1,   'rgba(255, 255, 255, 0.35)')
+  ctx.fillStyle = grad
+  ctx.fillRect(0, 0, c.width, c.height)
+
+  const tex = new THREE.CanvasTexture(c)
+  tex.wrapS = THREE.RepeatWrapping
+  tex.wrapT = THREE.ClampToEdgeWrapping
+  tex.colorSpace = THREE.SRGBColorSpace
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy()
+  // 沿管道方向(UV.x)重复 4 次 → 箭头间距合适
+  tex.repeat.set(4, 1)
+  return tex
 }
 
 // ====================================================================
@@ -1070,6 +1204,9 @@ function setupPipelines () {
     footprintR[t] = 1.6 * Math.max(sx, sz) + 0.55
   }
 
+  // 共享流程贴图(每帧 offset.x 推进 → 能量流动)
+  const flowMap = makePipeFlowTexture()
+
   PIPE_NETWORK.forEach(({ from, to, color, radius, glow }) => {
     const A = DEVICE_LAYOUT[from]
     const B = DEVICE_LAYOUT[to]
@@ -1078,7 +1215,8 @@ function setupPipelines () {
       new THREE.Vector3(A.x, 0, A.z),
       new THREE.Vector3(B.x, 0, B.z),
       footprintR[from], footprintR[to],
-      radius, color, glow
+      radius, color, glow,
+      flowMap
     )
     scene.add(pipe)
   })
@@ -1096,7 +1234,7 @@ function setupPipelines () {
 }
 
 /** 单根管道 —— CatmullRomCurve3 平滑过渡, 双层结构(外管+顶部发光条) + 等距支撑托架 */
-function buildPipe (from, to, fromR, toR, radius, colorHex, withGlow) {
+function buildPipe (from, to, fromR, toR, radius, colorHex, withGlow, flowMap) {
   const grp = new THREE.Group()
 
   // 1) 计算管道起止点 —— 沿设备连线方向退出承台外缘
@@ -1117,18 +1255,33 @@ function buildPipe (from, to, fromR, toR, radius, colorHex, withGlow) {
   const curve = new THREE.CatmullRomCurve3(curvePoints, false, 'centripetal', 0.5)
   const tubeSeg = 96
 
-  // 3) 外管 —— 深灰金属 PBR
+  // 3) 外管 —— 深灰金属 PBR + UV 滚动流程贴图
   const outerGeo = new THREE.TubeGeometry(curve, tubeSeg, radius, 12, false)
-  const outerMat = new THREE.MeshStandardMaterial({
+  const outerMat = new THREE.MeshPhysicalMaterial({
     color: 0x3a414c,
     metalness: 0.92,
-    roughness: 0.32,
-    envMapIntensity: 1.0
+    roughness: 0.20,         // 拉低粗糙度,让流程箭头更易在表面被识别
+    envMapIntensity: 1.15,
+    clearcoat: 0.35,
+    clearcoatRoughness: 0.20,
+    // ★ 关键:透明贴图叠在金属层上,模拟流体方向箭头
+    map: flowMap,
+    transparent: true,
+    alphaTest: 0.02
   })
+  // 共享贴图,clone 后每根管子独立 offset(避免全部同步)
+  if (flowMap) {
+    outerMat.map = flowMap.clone()
+    outerMat.map.needsUpdate = true
+    outerMat.map.wrapS = THREE.RepeatWrapping
+    outerMat.map.wrapT = THREE.ClampToEdgeWrapping
+    outerMat.map.repeat.set(4, 1)
+  }
   const outer = new THREE.Mesh(outerGeo, outerMat)
   outer.castShadow = true
   outer.receiveShadow = true
   grp.add(outer)
+  pipeMaterials.push(outerMat)
 
   // 4) 顶部发光条纹 (可选) —— 沿管道顶面铺设细发光带
   if (withGlow) {
@@ -1299,6 +1452,18 @@ function animate () {
     if (valEl) valEl.textContent = Number(device.usageKwh || 0).toFixed(0)
   })
 
+  // ★★★ 管线能量流:UV 沿管道方向滚动 ★★★
+  pipeMaterials.forEach(mat => {
+    if (mat.map) mat.map.offset.x -= 0.01
+  })
+
+  // ★★★ 故障设备呼吸红光 (遍历所有故障灯,各自相位错开避免完全同步) ★★★
+  let _i = 0
+  faultLights.forEach(({ light, entry }) => {
+    const phase = entry.root.position.x * 0.3 + _i++ * 0.7
+    light.intensity = 2.4 + 2.2 * Math.sin(Date.now() * 0.005 + phase)
+  })
+
   controls.update()
   composer.render()
   labelRenderer.render(scene, camera)
@@ -1319,6 +1484,9 @@ onBeforeUnmount(() => {
   if (pmrem) pmrem.dispose()
   if (envMap) envMap.dispose?.()
   if (_dracoLoader) _dracoLoader.dispose?.()
+  // 释放所有故障红光
+  faultLights.forEach(({ light }) => light.dispose?.())
+  faultLights.clear()
   if (scene) scene.traverse(o => {
     if (o.geometry) o.geometry.dispose()
     if (o.material) {
@@ -1344,6 +1512,14 @@ watch(() => props.devices, () => {
     // 同步 LED 颜色 (仅对占位模型,真实 GLTF 加载后 ledMaterials 为空)
     obj.ledMaterials.forEach(m => m.color?.setHex(c))
   })
+
+  // ★ 6 台设备全部同步:差量增删故障红光 + 红色标签边框
+  syncAllFaultLights()
+}, { deep: true })
+
+// 告警列表变化 → 重新同步所有故障红光
+watch(() => props.alerts, () => {
+  if (deviceObjects.length) syncAllFaultLights()
 }, { deep: true })
 
 watch(() => props.highlightDeviceId, (id) => {
@@ -1591,6 +1767,32 @@ defineExpose({
   box-shadow: 0 0 24px color-mix(in srgb, var(--dot-color) 60%, transparent),
               inset 0 0 12px color-mix(in srgb, var(--dot-color) 20%, transparent);
   transform: scale(1.05);
+}
+
+/* 故障态:1号电弧炉标签强制红色边框 + 呼吸光晕 */
+.dt-device-label.is-fault .dt-device-label__card {
+  border-color: #ff2d3a !important;
+  box-shadow: 0 0 22px rgba(255, 45, 58, 0.65),
+              inset 0 0 12px rgba(255, 45, 58, 0.25);
+  animation: dt-fault-pulse 1.1s ease-in-out infinite;
+}
+.dt-device-label.is-fault .dt-device-label__corner {
+  border-color: #ff2d3a;
+}
+.dt-device-label.is-fault .dt-device-label__status {
+  background: #ff2d3a !important;
+  box-shadow: 0 0 10px #ff2d3a !important;
+  animation: dt-fault-blink 0.6s ease-in-out infinite;
+}
+@keyframes dt-fault-pulse {
+  0%, 100% { box-shadow: 0 0 22px rgba(255, 45, 58, 0.45),
+                          inset 0 0 10px rgba(255, 45, 58, 0.20); }
+  50%      { box-shadow: 0 0 32px rgba(255, 45, 58, 0.85),
+                          inset 0 0 16px rgba(255, 45, 58, 0.40); }
+}
+@keyframes dt-fault-blink {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(0.7); }
 }
 
 /* 分区地面标签 */

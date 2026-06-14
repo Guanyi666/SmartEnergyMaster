@@ -1,90 +1,88 @@
 <template>
-  <Transition name="float-pop">
-    <div v-if="visible && device" class="device-float-card glass" @click.stop>
-      <!-- 4 角折角线框装饰 -->
-      <span class="corner corner--tl"></span>
-      <span class="corner corner--tr"></span>
-      <span class="corner corner--bl"></span>
-      <span class="corner corner--br"></span>
+  <div v-if="device" class="device-float-card" @click.stop>
+    <!-- 4 角折角线框装饰 -->
+    <span class="corner corner--tl"></span>
+    <span class="corner corner--tr"></span>
+    <span class="corner corner--bl"></span>
+    <span class="corner corner--br"></span>
 
-      <!-- 头部 -->
-      <header class="dfc-header">
-        <div class="dfc-header__left">
-          <span class="dfc-pulse" :style="{ background: color, boxShadow: `0 0 10px ${color}` }"></span>
-          <div>
-            <h3 class="dfc-title">
-              <span>{{ device.deviceName }}</span>
-              <em>{{ deviceTypeLabel }}</em>
-            </h3>
-            <p class="dfc-sub">{{ device.deviceCode }} · DEVICE_ID {{ device.id }}</p>
-          </div>
+    <!-- 头部 -->
+    <header class="dfc-header">
+      <div class="dfc-header__left">
+        <span class="dfc-pulse" :style="{ background: color, boxShadow: `0 0 10px ${color}` }"></span>
+        <div>
+          <h3 class="dfc-title">
+            <span>{{ device.deviceName }}</span>
+            <em>{{ deviceTypeLabel }}</em>
+          </h3>
+          <p class="dfc-sub">{{ device.deviceCode }} · DEVICE_ID {{ device.id }}</p>
         </div>
-        <div class="dfc-header__right">
-          <span class="dfc-pill" :style="pillStyle">{{ statusText }}</span>
-          <button class="dfc-close" @click="onClose" aria-label="关闭">
-            <span></span><span></span>
-          </button>
-        </div>
-      </header>
+      </div>
+      <div class="dfc-header__right">
+        <span class="dfc-pill" :style="pillStyle">{{ statusText }}</span>
+        <button class="dfc-close" @click="onClose" aria-label="关闭">
+          <span></span><span></span>
+        </button>
+      </div>
+    </header>
 
-      <!-- 实时功率折线图 -->
-      <section class="dfc-section">
-        <div class="dfc-section__title">
-          <h4>实时功率 / REAL-TIME POWER</h4>
-          <span class="dfc-section__meta">最近 30 分钟 · 1min sample</span>
-        </div>
-        <div class="dfc-trend">
-          <TrendChart :records="trend" />
-        </div>
-      </section>
+    <!-- 实时功率折线图 -->
+    <section class="dfc-section">
+      <div class="dfc-section__title">
+        <h4>实时功率 / REAL-TIME POWER</h4>
+        <span class="dfc-section__meta">最近 30 分钟 · 1min sample</span>
+      </div>
+      <div class="dfc-trend">
+        <TrendChart :records="trend" />
+      </div>
+    </section>
 
-      <!-- 温度 + 压力 双仪表 -->
-      <section class="dfc-section dfc-section--gauges">
-        <div class="dfc-gauge dfc-gauge--temp">
-          <MiniGauge
-            :value="Number(device.temperature) || 0"
-            :min="0" :max="1400"
-            title="TEMPERATURE"
-            unit="°C"
-            color="#ff7e00"
-          />
-        </div>
-        <div class="dfc-gauge dfc-gauge--press">
-          <MiniGauge
-            :value="Number(device.pressure) || 0"
-            :min="0" :max="220"
-            title="PRESSURE"
-            unit="kPa"
-            color="#5cdcff"
-          />
-        </div>
-      </section>
+    <!-- 温度 + 压力 双仪表 -->
+    <section class="dfc-section dfc-section--gauges">
+      <div class="dfc-gauge dfc-gauge--temp">
+        <MiniGauge
+          :value="Number(device.temperature) || 0"
+          :min="0" :max="1400"
+          title="TEMPERATURE"
+          unit="°C"
+          color="#ff7e00"
+        />
+      </div>
+      <div class="dfc-gauge dfc-gauge--press">
+        <MiniGauge
+          :value="Number(device.pressure) || 0"
+          :min="0" :max="220"
+          title="PRESSURE"
+          unit="kPa"
+          color="#5cdcff"
+        />
+      </div>
+    </section>
 
-      <!-- 即时数值 + 操作 -->
-      <section class="dfc-stats">
-        <div class="dfc-stat">
-          <span>振动</span>
-          <strong>{{ formatNum(device.vibration) }}<em>mm/s</em></strong>
-        </div>
-        <div class="dfc-stat">
-          <span>功率</span>
-          <strong style="color:#3bff9f">{{ formatNum(device.usageKwh) }}<em>kWh</em></strong>
-        </div>
-        <div class="dfc-stat">
-          <span>负载等级</span>
-          <strong>{{ device.loadType || '—' }}</strong>
-        </div>
-      </section>
+    <!-- 即时数值 + 操作 -->
+    <section class="dfc-stats">
+      <div class="dfc-stat">
+        <span>振动</span>
+        <strong>{{ formatNum(device.vibration) }}<em>mm/s</em></strong>
+      </div>
+      <div class="dfc-stat">
+        <span>功率</span>
+        <strong style="color:#3bff9f">{{ formatNum(device.usageKwh) }}<em>kWh</em></strong>
+      </div>
+      <div class="dfc-stat">
+        <span>负载等级</span>
+        <strong>{{ device.loadType || '—' }}</strong>
+      </div>
+    </section>
 
-      <footer class="dfc-footer">
-        <span class="dfc-footer__time">UPDATED · {{ nowText }}</span>
-        <div class="dfc-footer__actions">
-          <button class="dfc-btn" @click="onClose">关闭</button>
-          <button class="dfc-btn dfc-btn--primary" @click="onViewDetail">完整详情 →</button>
-        </div>
-      </footer>
-    </div>
-  </Transition>
+    <footer class="dfc-footer">
+      <span class="dfc-footer__time">UPDATED · {{ nowText }}</span>
+      <div class="dfc-footer__actions">
+        <button class="dfc-btn" @click="onClose">关闭</button>
+        <button class="dfc-btn dfc-btn--primary" @click="onViewDetail">完整详情 →</button>
+      </div>
+    </footer>
+  </div>
 </template>
 
 <script setup>
@@ -93,7 +91,7 @@ import TrendChart from '../TrendChart.vue'
 import MiniGauge from './MiniGauge.vue'
 
 const props = defineProps({
-  visible: { type: Boolean, default: false },
+  // ★ 现在 device 本身就是触发条件,null 即隐藏(原 visible 已废弃)
   device: { type: Object, default: null }
 })
 const emit = defineEmits(['close', 'view-detail'])
@@ -156,9 +154,9 @@ function buildTrend () {
 function onClose () { emit('close') }
 function onViewDetail () { emit('view-detail', props.device) }
 
-watch(() => [props.visible, props.device], () => {
-  if (props.visible && props.device) buildTrend()
-})
+watch(() => props.device, (d) => {
+  if (d) buildTrend()
+}, { immediate: true })
 
 onMounted(() => {
   timer = setInterval(() => { nowText.value = formatTime(new Date()) }, 1000)
@@ -167,28 +165,24 @@ onBeforeUnmount(() => { if (timer) clearInterval(timer) })
 </script>
 
 <style scoped>
+/*
+ * 设备详情面板 —— 现在 inline 渲染,完全填满父容器(.hud-panel.is-right,400px 宽 × 全高)
+ * 不再 position:absolute 浮在大屏上,避免与右侧概览三模块重叠
+ */
 .device-float-card {
-  position: absolute;
-  top: 72px;
-  right: 24px;
-  width: 380px;
-  z-index: 30;
-  border-radius: 14px;
-  padding: 0 0 14px;
+  position: relative;             /* 替代原 absolute */
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 2px;             /* 与 .hud-panel 风格对齐 */
+  padding: 0 0 12px;
   color: #ffffff;
   pointer-events: auto;
   font-family: Bahnschrift, 'Microsoft YaHei', sans-serif;
-}
-
-.glass {
-  background: rgba(8, 16, 30, 0.72);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  border: 1px solid rgba(0, 255, 255, 0.28);
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.55),
-    0 0 28px rgba(0, 255, 255, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  /* 内部轻量玻璃面:与外层 .hud-panel 4 角框共存,不重复背景 */
+  background: linear-gradient(180deg, rgba(0, 30, 60, 0.18), rgba(0, 10, 20, 0.05));
+  overflow: hidden;
 }
 
 /* 4 角折线框 */
@@ -407,14 +401,7 @@ onBeforeUnmount(() => { if (timer) clearInterval(timer) })
   background: linear-gradient(180deg, rgba(61, 169, 255, 0.6), rgba(37, 99, 235, 0.55));
 }
 
-/* 入场动画 */
-.float-pop-enter-active, .float-pop-leave-active {
-  transition: transform 0.42s cubic-bezier(0.34, 1.4, 0.5, 1), opacity 0.35s ease;
-}
-.float-pop-enter-from, .float-pop-leave-to {
-  opacity: 0;
-  transform: translateX(20px) scale(0.96);
-}
+/* 入场动画 —— 已移至 DashboardView.vue 由父级 <transition name="right-swap"> 接管 */
 
 @media (max-width: 1024px) {
   .device-float-card {

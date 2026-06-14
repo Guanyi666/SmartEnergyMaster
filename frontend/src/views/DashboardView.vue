@@ -13,6 +13,7 @@
     <DashboardHero3D
       ref="heroRef"
       :devices="devices"
+      :alerts="alerts"
       :highlight-device-id="highlightDeviceId"
       @device-click="onDeviceClick"
       @ready="onHeroReady"
@@ -35,18 +36,41 @@
         :alerts="alerts"
       />
 
-      <HudRightPanel
-        class="hud-panel is-right"
-        data-hud="right"
-        :devices="devices"
-        :focus-code="focusDeviceCode"
-        :summary="summary"
-        :forecast="summary.forecast || []"
-        :advice="summary.dispatchAdvice"
-        :advice-decided="currentAdviceDecision"
-        @select="onDeviceSelect"
-        @decide="decideAdvice"
-      />
+      <!--
+        ★★★ 右侧动态插槽 ★★★
+          外层 .right-panel 提供固定 400px 宽度约束,内部 <transition> 不渲染
+          包裹元素,所以两个互斥组件必须共用这个 400px 父容器才能保证宽度一致
+          (Vue <transition> 默认不渲染 DOM 节点,直接挂载子组件到父级)
+          activeDevice === null  → 渲染 HudRightPanel (重点设备/AI预测/状态矩阵 三模块)
+          activeDevice !== null  → 渲染 DeviceFloatCard (设备详情面板)
+      -->
+      <div class="right-panel">
+        <transition name="right-swap" mode="out-in">
+          <HudRightPanel
+            v-if="activeDevice === null"
+            key="overview"
+            class="hud-panel is-right"
+            data-hud="right"
+            :devices="devices"
+            :focus-code="focusDeviceCode"
+            :summary="summary"
+            :forecast="summary.forecast || []"
+            :advice="summary.dispatchAdvice"
+            :advice-decided="currentAdviceDecision"
+            @select="onDeviceSelect"
+            @decide="decideAdvice"
+          />
+          <DeviceFloatCard
+            v-else
+            key="detail"
+            class="hud-panel is-right right-detail"
+            data-hud="right-detail"
+            :device="activeDevice"
+            @close="closeActiveDevice"
+            @view-detail="openFullDetail"
+          />
+        </transition>
+      </div>
     </div>
 
     <!-- ████ ④ 底部设备切换条 ████ -->
@@ -56,13 +80,7 @@
       @select="onDeviceSelect"
     />
 
-    <!-- ████ 设备详情浮窗 (点击 3D 触发) ████ -->
-    <DeviceFloatCard
-      :visible="floatVisible"
-      :device="floatDevice"
-      @close="closeFloat"
-      @view-detail="openFullDetail"
-    />
+    <!-- ████ 设备完整详情弹窗 (由详情面板"完整详情 →"按钮触发) ████ -->
     <DeviceDetailDialog v-model="detailVisible" :device="detailDevice" />
   </div>
 </template>
@@ -98,8 +116,12 @@ const forecastHistory = ref([])
 const focusDeviceCode = ref('EAF-01')
 const highlightDeviceId = ref(null)
 
-const floatVisible = ref(false)
-const floatDevice = ref(null)
+// ★★★ 全局选中状态(activeDevice)★★★
+//   null   → 右侧渲染 HudRightPanel 三个概览模块
+//   Device → 右侧渲染 DeviceFloatCard 详情面板(替换概览)
+//   同时驱动 <transition name="right-swap"> 的互斥动画
+const activeDevice = ref(null)
+
 const detailVisible = ref(false)
 const detailDevice = ref(null)
 
@@ -131,17 +153,18 @@ const onDeviceSelect = async (dev) => {
 const onDeviceClick = async (dev) => {
   focusDeviceCode.value = dev.deviceCode
   highlightDeviceId.value = dev.id || dev.deviceType
-  floatDevice.value = dev
-  floatVisible.value = true
+  // ★ 关键:点击 3D 设备 → 写 activeDevice → 触发右侧 v-if/v-else 切换
+  activeDevice.value = dev
   await refreshNow()
 }
-const closeFloat = () => {
-  floatVisible.value = false
+// ★ 关闭按钮/状态矩阵点击空地 → activeDevice 重置为 null → 概览面板自动恢复
+const closeActiveDevice = () => {
+  activeDevice.value = null
   heroRef.value?.clearHighlight()
   highlightDeviceId.value = null
 }
 const openFullDetail = (dev) => {
-  floatVisible.value = false
+  // 完整详情弹窗独立于 activeDevice,可在详情面板内部触发
   detailDevice.value = dev
   detailVisible.value = true
 }
@@ -208,6 +231,51 @@ onBeforeUnmount(() => { /* 轮询自动清理 */ })
   /* 顶留 88px 给 Header,底留 100px 给 BottomNav */
   padding: 88px 20px 100px 20px;
   box-sizing: border-box;
+}
+
+/*
+ * ★★★ 右侧面板统一挂载容器 ★★★
+ *   固定宽度 400px,与 HudRightPanel 的 .hud-right { width: 400px } 完全一致
+ *   flex-shrink: 0 防止 .hud-overlay 的 flex 布局把它压扁
+ *   pointer-events: auto 让内部 .hud-panel 的鼠标交互不被父级穿透禁用阻断
+ *   display: flex + flex-direction: column 让子组件按列铺满(子组件 height:100% 才能生效)
+ */
+.right-panel {
+  position: relative;
+  width: 400px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  max-height: calc(100vh - 120px);
+  /* ★ 自身不设背景/border,由内部 .hud-panel 提供 4 角框 */
+}
+
+/*
+ * ★★★ 右侧动态插槽过渡动画 ★★★
+ *   out-in 模式:旧节点淡出完成后再挂载新节点,避免同时存在
+ *   0.3s 淡入淡出 + 12px 右侧滑入(设备详情从右侧 12px 处滑入)
+ *   离开时方向相反,符合 HUD 工业感的硬朗节奏
+ */
+.right-swap-enter-active {
+  transition: opacity 0.3s ease-out, transform 0.3s cubic-bezier(0.34, 1.2, 0.5, 1);
+}
+.right-swap-leave-active {
+  transition: opacity 0.25s ease-in, transform 0.25s ease-in;
+}
+.right-swap-enter-from {
+  opacity: 0;
+  transform: translateX(12px);
+}
+.right-swap-leave-to {
+  opacity: 0;
+  transform: translateX(-8px);
+}
+
+/* 右侧详情面板槽位:继承 .hud-panel 的 4 角框与背景 */
+.right-detail {
+  display: flex;
+  flex-direction: column;
 }
 </style>
 
