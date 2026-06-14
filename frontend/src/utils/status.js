@@ -30,7 +30,8 @@ export const faultTypeMeta = {
   ELECTRICAL_OVERLOAD: { label: '电气过载', emoji: '⚡' },
   SENSOR_DRIFT: { label: '传感器漂移', emoji: '📡' },
   BEARING_WEAR: { label: '轴承磨损', emoji: '⚙️' },
-  INTERMITTENT_JAM: { label: '间歇性卡涩', emoji: '🔧' }
+  INTERMITTENT_JAM: { label: '间歇性卡涩', emoji: '🔧' },
+  OTHER: { label: '其他', emoji: '📋' }
 }
 export const getFaultTypeMeta = (ft) => faultTypeMeta[ft] || { label: ft || '未知故障', emoji: '❓' }
 

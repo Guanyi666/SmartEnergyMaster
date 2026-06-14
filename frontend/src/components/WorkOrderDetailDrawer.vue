@@ -58,7 +58,7 @@
               </span>
             </div>
             <div class="row-actions" v-if="order.status !== 'RESOLVED'">
-              <el-button text type="primary" size="small" @click="openReplaceDialog(a)">
+              <el-button v-if="a.personnelId != null" text type="primary" size="small" @click="openReplaceDialog(a)">
                 <el-icon><Refresh /></el-icon> 替换
               </el-button>
               <el-button text type="danger" size="small" @click="confirmRelease(a)">
@@ -241,7 +241,7 @@
 import { computed, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Close, Cpu, Location, DataLine, Clock, InfoFilled, Check, CircleCheck, Refresh, Warning, Loading, SuccessFilled, User, Plus } from '@element-plus/icons-vue'
-import { listPersonnel, releaseOneAssignment, replaceAssignment, batchAssignWorkOrder } from '../api/workorder'
+import { listPersonnel, releaseOneAssignment, releaseWorkOrder, replaceAssignment, batchAssignWorkOrder } from '../api/workorder'
 import { skillLevelLabel } from '../utils/skillLevel'
 import { getPriorityMeta, getFaultTypeMeta, getRoleLabel, getDeviceTypeLabel } from '../utils/status'
 
@@ -321,7 +321,12 @@ const confirmRelease = async (a) => {
         cancelButtonText: '取消'
       }
     )
-    await releaseOneAssignment(props.order.id, a.personnelId)
+    // 最后一人或无 personnelId → 走"释放全部"路径（清空 assignee + 状态回 PENDING）
+    if (isLast || a.personnelId == null) {
+      await releaseWorkOrder(props.order.id)
+    } else {
+      await releaseOneAssignment(props.order.id, a.personnelId)
+    }
     ElMessage.success(`${a.name} 已撤下`)
     emit('refresh')
   } catch (e) {
@@ -422,7 +427,7 @@ const openReplaceDialog = async (target) => {
 }
 
 const submitReplace = async () => {
-  if (!newPersonnelId.value || !replacingTarget.value) return
+  if (!newPersonnelId.value || !replacingTarget.value?.personnelId) return
   replaceSubmitting.value = true
   try {
     await replaceAssignment(props.order.id, replacingTarget.value.personnelId, {

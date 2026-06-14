@@ -9,8 +9,8 @@
         </p>
       </div>
       <div class="header-tools">
-        <!-- v6.2 改造：删除"+" 新建工单按钮（OPERATOR 在 /devices 页面新建；DEVICE_MANAGER 用本页面"指派/状态变更"功能） -->
-        <el-button type="primary" :icon="Plus" @click="goDispatch">智能调度</el-button>
+        <el-button type="primary" :icon="Plus" @click="openCreateDialog">新建工单</el-button>
+        <el-button :icon="Plus" @click="goDispatch">智能调度</el-button>
       </div>
     </div>
 
@@ -220,8 +220,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-// v6.2 改造：移除 Plus icon 引用（新建工单按钮已删）
-// import { Plus } from '@element-plus/icons-vue'
+import { Plus } from '@element-plus/icons-vue'
 import StatBadge from '../components/StatBadge.vue'
 import WorkOrderCard from '../components/WorkOrderCard.vue'
 import WorkOrderDetailDrawer from '../components/WorkOrderDetailDrawer.vue'
@@ -265,7 +264,15 @@ const { start: startPolling, run: refreshNow } = usePollingTask(loadKanban, 5000
 
 // 指派调整后刷新详情：重新拉取列表后同步更新 currentOrder 引用
 const onRefresh = async () => {
-  await refreshNow()
+  // 直接调 loadKanban，绕过 usePollingTask 的互斥锁（避免轮询正好在执行时静默跳过）
+  try {
+    const [list] = await Promise.all([
+      getWorkOrderList({ page: 1, size: 200 }),
+      getDispatchSummary()
+    ])
+    allOrders.value = list.records || []
+    lastSyncAt.value = new Date()
+  } catch { /* http.js 拦截器已 toast */ }
   if (currentOrder.value) {
     const updated = allOrders.value.find(o => o.id === currentOrder.value.id)
     if (updated) currentOrder.value = updated

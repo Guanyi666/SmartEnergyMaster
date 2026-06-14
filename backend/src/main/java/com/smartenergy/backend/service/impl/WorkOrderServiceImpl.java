@@ -3,11 +3,8 @@ package com.smartenergy.backend.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.smartenergy.backend.dto.WorkOrderCreateRequest;
 import com.smartenergy.backend.dto.WorkOrderStatusRequest;
-import com.smartenergy.backend.entity.Device;
-import com.smartenergy.backend.entity.SensorData;
-import com.smartenergy.backend.entity.WorkOrder;
-import com.smartenergy.backend.mapper.DeviceMapper;
-import com.smartenergy.backend.mapper.SensorDataMapper;
+import com.smartenergy.backend.entity.*;
+import com.smartenergy.backend.mapper.*;
 import com.smartenergy.backend.mapper.MaintenanceSOPMapper;
 import com.smartenergy.backend.mapper.WorkOrderMapper;
 import com.smartenergy.backend.service.DeviceService;
@@ -16,6 +13,7 @@ import com.smartenergy.backend.service.SparePartService;
 import com.smartenergy.backend.service.WorkOrderService;
 import com.smartenergy.backend.vo.WorkOrderVO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +25,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class WorkOrderServiceImpl implements WorkOrderService {
@@ -40,6 +39,9 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     private final MaintenanceSOPService sopService;
     private final SparePartService sparePartService;
     private final MaintenanceSOPMapper maintenanceSOPMapper;
+    private final SysUserMapper sysUserMapper;
+    private final MaintenancePersonnelMapper personnelMapper;
+    private final WorkOrderAssignmentMapper assignmentMapper;
 
     @Override
     @Transactional
@@ -196,6 +198,13 @@ public class WorkOrderServiceImpl implements WorkOrderService {
         workOrder.setUpdatedAt(LocalDateTime.now());
         workOrderMapper.updateById(workOrder);
 
+        // 🆕 PENDING → IN_PROGRESS 时，若 assignee 非空，自动创建 workorder_assignment 记录
+        //     解决 MaintenanceView "接单" 只写 assignee 字符串导致后续替换/释放失败的根因
+        if ("IN_PROGRESS".equals(targetStatus) && "PENDING".equals(oldStatus)
+                && StringUtils.hasText(workOrder.getAssignee())) {
+            createAssignmentIfAbsent(workOrder);
+        }
+
         // 🟢 仅当 status 真变才联动设备状态，避免 WorkOrderSyncService.sync() 路径里双重写
         if (!oldStatus.equals(targetStatus)) {
             syncDeviceStatusAfterOrderUpdate(workOrder.getDeviceId(), targetStatus);
@@ -258,6 +267,42 @@ public class WorkOrderServiceImpl implements WorkOrderService {
                 .stream()
                 .map(this::toVO)
                 .toList();
+    }
+
+    /** PENDING→IN_PROGRESS 接单时自动创建 workorder_assignment，保证后续替换/释放可用 */
+    private void createAssignmentIfAbsent(WorkOrder workOrder) {
+        String assignee = workOrder.getAssignee();
+        // 1. 查 sys_user：按 nickname 或 username 匹配
+        SysUser user = sysUserMapper.selectOne(new QueryWrapper<SysUser>()
+                .eq("nickname", assignee).or().eq("username", assignee));
+        if (user == null) {
+            log.warn("[createAssignment] 未找到 assignee 对应的用户: {}", assignee);
+            return;
+        }
+        // 2. 查 workorder_maintenance_personnel
+        MaintenancePersonnel personnel = personnelMapper.selectOne(
+                new QueryWrapper<MaintenancePersonnel>().eq("user_id", user.getId()));
+        if (personnel == null) {
+            log.warn("[createAssignment] 用户 {} 无维修人员档案", user.getUsername());
+            return;
+        }
+        // 3. 幂等：已存在活跃指派则跳过
+        boolean exists = assignmentMapper.exists(new QueryWrapper<WorkOrderAssignment>()
+                .eq("work_order_id", workOrder.getId())
+                .eq("personnel_id", personnel.getId())
+                .isNull("released_at"));
+        if (exists) return;
+        // 4. 创建指派记录
+        WorkOrderAssignment a = new WorkOrderAssignment();
+        a.setWorkOrderId(workOrder.getId());
+        a.setPersonnelId(personnel.getId());
+        a.setRole("PRIMARY");
+        a.setAssignedAt(LocalDateTime.now());
+        assignmentMapper.insert(a);
+        // 5. 增加负载
+        personnelMapper.bumpWorkloadAtomic(personnel.getId(), +1);
+        log.info("[createAssignment] workOrderId={} assignee={} personnelId={}",
+                workOrder.getId(), assignee, personnel.getId());
     }
 
     private void syncDeviceStatusAfterOrderUpdate(Integer deviceId, String currentStatus) {
