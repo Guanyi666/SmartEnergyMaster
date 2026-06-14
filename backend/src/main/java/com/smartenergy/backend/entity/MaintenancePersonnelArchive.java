@@ -22,11 +22,8 @@ public class MaintenancePersonnelArchive {
     @Schema(description = "主键 ID（自增）")
     private Long id;
 
-    @Schema(description = "关联 sys_user.id")
+    @Schema(description = "关联 sys_user.id（账号）")
     private Integer userId;
-
-    @Schema(description = "工号（唯一）", example = "2026030001")
-    private String employeeNo;
 
     @Schema(description = "姓名")
     private String name;

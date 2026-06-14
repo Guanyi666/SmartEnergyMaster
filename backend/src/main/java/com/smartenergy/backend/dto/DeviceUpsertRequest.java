@@ -35,10 +35,6 @@ public class DeviceUpsertRequest {
     @Schema(description = "安装位置", example = "炼钢车间A区")
     private String location;
 
-    @Size(max = 64, message = "维护负责人不能超过 64 个字符")
-    @Schema(description = "维护负责人", example = "张三")
-    private String maintainer;
-
     @Size(max = 1024, message = "设备描述不能超过 1024 个字符")
     @Schema(description = "设备描述", example = "100吨交流电弧炉，用于废钢熔炼")
     private String description;

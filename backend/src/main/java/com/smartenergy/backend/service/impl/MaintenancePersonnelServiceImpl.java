@@ -13,7 +13,6 @@ import com.smartenergy.backend.mapper.MaintenancePersonnelArchiveMapper;
 import com.smartenergy.backend.mapper.MaintenancePersonnelMapper;
 import com.smartenergy.backend.mapper.SysUserMapper;
 import com.smartenergy.backend.service.MaintenancePersonnelService;
-import com.smartenergy.backend.service.UserService;
 import com.smartenergy.backend.vo.MaintenancePersonnelFullVO;
 import com.smartenergy.backend.vo.MaintenancePersonnelVO;
 import lombok.RequiredArgsConstructor;
@@ -27,12 +26,6 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * v4 改造：双 Mapper 模式（personnelMapper + personnelArchiveMapper）。
- * - 排班字段（avatarColor/currentWorkload/maxWorkload/isOnDuty）走 workorder_maintenance_personnel
- * - 员工档案字段（name/phone/email/specializations/skillLevel/certification）走 maintenance_personnel
- * - 两者通过 user_id 关联 sys_user 形成完整视图
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -43,9 +36,7 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
 
     private final MaintenancePersonnelMapper personnelMapper;
     private final MaintenancePersonnelArchiveMapper archiveMapper;
-    // ★ 批次 2 注入: 用于 create() 自动建账号 (C3) + delete() 联动禁账号 (C4)
     private final SysUserMapper sysUserMapper;
-    private final UserService userService;
 
     @Override
     public Page<MaintenancePersonnelVO> list(PageQuery pageQuery, String specialization,
@@ -56,13 +47,10 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
         );
 
         QueryWrapper<MaintenancePersonnel> wrapper = new QueryWrapper<>();
-        if (StringUtils.hasText(skillLevel)) {
-            wrapper.eq("skill_level", skillLevel.toUpperCase());
-        }
         if (onDuty != null) {
             wrapper.eq("is_on_duty", onDuty);
         }
-        wrapper.orderByAsc("employee_no");
+        wrapper.orderByDesc("created_at");
 
         Page<MaintenancePersonnel> result = personnelMapper.selectPage(page, wrapper);
 
@@ -70,6 +58,8 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
         List<MaintenancePersonnelVO> records = result.getRecords().stream()
                 .map(this::toVO)
                 .filter(vo -> {
+                    if (!StringUtils.hasText(skillLevel) && !StringUtils.hasText(specialization)) return true;
+                    if (StringUtils.hasText(skillLevel) && !skillLevel.equalsIgnoreCase(vo.getSkillLevel())) return false;
                     if (!StringUtils.hasText(specialization)) return true;
                     if (vo.getSpecializations() == null) return false;
                     return vo.getSpecializations().stream()
@@ -92,60 +82,39 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MaintenancePersonnelVO create(MaintenancePersonnelRequest req) {
-        // 唯一性校验
-        Long exist = personnelMapper.selectCount(new QueryWrapper<MaintenancePersonnel>()
-                .eq("employee_no", req.getEmployeeNo()));
-        if (exist != null && exist > 0) {
-            throw new IllegalArgumentException("工号已存在: " + req.getEmployeeNo());
-        }
         LocalDateTime now = LocalDateTime.now();
 
-        // ★ 批次 2 C3 + H1 修复 (2026-06-13): 账号-员工 1:1 完整性
-        //   ① 若 userId 已传 → 校验 sys_user 存在性 (堵无效 FK)
-        //   ② 若 userId 未传 → 自动调 userService.createMaintenanceAccount 建账号
-        //      → 用 employee_no 当 username (必须符合 2026030xxx 格式),初始密码 username@Init
-        //   修复前: userId 任意传值无校验,且不传时永远建不出可登录账号 (幽灵员工)
         Integer userId = req.getUserId();
         if (userId != null) {
             SysUser existing = sysUserMapper.selectById(userId);
             if (existing == null) {
-                throw new IllegalArgumentException("指定的账号不存在: userId=" + userId
-                        + " (H1: 必须先在系统配置中创建账号,或留空让系统自动创建)");
+                throw new IllegalArgumentException("指定的账号不存在: userId=" + userId);
             }
-        } else {
-            userId = userService.createMaintenanceAccount(
-                    req.getEmployeeNo(), req.getName(), req.getPhone(), req.getEmail());
-            log.info("[Personnel] C3 自动建账号 → userId={}, employeeNo={}",
-                    userId, req.getEmployeeNo());
+            if (personnelMapper.selectCount(new QueryWrapper<MaintenancePersonnel>().eq("user_id", userId)) > 0) {
+                throw new IllegalArgumentException("该账号已有排班记录");
+            }
+        }
+        // userId 必须提供（账号已通过人员管理页面创建）
+        if (userId == null) {
+            throw new IllegalArgumentException("必须指定关联的账号 userId");
         }
 
-        // v4: 写排班表（workorder_maintenance_personnel）
         MaintenancePersonnel entity = new MaintenancePersonnel();
-        entity.setEmployeeNo(req.getEmployeeNo());
         entity.setUserId(userId);
-        if (!StringUtils.hasText(req.getAvatarColor())) {
-            entity.setAvatarColor("#52c8ff");
-        } else {
-            entity.setAvatarColor(req.getAvatarColor());
-        }
+        entity.setAvatarColor(StringUtils.hasText(req.getAvatarColor()) ? req.getAvatarColor() : "#52c8ff");
         entity.setCurrentWorkload(0);
         entity.setMaxWorkload(req.getMaxWorkload());
-        if (entity.getIsOnDuty() == null) {
-            entity.setIsOnDuty(true);
-        }
+        entity.setIsOnDuty(true);
         entity.setCreatedAt(now);
         entity.setUpdatedAt(now);
         personnelMapper.insert(entity);
 
-        // v4: 同步写档案表（maintenance_personnel）
-        MaintenancePersonnelArchive archive = upsertArchiveByEmployeeNo(req.getEmployeeNo(),
+        MaintenancePersonnelArchive archive = upsertArchive(userId,
                 req.getName(), req.getPhone(), req.getEmail(),
                 serializeList(req.getSpecializations()),
-                req.getSkillLevel(), req.getCertification(),
-                userId, now);
+                req.getSkillLevel(), req.getCertification(), now);
 
-        log.info("[Personnel] 创建完成: employeeNo={}, name={}, userId={}",
-                entity.getEmployeeNo(), archive.getName(), userId);
+        log.info("[Personnel] 创建完成: userId={}, name={}", userId, archive.getName());
         return toVO(entity);
     }
 
@@ -158,25 +127,19 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
         }
         LocalDateTime now = LocalDateTime.now();
 
-        // employeeNo 不允许修改
         if (StringUtils.hasText(req.getAvatarColor())) {
             entity.setAvatarColor(req.getAvatarColor());
         }
         if (req.getMaxWorkload() != null) {
             entity.setMaxWorkload(req.getMaxWorkload());
         }
-        if (req.getUserId() != null) {
-            entity.setUserId(req.getUserId());
-        }
         entity.setUpdatedAt(now);
         personnelMapper.updateById(entity);
 
-        // 同步写档案表
-        MaintenancePersonnelArchive archive = upsertArchiveByEmployeeNo(entity.getEmployeeNo(),
+        MaintenancePersonnelArchive archive = upsertArchive(entity.getUserId(),
                 req.getName(), req.getPhone(), req.getEmail(),
                 serializeList(req.getSpecializations()),
-                req.getSkillLevel(), req.getCertification(),
-                req.getUserId(), now);
+                req.getSkillLevel(), req.getCertification(), now);
 
         log.info("[Personnel] 更新: id={}, name={}", id, archive.getName());
         return toVO(entity);
@@ -195,32 +158,13 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
             );
         }
 
-        // ★ 批次 2 C4 + M2 合并修复 (2026-06-13): 防幽灵账号 + 防孤儿 assignment
-        //   旧版只 personnelMapper.deleteById(id),sys_user 账号继续可登录 = 幽灵账号
-        //   修复后 3 步:
-        //     1) 先禁用 sys_user 账号 (不物理删,保留审计关联)
-        //     2) 清理 archive 档案 (按 employee_no 关联)
-        //     3) 最后删 workorder_maintenance_personnel 排班
         Integer userId = entity.getUserId();
         if (userId != null) {
-            try {
-                userService.updateStatus(userId, "DISABLED");
-                log.info("[Personnel] C4 联动禁用账号: userId={}", userId);
-            } catch (Exception e) {
-                // 内置管理员或其它特殊账号无法禁用 → 阻止人员删除以保证一致性
-                throw new IllegalStateException("无法禁用关联账号 (userId=" + userId
-                        + "): " + e.getMessage() + " — 请先在系统配置中处理该账号", e);
-            }
+            archiveMapper.delete(new QueryWrapper<MaintenancePersonnelArchive>().eq("user_id", userId));
         }
-        // 清理档案表 (按 employee_no, 因为 archive 与 schedule 通过 employee_no 弱关联)
-        int archiveDeleted = archiveMapper.delete(new QueryWrapper<MaintenancePersonnelArchive>()
-                .eq("employee_no", entity.getEmployeeNo()));
-        log.info("[Personnel] 清理 archive: employeeNo={}, deleted={}",
-                entity.getEmployeeNo(), archiveDeleted);
 
         personnelMapper.deleteById(id);
-        log.info("[Personnel] 删除完成: id={}, employeeNo={}, userId={}",
-                id, entity.getEmployeeNo(), userId);
+        log.info("[Personnel] 删除完成: id={}, userId={}", id, userId);
     }
 
     @Override
@@ -242,19 +186,19 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
         if (entity == null) return null;
         MaintenancePersonnelVO vo = new MaintenancePersonnelVO();
         BeanUtils.copyProperties(entity, vo);
-        // v4: 查 archive 补全员工档案字段
-        MaintenancePersonnelArchive archive = archiveMapper.selectOne(new QueryWrapper<MaintenancePersonnelArchive>()
-                .eq("employee_no", entity.getEmployeeNo()));
-        if (archive != null) {
-            vo.setName(archive.getName());
-            vo.setPhone(archive.getPhone());
-            vo.setEmail(archive.getEmail());
-            vo.setSpecializations(parseList(archive.getSpecializations()));
-            vo.setSkillLevel(archive.getSkillLevel());
-            vo.setCertification(archive.getCertification());
-            vo.setUserId(archive.getUserId());
+        if (entity.getUserId() != null) {
+            MaintenancePersonnelArchive archive = archiveMapper.selectOne(
+                    new QueryWrapper<MaintenancePersonnelArchive>().eq("user_id", entity.getUserId()));
+            if (archive != null) {
+                vo.setName(archive.getName());
+                vo.setPhone(archive.getPhone());
+                vo.setEmail(archive.getEmail());
+                vo.setSpecializations(parseList(archive.getSpecializations()));
+                vo.setSkillLevel(archive.getSkillLevel());
+                vo.setCertification(archive.getCertification());
+                vo.setUserId(archive.getUserId());
+            }
         }
-        // 计算负载率
         if (entity.getMaxWorkload() != null && entity.getMaxWorkload() > 0
                 && entity.getCurrentWorkload() != null) {
             int rate = (int) Math.round(
@@ -267,18 +211,17 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
         return vo;
     }
 
-    /** 同步 upsert archive 表 */
-    private MaintenancePersonnelArchive upsertArchiveByEmployeeNo(String employeeNo, String name,
-                                                                  String phone, String email,
-                                                                  String specializations,
-                                                                  String skillLevel, String certification,
-                                                                  Integer userId, LocalDateTime now) {
-        if (!StringUtils.hasText(employeeNo)) return null;
-        MaintenancePersonnelArchive archive = archiveMapper.selectOne(new QueryWrapper<MaintenancePersonnelArchive>()
-                .eq("employee_no", employeeNo));
+    private MaintenancePersonnelArchive upsertArchive(Integer userId, String name,
+                                                      String phone, String email,
+                                                      String specializations,
+                                                      String skillLevel, String certification,
+                                                      LocalDateTime now) {
+        if (userId == null) return null;
+        MaintenancePersonnelArchive archive = archiveMapper.selectOne(
+                new QueryWrapper<MaintenancePersonnelArchive>().eq("user_id", userId));
         if (archive == null) {
             archive = new MaintenancePersonnelArchive();
-            archive.setEmployeeNo(employeeNo);
+            archive.setUserId(userId);
             archive.setCreatedAt(now);
         }
         if (StringUtils.hasText(name)) archive.setName(name);
@@ -287,7 +230,6 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
         if (specializations != null) archive.setSpecializations(specializations);
         if (StringUtils.hasText(skillLevel)) archive.setSkillLevel(skillLevel);
         if (certification != null) archive.setCertification(certification);
-        if (userId != null) archive.setUserId(userId);
         archive.setUpdatedAt(now);
         if (archive.getId() == null) {
             archiveMapper.insert(archive);
@@ -297,7 +239,6 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
         return archive;
     }
 
-    // ===== JSON 辅助方法 =====
     private static String serializeList(List<String> list) {
         if (list == null) return null;
         try {

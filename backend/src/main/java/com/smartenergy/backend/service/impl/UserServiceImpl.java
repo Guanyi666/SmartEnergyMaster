@@ -98,9 +98,7 @@ public class UserServiceImpl implements UserService {
                 .setPayload("jti", jti)           // 标准: token 唯一 ID, 用于精确撤销
                 .setKey(jwtConfig.getKeyBytes())
                 .sign();
-        if (!loginSessionService.claim(request.getUsername(), token)) {
-            throw new IllegalStateException("该账号当前已在线，不能重复登录");
-        }
+        loginSessionService.claim(request.getUsername(), token);
 
         return LoginVO.builder()
                 .token(token)
@@ -154,7 +152,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public PageVO<UserVO> listUsers(int page, int size, String keyword, String role, String department, String status) {
+    public PageVO<UserVO> listUsers(int page, int size, String keyword, String role, String department) {
         QueryWrapper<SysUser> wrapper = new QueryWrapper<SysUser>().orderByDesc("created_at");
         if (StringUtils.hasText(keyword)) {
             wrapper.and(w -> w.like("username", keyword).or().like("nickname", keyword)
@@ -162,7 +160,6 @@ public class UserServiceImpl implements UserService {
         }
         if (StringUtils.hasText(role)) wrapper.eq("role", role);
         if (StringUtils.hasText(department)) wrapper.eq("department", department);
-        if (StringUtils.hasText(status)) wrapper.eq("status", status);
         Page<SysUser> result = sysUserMapper.selectPage(new Page<>(Math.max(1, page), Math.min(Math.max(1, size), 100)), wrapper);
         PageVO<UserVO> response = new PageVO<>();
         response.setPage((int) result.getCurrent());
@@ -189,7 +186,6 @@ public class UserServiceImpl implements UserService {
         SysUser user = new SysUser();
         copyEditableFields(request, user);
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setStatus("ACTIVE");
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
         sysUserMapper.insert(user);
@@ -225,25 +221,6 @@ public class UserServiceImpl implements UserService {
         syncMaintenanceProfile(user, oldUsername, oldRole, request);
         auditLogService.record("UPDATE", "USER", "SYS_USER", String.valueOf(user.getId()),
                 java.util.Map.of("username", user.getUsername(), "role", user.getRole()));
-        return toVO(user);
-    }
-
-    @Override
-    @Transactional
-    public UserVO updateStatus(Integer id, String status) {
-        if (!"ACTIVE".equals(status) && !"DISABLED".equals(status)) {
-            throw new IllegalArgumentException("状态仅支持 ACTIVE 或 DISABLED");
-        }
-        SysUser user = requireUser(id);
-        if (isBuiltInAdmin(user) && !"ACTIVE".equals(status)) {
-            throw new IllegalArgumentException("内置管理员 " + BUILT_IN_ADMIN_USERNAME + " 必须保持启用状态");
-        }
-        requireAdminForAdminRoleChange(user.getRole(), user.getRole());
-        user.setStatus(status);
-        user.setUpdatedAt(LocalDateTime.now());
-        sysUserMapper.updateById(user);
-        auditLogService.record("STATUS_CHANGE", "USER", "SYS_USER", String.valueOf(user.getId()),
-                java.util.Map.of("username", user.getUsername(), "status", status));
         return toVO(user);
     }
 
@@ -294,9 +271,6 @@ public class UserServiceImpl implements UserService {
         user.setPhone(phone);
         user.setEmail(email);
         user.setDepartment("维修部");
-        user.setStatus("ACTIVE");
-        // 默认初始密码 = username + "@Init",例如 2026030002@Init
-        // 用户首次登录后应通过"账号设置"修改密码
         user.setPassword(passwordEncoder.encode(trimmed + "@Init"));
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
@@ -410,7 +384,6 @@ public class UserServiceImpl implements UserService {
             schedule.setCreatedAt(now);
         }
         schedule.setUserId(user.getId());
-        schedule.setEmployeeNo(username);
         schedule.setAvatarColor(pickAvatarColor(user.getRole()));
         schedule.setIsOnDuty(isMaintenance);
         schedule.setMaxWorkload(isMaintenance ? (profile.getMaxWorkload() == null ? 5 : profile.getMaxWorkload()) : 0);
@@ -427,7 +400,6 @@ public class UserServiceImpl implements UserService {
             archive.setCreatedAt(now);
         }
         archive.setUserId(user.getId());
-        archive.setEmployeeNo(username);
         archive.setName(isMaintenance ? profile.getName()
                 : (StringUtils.hasText(user.getNickname()) ? user.getNickname() : username));
         archive.setPhone(isMaintenance ? profile.getPhone() : user.getPhone());
@@ -462,10 +434,6 @@ public class UserServiceImpl implements UserService {
         if (userId != null) {
             wrapper.eq("user_id", userId);
         }
-        if (StringUtils.hasText(username)) {
-            if (userId != null) wrapper.or();
-            wrapper.eq("employee_no", username);
-        }
         return maintenancePersonnelMapper.selectOne(wrapper);
     }
 
@@ -473,10 +441,6 @@ public class UserServiceImpl implements UserService {
         QueryWrapper<MaintenancePersonnelArchive> wrapper = new QueryWrapper<>();
         if (userId != null) {
             wrapper.eq("user_id", userId);
-        }
-        if (StringUtils.hasText(username)) {
-            if (userId != null) wrapper.or();
-            wrapper.eq("employee_no", username);
         }
         return maintenancePersonnelArchiveMapper.selectOne(wrapper);
     }
@@ -520,8 +484,8 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public PageVO<UserWithPersonnelVO> listUsersWithPersonnel(int page, int size, String keyword,
-                                                              String role, String department, String status,
-                                                              Boolean isMaintenance) {
+                                                               String role, String department,
+                                                               Boolean isMaintenance) {
         Page<SysUser> pageReq = new Page<>(Math.max(1, page), Math.min(Math.max(1, size), 100));
         QueryWrapper<SysUser> wrapper = new QueryWrapper<>();
         if (StringUtils.hasText(keyword)) {
@@ -530,7 +494,6 @@ public class UserServiceImpl implements UserService {
         }
         if (StringUtils.hasText(role)) wrapper.eq("role", role);
         if (StringUtils.hasText(department)) wrapper.eq("department", department);
-        if (StringUtils.hasText(status)) wrapper.eq("status", status);
         wrapper.orderByDesc("created_at");
 
         Page<SysUser> result = sysUserMapper.selectPage(pageReq, wrapper);
@@ -570,14 +533,12 @@ public class UserServiceImpl implements UserService {
             vo.setDepartment(user.getDepartment());
             vo.setPhone(user.getPhone());
             vo.setEmail(user.getEmail());
-            vo.setStatus(user.getStatus());
             vo.setLastLoginAt(user.getLastLoginAt());
             vo.setCreatedAt(user.getCreatedAt());
 
             // 档案
             Map<String, Object> archive = archiveMap.get(user.getId());
             if (archive != null) {
-                vo.setEmployeeNo((String) archive.get("employee_no"));
                 vo.setArchiveName((String) archive.get("name"));
                 vo.setArchivePhone((String) archive.get("phone"));
                 vo.setArchiveEmail((String) archive.get("email"));
@@ -589,6 +550,8 @@ public class UserServiceImpl implements UserService {
             // 排班
             Map<String, Object> schedule = scheduleMap.get(user.getId());
             if (schedule != null) {
+                Object pid = schedule.get("id");
+                vo.setMaintenancePersonnelId(pid == null ? null : ((Number) pid).longValue());
                 vo.setAvatarColor((String) schedule.get("avatar_color"));
                 Object cw = schedule.get("current_workload");
                 Object mw = schedule.get("max_workload");

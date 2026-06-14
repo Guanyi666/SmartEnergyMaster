@@ -28,21 +28,16 @@ public interface UserService {
 
     AccountSettingsVO updateAccountSettings(String username, AccountSettingsRequest request);
 
-    PageVO<UserVO> listUsers(int page, int size, String keyword, String role, String department, String status);
+    PageVO<UserVO> listUsers(int page, int size, String keyword, String role, String department);
 
     UserVO createUser(UserUpsertRequest request);
 
     UserVO updateUser(Integer id, UserUpsertRequest request);
 
-    UserVO updateStatus(Integer id, String status);
-
     void deleteUser(Integer id);
 
-    /**
-     * v6: 人员管理合并列表（sys_user LEFT JOIN maintenance_personnel + workorder_maintenance_personnel）
-     */
     PageVO<UserWithPersonnelVO> listUsersWithPersonnel(int page, int size, String keyword,
-                                                       String role, String department, String status,
+                                                       String role, String department,
                                                        Boolean isMaintenance);
 
     /**

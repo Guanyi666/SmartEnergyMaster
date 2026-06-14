@@ -24,9 +24,6 @@ public class MaintenancePersonnelFullVO {
     @Schema(description = "关联 sys_user.id")
     private Integer userId;
 
-    @Schema(description = "工号")
-    private String employeeNo;
-
     // ===== 来自 maintenance_personnel（员工档案）=====
     @Schema(description = "姓名")
     private String name;

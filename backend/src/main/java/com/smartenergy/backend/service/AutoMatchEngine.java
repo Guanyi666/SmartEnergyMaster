@@ -74,7 +74,7 @@ public class AutoMatchEngine {
 
         // v4: 从 archive 表读 specializations/skillLevel
         MaintenancePersonnelArchive archive = archiveMapper.selectOne(
-                new QueryWrapper<MaintenancePersonnelArchive>().eq("employee_no", p.getEmployeeNo()));
+                new QueryWrapper<MaintenancePersonnelArchive>().eq("user_id", p.getUserId()));
 
         // 2. 技能匹配（specializations 改 String 后先解析）
         int skillBonus = 0;
@@ -115,14 +115,14 @@ public class AutoMatchEngine {
                 .map(p -> {
                     // v4: 从 archive 读档案字段
                     MaintenancePersonnelArchive archive = archiveMapper.selectOne(
-                            new QueryWrapper<MaintenancePersonnelArchive>().eq("employee_no", p.getEmployeeNo()));
+                            new QueryWrapper<MaintenancePersonnelArchive>().eq("user_id", p.getUserId()));
                     String name = archive == null ? null : archive.getName();
                     String specializationsJson = archive == null ? null : archive.getSpecializations();
                     String skillLevel = archive == null ? null : archive.getSkillLevel();
 
                     MatchCandidateVO vo = new MatchCandidateVO();
                     vo.setPersonnelId(p.getId());
-                    vo.setEmployeeNo(p.getEmployeeNo());
+                    vo.setEmployeeNo(String.valueOf(p.getId()));
                     vo.setName(name);
                     vo.setAvatarColor(p.getAvatarColor());
                     vo.setSpecializations(parseSkills(specializationsJson));
@@ -143,7 +143,7 @@ public class AutoMatchEngine {
     private List<String> matchedSkills(MaintenancePersonnel p, List<String> required) {
         if (p == null || required == null) return List.of();
         MaintenancePersonnelArchive archive = archiveMapper.selectOne(
-                new QueryWrapper<MaintenancePersonnelArchive>().eq("employee_no", p.getEmployeeNo()));
+                new QueryWrapper<MaintenancePersonnelArchive>().eq("user_id", p.getUserId()));
         List<String> personSkills = parseSkills(archive == null ? null : archive.getSpecializations());
         if (personSkills.isEmpty()) return List.of();
         List<String> matched = new ArrayList<>();

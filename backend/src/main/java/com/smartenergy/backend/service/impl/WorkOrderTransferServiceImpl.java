@@ -7,6 +7,7 @@ import com.smartenergy.backend.dto.WorkOrderReplaceRequest;
 import com.smartenergy.backend.entity.Device;
 import com.smartenergy.backend.entity.MaintenancePersonnel;
 import com.smartenergy.backend.entity.MaintenancePersonnelArchive;
+import com.smartenergy.backend.entity.SysUser;
 import com.smartenergy.backend.entity.WorkOrder;
 import com.smartenergy.backend.entity.WorkOrderAssignment;
 import com.smartenergy.backend.entity.WorkOrderTransferRequest;
@@ -15,6 +16,7 @@ import com.smartenergy.backend.mapper.MaintenancePersonnelArchiveMapper;
 import com.smartenergy.backend.mapper.MaintenancePersonnelMapper;
 import com.smartenergy.backend.mapper.WorkOrderAssignmentMapper;
 import com.smartenergy.backend.mapper.WorkOrderMapper;
+import com.smartenergy.backend.mapper.SysUserMapper;
 import com.smartenergy.backend.mapper.WorkOrderTransferRequestMapper;
 import com.smartenergy.backend.service.WorkOrderAssignmentService;
 import com.smartenergy.backend.service.WorkOrderTransferService;
@@ -40,6 +42,7 @@ public class WorkOrderTransferServiceImpl implements WorkOrderTransferService {
     private final MaintenancePersonnelMapper personnelMapper;
     private final MaintenancePersonnelArchiveMapper archiveMapper;
     private final DeviceMapper deviceMapper;
+    private final SysUserMapper sysUserMapper;
     private final WorkOrderAssignmentService assignmentService;
 
     @Override
@@ -139,8 +142,9 @@ public class WorkOrderTransferServiceImpl implements WorkOrderTransferService {
 
     private MaintenancePersonnel requireCurrentPersonnel() {
         String username = currentAuthentication().getName();
-        MaintenancePersonnel personnel = personnelMapper.selectOne(
-                new QueryWrapper<MaintenancePersonnel>().eq("employee_no", username));
+        SysUser sysUser = sysUserMapper.selectOne(new QueryWrapper<SysUser>().eq("username", username));
+        MaintenancePersonnel personnel = sysUser == null ? null : personnelMapper.selectOne(
+                new QueryWrapper<MaintenancePersonnel>().eq("user_id", sysUser.getId()));
         if (personnel == null) {
             throw new IllegalStateException("当前账号未关联维修人员档案");
         }
@@ -170,7 +174,7 @@ public class WorkOrderTransferServiceImpl implements WorkOrderTransferService {
         }
         MaintenancePersonnel requester = personnelMapper.selectById(entity.getRequesterPersonnelId());
         if (requester != null) {
-            vo.setRequesterEmployeeNo(requester.getEmployeeNo());
+            vo.setRequesterEmployeeNo(null);
             vo.setRequesterName(nameOf(requester));
         }
         if (entity.getNewPersonnelId() != null) {
@@ -186,7 +190,7 @@ public class WorkOrderTransferServiceImpl implements WorkOrderTransferService {
     private String nameOf(MaintenancePersonnel p) {
         if (p == null) return null;
         MaintenancePersonnelArchive archive = archiveMapper.selectOne(
-                new QueryWrapper<MaintenancePersonnelArchive>().eq("employee_no", p.getEmployeeNo()));
+                new QueryWrapper<MaintenancePersonnelArchive>().eq("user_id", p.getUserId()));
         return archive == null ? null : archive.getName();
     }
 }

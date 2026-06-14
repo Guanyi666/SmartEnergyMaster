@@ -35,7 +35,6 @@ public class SysUser {
     private String phone;
     private String email;
     private String avatarUrl;
-    private String status;
     private LocalDateTime lastLoginAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

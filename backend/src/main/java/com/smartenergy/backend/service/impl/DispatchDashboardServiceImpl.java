@@ -82,7 +82,7 @@ public class DispatchDashboardServiceImpl implements DispatchDashboardService {
             for (MaintenancePersonnel p : allOnDuty) {
                 // v4: specializations 在 maintenance_personnel 表
                 MaintenancePersonnelArchive archive = archiveMapper.selectOne(
-                        new QueryWrapper<MaintenancePersonnelArchive>().eq("employee_no", p.getEmployeeNo()));
+                        new QueryWrapper<MaintenancePersonnelArchive>().eq("user_id", p.getUserId()));
                 String specsJson = archive == null ? null : archive.getSpecializations();
                 List<String> skills = parseSpecializations(specsJson);
                 for (String s : skills) {
@@ -115,7 +115,7 @@ public class DispatchDashboardServiceImpl implements DispatchDashboardService {
         // 这里只按 employee_no 排，技能等级排序在应用层按 KNOWN_SKILLS 顺序分组自然实现）
         List<MaintenancePersonnel> all = personnelMapper.selectList(
                 new QueryWrapper<MaintenancePersonnel>().eq("is_on_duty", true)
-                        .orderByAsc("employee_no"));
+                        .orderByAsc("user_id"));
 
         // 按技能分组
         Map<String, List<MaintenancePersonnel>> grouped = new LinkedHashMap<>();
@@ -125,7 +125,7 @@ public class DispatchDashboardServiceImpl implements DispatchDashboardService {
         for (MaintenancePersonnel p : all) {
             // v4: 从 archive 读 specializations
             MaintenancePersonnelArchive archive = archiveMapper.selectOne(
-                    new QueryWrapper<MaintenancePersonnelArchive>().eq("employee_no", p.getEmployeeNo()));
+                    new QueryWrapper<MaintenancePersonnelArchive>().eq("user_id", p.getUserId()));
             String specsJson = archive == null ? null : archive.getSpecializations();
             List<String> skills = parseSpecializations(specsJson);
             for (String s : skills) {

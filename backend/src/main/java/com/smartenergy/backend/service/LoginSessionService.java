@@ -18,13 +18,15 @@ public class LoginSessionService {
 
     private final StringRedisTemplate redisTemplate;
 
-    public boolean claim(String username, String token) {
+    /**
+     * v7 改造：新登录强制踢掉旧会话（SET 覆盖而非 SETNX 拒绝）。
+     * 每次登录都无条件写入新 token，旧 token 自然失效。
+     */
+    public void claim(String username, String token) {
         try {
-            Boolean claimed = redisTemplate.opsForValue()
-                    .setIfAbsent(key(username), token, SESSION_TTL);
-            return Boolean.TRUE.equals(claimed);
+            redisTemplate.opsForValue().set(key(username), token, SESSION_TTL);
         } catch (Exception exception) {
-            log.error("登录会话互斥检查失败 username={}: {}", username, exception.getMessage());
+            log.error("登录会话创建失败 username={}: {}", username, exception.getMessage());
             throw new IllegalStateException("登录会话服务暂不可用，请稍后重试");
         }
     }

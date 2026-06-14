@@ -360,7 +360,7 @@ public class WorkOrderAssignmentServiceImpl implements WorkOrderAssignmentServic
     private String nameOf(MaintenancePersonnel p) {
         if (p == null) return null;
         MaintenancePersonnelArchive archive = archiveMapper.selectOne(
-                new QueryWrapper<MaintenancePersonnelArchive>().eq("employee_no", p.getEmployeeNo()));
+                new QueryWrapper<MaintenancePersonnelArchive>().eq("user_id", p.getUserId()));
         return archive == null ? null : archive.getName();
     }
 }
