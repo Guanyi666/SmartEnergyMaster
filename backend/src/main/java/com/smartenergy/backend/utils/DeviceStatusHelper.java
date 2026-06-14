@@ -4,6 +4,7 @@ import com.smartenergy.backend.entity.SensorData;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
+import java.util.Locale;
 
 public final class DeviceStatusHelper {
 
@@ -21,7 +22,7 @@ public final class DeviceStatusHelper {
             return "FAULT";
         }
         if (StringUtils.hasText(currentStatus) && ("MAINTENANCE".equalsIgnoreCase(currentStatus) || "FAULT".equalsIgnoreCase(currentStatus))) {
-            return currentStatus.toUpperCase();
+            return currentStatus.toUpperCase(Locale.ROOT);
         }
         return statusFromOperating(latestData.getOperatingStatus());
     }

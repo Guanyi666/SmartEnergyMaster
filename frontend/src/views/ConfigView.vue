@@ -12,11 +12,11 @@ const alertRows = reactive([
   { type: '除尘系统', temperature: 90, vibration: 10, pressure: 50, enabled: false }
 ])
 const prices = reactive([
-  { name: '尖峰', range: '10:00-12:00 / 18:00-20:00', price: 1.28 },
-  { name: '峰', range: '08:00-10:00 / 12:00-18:00', price: .96 },
-  { name: '平', range: '06:00-08:00 / 20:00-24:00', price: .62 },
-  { name: '谷', range: '00:00-06:00', price: .34 },
-  { name: '深谷', range: '01:00-05:00（节假日）', price: .22 }
+  { name: '尖峰', range: '7-8月19:00-21:00 / 1/12月18:00-20:00', price: 1.25 },
+  { name: '峰', range: '08:00-11:00 / 18:00-23:00', price: 0.95 },
+  { name: '平', range: '06:00-08:00 / 11:00-18:00', price: 0.60 },
+  { name: '谷', range: '23:00-次日06:00', price: 0.32 },
+  { name: '深谷', range: '节假日 00:00-06:00', price: 0.22 }
 ])
 const llm = reactive({ apiKey: '', model: 'qwen-plus', timeout: 30 })
 const retention = reactive({ sensorDays: 365, auditDays: 730, workOrderDays: 1825, autoArchive: true })

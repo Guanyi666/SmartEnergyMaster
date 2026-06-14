@@ -88,8 +88,8 @@ const runRate = computed(() =>
 const metrics = computed(() => {
   const s = props.summary || {}
   return [
-    { key: 'power',  label: '总耗电',  value: Number(s.totalUsageKwh || 0).toFixed(0), unit: 'kWh' },
-    { key: 'water',  label: '总耗水',  value: Math.round(Number(s.totalUsageKwh || 0) * 6.5), unit: 'm³' },
+    { key: 'power',  label: '总负荷',  value: (Number(s.totalUsageKwh || 0) / 1000).toFixed(1), unit: 'MW' },
+    { key: 'carbon', label: '累计碳排放', value: Number(s.totalCo2Emission || 0).toFixed(1), unit: 'tCO2' },
     { key: 'total',  label: '总设备',  value: props.devices.length, unit: '台' },
     { key: 'run',    label: '运行率',  value: runRate.value, unit: '%' }
   ]
@@ -99,8 +99,8 @@ const metrics = computed(() => {
 const bars = computed(() => {
   const s = props.summary || {}
   return [
-    { label: '电力负载 POWER',  value: Math.min(100, Math.round(Number(s.totalUsageKwh || 0) / 30)) },
-    { label: '水资源 WATER',    value: Math.min(100, Math.round(Number(s.totalUsageKwh || 0) / 50)) }
+    { label: '全厂负载 PLANT', value: Math.min(100, Math.round(Number(s.totalUsageKwh || 0) / 680)) },
+    { label: '碳排强度 CO2/kg', value: Math.min(100, Math.round(Number(s.carbonIntensity || 0) * 1000)) }
   ]
 })
 

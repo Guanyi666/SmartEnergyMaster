@@ -54,7 +54,7 @@ def evaluate(model, loader, target_scaler, device):
 
 def main():
     set_seed(C.SEED)
-    device = torch.device("cpu")
+    device = torch.device("cuda")
     C.ARTIFACT_DIR.mkdir(exist_ok=True)
 
     # 1. 数据准备 + 切分
@@ -131,12 +131,14 @@ def main():
     # 6. MC Dropout + 共形校准的不确定性
     inv = lambda a: target_scaler.inverse_transform(a.reshape(-1, 1)).reshape(a.shape)
     # 6a. 验证集上校准共形系数 q（使 95% 区间真覆盖 95%）
-    val_mean, val_std = U.mc_kwh(model, torch.from_numpy(Xva_d), torch.from_numpy(Xva_f),
+    val_mean, val_std = U.mc_kwh(model, torch.from_numpy(Xva_d).float().to(device),
+                                 torch.from_numpy(Xva_f).float().to(device),
                                  target_scaler, C.MC_SAMPLES)
     yva_kwh = inv(yva)
     q = U.calibrate(yva_kwh, val_mean, val_std, alpha=0.05)
     # 6b. 测试集上验证校准前后的覆盖率与平均区间宽度
-    test_mean, test_std = U.mc_kwh(model, torch.from_numpy(Xte_d), torch.from_numpy(Xte_f),
+    test_mean, test_std = U.mc_kwh(model, torch.from_numpy(Xte_d).float().to(device),
+                                   torch.from_numpy(Xte_f).float().to(device),
                                    target_scaler, C.MC_SAMPLES)
     lo_raw, hi_raw = U.interval(test_mean, test_std, C.CI_Z, floor=0.0)
     lo_cal, hi_cal = U.interval(test_mean, test_std, q, floor=0.0)

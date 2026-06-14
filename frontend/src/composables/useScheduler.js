@@ -2,10 +2,12 @@ import { computed, readonly, shallowRef } from 'vue'
 import { getDashboardSummary, getDevices, getForecast, getSensorHistory } from '../api'
 
 const tierByHour = (hour) => {
-  if ([10, 11, 18, 19].includes(hour)) return { tier: '尖峰', price: 1.28, color: '#ff5d5d' }
-  if ([8, 9, 12, 13, 14, 15, 16, 17, 20, 21].includes(hour)) return { tier: '峰', price: 0.96, color: '#ffb347' }
-  if ([0, 1, 2, 3, 4, 5].includes(hour)) return { tier: '谷', price: 0.34, color: '#3bff9f' }
-  return { tier: '平', price: 0.62, color: '#52c8ff' }
+  // 陕西省大工业电价 1-10kV（2024-2025）
+  if ((hour >= 19 && hour < 21) || (hour >= 18 && hour < 20)) return { tier: '尖峰', price: 1.25, color: '#ff5d5d' }
+  if (hour >= 23 || hour < 6) return { tier: '谷', price: 0.32, color: '#3bff9f' }
+  if ((hour >= 8 && hour < 11) || (hour >= 18 && hour < 23)) return { tier: '峰', price: 0.95, color: '#ffb347' }
+  if (hour >= 6 && hour < 8 || hour >= 11 && hour < 18) return { tier: '平', price: 0.60, color: '#52c8ff' }
+  return { tier: '平', price: 0.60, color: '#52c8ff' }
 }
 
 export function useScheduler() {
