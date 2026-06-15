@@ -1,4 +1,9 @@
-const BASE_URL = 'http://10.31.16.190:8080/api'
+const DEFAULT_BASE_URL = 'http://10.31.16.190:8080/api'
+
+const getBaseUrl = () => {
+  const cachedUrl = uni.getStorageSync('dev_api_url')
+  return cachedUrl || DEFAULT_BASE_URL
+}
 
 const request = (options) => {
   const token = uni.getStorageSync('token')
@@ -13,7 +18,7 @@ const request = (options) => {
 
   return new Promise((resolve, reject) => {
     uni.request({
-      url: BASE_URL + options.url,
+      url: getBaseUrl() + options.url,
       method: options.method || 'GET',
       data: options.data || {},
       header: { ...header, ...options.header },

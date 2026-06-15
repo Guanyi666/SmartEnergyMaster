@@ -1,13 +1,14 @@
 <template>
   <view class="login-page">
     <view class="login-container">
-      <!-- Logo & Branding -->
+      <!-- Logo & Branding (tap 5x for dev menu) -->
       <view class="brand-section">
-        <view class="logo-icon">
+        <view class="logo-icon" @click="handleLogoTap">
           <text class="logo-text">⚡</text>
         </view>
         <text class="app-name">智驭能效</text>
         <text class="app-subtitle">SmartEnergyMaster · 智能能源管理平台</text>
+        <text v-if="tapCount > 0 && tapCount < 5" class="tap-hint">再点击 {{ 5 - tapCount }} 次进入开发者菜单</text>
       </view>
 
       <!-- Login Form -->
@@ -55,6 +56,53 @@ import { post } from '@/utils/request'
 const username = ref('')
 const password = ref('')
 const loading = ref(false)
+
+// --- Dev menu easter egg ---
+const tapCount = ref(0)
+let tapTimer = null
+
+const handleLogoTap = () => {
+  tapCount.value++
+  if (tapTimer) clearTimeout(tapTimer)
+  if (tapCount.value >= 5) {
+    tapCount.value = 0
+    showDevMenu()
+  } else {
+    tapTimer = setTimeout(() => { tapCount.value = 0 }, 3000)
+  }
+}
+
+const showDevMenu = () => {
+  const currentUrl = uni.getStorageSync('dev_api_url') || 'http://10.31.16.190:8080/api'
+  uni.showModal({
+    title: '开发者菜单',
+    content: `当前 API 地址:\n${currentUrl}\n\n点击"确定"输入新的 API 地址`,
+    cancelText: '取消',
+    confirmText: '更换地址',
+    success: (res) => {
+      if (res.confirm) {
+        uni.showModal({
+          title: '修改 API 地址',
+          content: currentUrl,
+          editable: true,
+          placeholderText: 'http://192.168.x.x:8080/api',
+          cancelText: '重置默认',
+          confirmText: '确定',
+          success: (res2) => {
+            if (res2.confirm && res2.content) {
+              const trimmed = res2.content.trim()
+              uni.setStorageSync('dev_api_url', trimmed)
+              uni.showToast({ title: '已更新: ' + trimmed, icon: 'success', duration: 3000 })
+            } else if (res2.cancel) {
+              uni.removeStorageSync('dev_api_url')
+              uni.showToast({ title: '已重置为默认地址', icon: 'success' })
+            }
+          },
+        })
+      }
+    },
+  })
+}
 
 const handleLogin = () => {
   if (!username.value.trim()) {
@@ -138,6 +186,13 @@ const handleLogin = () => {
   font-size: 24rpx;
   color: #8b949e;
   letter-spacing: 2rpx;
+}
+
+.tap-hint {
+  font-size: 20rpx;
+  color: #f0a500;
+  margin-top: 16rpx;
+  opacity: 0.7;
 }
 
 /* Form */
