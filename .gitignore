@@ -21,6 +21,7 @@ Thumbs.db
 *.log
 
 requirement/
+team-db.sql
 
 # 4. 前端：Vue / Node.js (针对 frontend/ 目录)
 node_modules/
