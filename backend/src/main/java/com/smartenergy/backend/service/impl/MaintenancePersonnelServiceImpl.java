@@ -47,6 +47,7 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
         );
 
         QueryWrapper<MaintenancePersonnel> wrapper = new QueryWrapper<>();
+        wrapper.inSql("user_id", "SELECT id FROM sys_user WHERE role = 'MAINTENANCE_ENGINEER'");
         if (onDuty != null) {
             wrapper.eq("is_on_duty", onDuty);
         }

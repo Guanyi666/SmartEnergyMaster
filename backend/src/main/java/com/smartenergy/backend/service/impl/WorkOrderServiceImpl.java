@@ -1,6 +1,7 @@
 package com.smartenergy.backend.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.smartenergy.backend.dto.WorkOrderCreateRequest;
 import com.smartenergy.backend.dto.WorkOrderStatusRequest;
 import com.smartenergy.backend.entity.*;
@@ -130,10 +131,12 @@ public class WorkOrderServiceImpl implements WorkOrderService {
         if (workOrder == null) {
             throw new IllegalArgumentException("工单不存在: id=" + workOrderId);
         }
-        // null 或空白串都视为清空（与原 updateStatus assignee 分支语义一致）
-        workOrder.setAssignee(StringUtils.hasText(assignee) ? assignee : null);
-        workOrder.setUpdatedAt(LocalDateTime.now());
-        workOrderMapper.updateById(workOrder);
+        String targetAssignee = StringUtils.hasText(assignee) ? assignee : null;
+        workOrderMapper.update(null,
+                new LambdaUpdateWrapper<WorkOrder>()
+                        .eq(WorkOrder::getId, workOrderId)
+                        .set(WorkOrder::getAssignee, targetAssignee)
+                        .set(WorkOrder::getUpdatedAt, LocalDateTime.now()));
     }
 
     @Override

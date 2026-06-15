@@ -5,7 +5,7 @@ spring:
   application:
     name: smart-energy-backend
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/smart_energy}
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/smart_energy}
     username: ${DB_USERNAME:energy_user}
     password: ${DB_PASSWORD:energy_password}
     driver-class-name: org.postgresql.Driver

@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-energy_password}
       POSTGRES_DB: ${DB_NAME:-smart_energy}
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "${DB_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./init-sql/01_init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
