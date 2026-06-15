@@ -19,6 +19,9 @@ public class MaintenancePersonnelVO {
     @Schema(description = "姓名")
     private String name;
 
+    @Schema(description = "工号")
+    private String employeeNo;
+
     @Schema(description = "联系电话")
     private String phone;
 

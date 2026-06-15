@@ -188,6 +188,7 @@ public class MaintenancePersonnelServiceImpl implements MaintenancePersonnelServ
         MaintenancePersonnelVO vo = new MaintenancePersonnelVO();
         BeanUtils.copyProperties(entity, vo);
         if (entity.getUserId() != null) {
+            vo.setEmployeeNo(String.valueOf(entity.getUserId()));
             MaintenancePersonnelArchive archive = archiveMapper.selectOne(
                     new QueryWrapper<MaintenancePersonnelArchive>().eq("user_id", entity.getUserId()));
             if (archive != null) {
