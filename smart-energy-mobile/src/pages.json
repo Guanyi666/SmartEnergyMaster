@@ -43,6 +43,14 @@
       }
     },
     {
+      "path": "pages/workorder/create",
+      "style": {
+        "navigationBarTitleText": "手工报修",
+        "navigationStyle": "custom",
+        "backgroundColor": "#0d1117"
+      }
+    },
+    {
       "path": "pages/profile/settings",
       "style": {
         "navigationBarTitleText": "账号设置",

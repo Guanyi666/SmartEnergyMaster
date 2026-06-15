@@ -1,4 +1,4 @@
-const BASE_URL = 'http://192.168.31.246:8080/api'
+const BASE_URL = 'http://10.31.16.190:8080/api'
 
 const request = (options) => {
   const token = uni.getStorageSync('token')

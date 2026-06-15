@@ -167,8 +167,8 @@
           <view class="loading-row"><text class="loading-sub">正在匹配 SOP...</text></view>
         </view>
 
-        <!-- Spare Parts Application -->
-        <view v-if="requiredParts.length && matchedSop" class="info-card parts-card">
+        <!-- Spare Parts Application (active orders only) -->
+        <view v-if="order.status !== 'RESOLVED' && requiredParts.length && matchedSop" class="info-card parts-card">
           <text class="card-title">配件申请</text>
           <text class="parts-desc">选择需要申请的备件数量</text>
 
@@ -184,16 +184,32 @@
             </view>
           </view>
 
-          <button
-            class="submit-parts-btn"
-            @click="handleSubmitParts"
-            :disabled="partsSubmitting || totalPartsQty === 0"
-          >
+          <button class="submit-parts-btn" @click="handleSubmitParts" :disabled="partsSubmitting || totalPartsQty === 0">
             {{ partsSubmitting ? '提交中...' : `提交配件申请 (${totalPartsQty} 件)` }}
           </button>
 
           <view v-if="partsSubmitted" class="parts-success">
             <text class="success-text">✅ 配件申请已提交</text>
+          </view>
+        </view>
+
+        <!-- Spare Parts Usage History (resolved orders — read only) -->
+        <view v-if="order.status === 'RESOLVED'" class="info-card parts-history-card">
+          <text class="card-title">配件消耗记录</text>
+          <view v-if="partsUsage.length > 0">
+            <view v-for="(u, i) in partsUsage" :key="i" class="usage-row">
+              <view class="usage-info">
+                <text class="usage-name">{{ u.partName || u.partCode }}</text>
+                <text class="usage-code">{{ u.partCode }}</text>
+              </view>
+              <view class="usage-meta">
+                <text class="usage-qty">×{{ u.quantity }}</text>
+                <text class="usage-time">{{ formatTime(u.usedAt) }}</text>
+              </view>
+            </view>
+          </view>
+          <view v-else class="usage-empty">
+            <text class="usage-empty-text">无配件消耗记录</text>
           </view>
         </view>
 
@@ -353,7 +369,8 @@ const sopAccepting = ref(false)
 const partRequests = ref([])
 const partsSubmitting = ref(false)
 const partsSubmitted = ref(false)
-const sparePartsMap = ref({}) // code → numeric ID mapping from spare-parts API
+const sparePartsMap = ref({})
+const partsUsage = ref([]) // historical usage for resolved orders
 
 // Similar Cases
 const similarCases = ref([])
@@ -401,6 +418,7 @@ function fetchAll() {
       fetchMatchedSOP()
       fetchSimilarCases()
       fetchSparePartsMap()
+      fetchPartsUsage()
     })
     .catch((err) => {
       uni.showToast({ title: '加载详情失败', icon: 'none' })
@@ -501,6 +519,16 @@ const fetchSparePartsMap = () => {
       })
     })
     .catch(() => { /* non-critical, parts submission will validate */ })
+}
+
+// Fetch historical parts usage for resolved orders
+const fetchPartsUsage = () => {
+  if (order.value.status !== 'RESOLVED') return
+  get('/spare-parts/usage', { workOrderId: orderId.value, limit: 100 })
+    .then((data) => {
+      partsUsage.value = data || []
+    })
+    .catch(() => { /* usage history is non-critical */ })
 }
 
 const totalPartsQty = computed(() => partRequests.value.reduce((s, p) => s + p.quantity, 0))
@@ -863,6 +891,19 @@ const formatTime = (t) => {
 .submit-parts-btn[disabled] { opacity: 0.6; }
 .parts-success { text-align: center; padding: 16rpx 0 0; }
 .success-text { font-size: 24rpx; color: #2ec4b6; }
+
+/* Parts History (read-only) */
+.parts-history-card { border-color: rgba(46, 196, 182, 0.15); }
+.usage-row { display: flex; align-items: center; justify-content: space-between; padding: 16rpx 0; border-bottom: 1rpx solid #21262d; }
+.usage-row:last-child { border-bottom: none; }
+.usage-info { flex: 1; }
+.usage-name { font-size: 26rpx; color: #c9d1d9; display: block; }
+.usage-code { font-size: 20rpx; color: #484f58; font-family: monospace; }
+.usage-meta { text-align: right; }
+.usage-qty { font-size: 28rpx; font-weight: 700; color: #e6edf3; margin-right: 20rpx; }
+.usage-time { font-size: 22rpx; color: #6b7280; display: block; }
+.usage-empty { text-align: center; padding: 24rpx 0; }
+.usage-empty-text { font-size: 24rpx; color: #6b7280; }
 
 /* Trends */
 .trends-card { border-color: rgba(255,159,67,0.2); }

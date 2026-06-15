@@ -398,7 +398,7 @@ const handleScanCode = () => {
 }
 
 const handleCreateOrder = () => {
-  uni.showToast({ title: '报修页面开发中', icon: 'none' })
+  uni.navigateTo({ url: '/pages/workorder/create' })
 }
 
 const handleViewOrder = (order) => {
