@@ -1,374 +1,368 @@
 <template>
-  <div class="page-shell">
-    <div class="page-header">
-      <div>
-        <h2 class="page-title">实时监控指挥大屏</h2>
-        <p class="page-subtitle">页面每 5 秒自动刷新一次，切回浏览器标签页时也会立即同步最新数据。</p>
-      </div>
-      <el-select v-model="focusDeviceCode" style="width: 220px" @change="refreshNow">
-        <el-option v-for="device in devices" :key="device.id" :label="device.deviceName" :value="device.deviceCode" />
-      </el-select>
-    </div>
+  <!--
+    ★★★★★  严格 HUD 覆盖层骨架  ★★★★★
+    ─ <DashboardHero3D> 3D 画布:absolute inset:0 z:1, 完全保留不动
+    ─ .hud-overlay 全屏覆盖层 (z:10 pointer-events:none flex space-between)
+        ├─ .hud-panel.is-left  400px (pointer-events:auto)
+        └─ .hud-panel.is-right 400px (pointer-events:auto)
+    ─ .hud-header 顶 80px 绝对定位 (pointer-events:auto)
+    ─ .hud-bottom-bar 底中央绝对定位 (pointer-events:auto)
+  -->
+  <div ref="rootRef" class="dashboard-twin">
+    <!-- ████ ① 3D 画布 (Three.js, 字节级保留) ████ -->
+    <DashboardHero3D
+      ref="heroRef"
+      :devices="devices"
+      :alerts="alerts"
+      :highlight-device-id="highlightDeviceId"
+      @device-click="onDeviceClick"
+      @ready="onHeroReady"
+    />
 
-    <div class="grid-three">
-      <MetricCard label="全厂总有功功率" :value="formatNumber(summary.totalUsageKwh)" unit="千瓦时" note="当前接入设备聚合值" color="#52c8ff" />
-      <MetricCard label="当前累计碳排放" :value="formatNumber(summary.totalCo2Emission)" unit="吨二氧化碳" note="按实时采集数据估算" color="#3bff9f" />
-      <MetricCard label="当前电价区间" :value="priceMeta.label" note="根据焦点设备当前时段自动切换" :color="priceMeta.color" />
-    </div>
+    <!-- ████ ② 顶部 Header (绝对定位最上方) ████ -->
+    <HudHeader
+      :summary="summary"
+      :devices="devices"
+      :alert-count="alerts.length"
+    />
 
-    <div class="section-spacer">
-      <AlertTicker :alerts="alerts" />
-    </div>
+    <!-- ████ ③ HUD 全屏覆盖层 (鼠标穿透 + 内含左右两个浮岛) ████ -->
+    <div class="hud-overlay">
+      <HudLeftPanel
+        class="hud-panel is-left"
+        data-hud="left"
+        :summary="summary"
+        :devices="devices"
+        :alerts="alerts"
+      />
 
-    <div class="grid-two section-spacer">
-      <div class="glass-panel chart-panel">
-        <div class="panel-header">
-          <div>
-            <h3 class="card-title">{{ focusDevice?.deviceName || '1号电弧炉' }} 实时仪表</h3>
-            <p class="muted">温度与压力会随着后端实时数据自动跳动。</p>
-          </div>
-          <StatusPill :status="focusDevice?.status" />
-        </div>
-        <div class="gauge-grid">
-          <GaugeChart :value="Number(latestData.temperature || 0)" title="温度" unit="°C" :max="1400" color="#ff9f43" />
-          <GaugeChart :value="Number(latestData.pressure || 0)" title="压力" unit="千帕" :max="220" color="#52c8ff" />
-        </div>
-      </div>
-
-      <div class="glass-panel side-panel">
-        <h3 class="card-title">智能调度建议</h3>
-        <div class="advice-card" :class="`advice-${(summary.dispatchAdvice?.level || 'INFO').toLowerCase()}`">
-          <strong>{{ summary.dispatchAdvice?.title || '暂无建议' }}</strong>
-          <p>{{ summary.dispatchAdvice?.content || '等待实时数据接入。' }}</p>
-          <div v-if="summary.dispatchAdvice?.suggestedAction" class="advice-meta">
-            <div><span>建议动作</span><strong>{{ summary.dispatchAdvice.suggestedAction }}</strong></div>
-            <div><span>预估收益</span><strong>{{ summary.dispatchAdvice.estimatedSaving }}</strong></div>
-          </div>
-          <div v-if="summary.dispatchAdvice && summary.dispatchAdvice.level !== 'INFO'" class="advice-actions">
-            <el-button type="success" size="small" @click="decideAdvice('CONFIRM')">采纳建议</el-button>
-            <el-button size="small" @click="decideAdvice('REJECT')">忽略本次</el-button>
-          </div>
-        </div>
-
-        <h3 class="card-title section-title">未来能耗预测</h3>
-        <div class="forecast-card">
-          <div class="forecast-chips">
-            <div v-for="point in summary.forecast || []" :key="point.minutesAhead" class="forecast-chip">
-              <span>{{ point.minutesAhead }} 分钟后</span>
-              <strong>{{ point.mean?.toFixed(2) }} 千瓦时</strong>
-              <em>[{{ point.lower?.toFixed(1) }} ~ {{ point.upper?.toFixed(1) }}]</em>
-            </div>
-            <div v-if="!(summary.forecast || []).length" class="muted">预测服务暂未就绪。</div>
-          </div>
-          <ForecastChart v-if="(summary.forecast || []).length" :history="forecastHistory"
-            :forecast="summary.forecast" :height="150" :history-shown="12" compact />
-        </div>
-
-        <h3 class="card-title section-title">待处理维修工单</h3>
-        <div class="order-list">
-          <div v-for="order in alerts.slice(0, 4)" :key="order.id" class="order-item">
-            <div>
-              <strong>{{ order.title }}</strong>
-              <p>{{ order.deviceName }} / {{ order.assignee }}</p>
-            </div>
-            <div class="order-actions">
-              <el-button v-if="order.status === 'PENDING'" size="small" @click="changeOrderStatus(order, 'IN_PROGRESS')">确认处理</el-button>
-              <el-button v-if="order.status !== 'RESOLVED'" type="success" size="small" @click="changeOrderStatus(order, 'RESOLVED')">已修复</el-button>
-            </div>
-          </div>
-          <div v-if="!alerts.length" class="muted">当前没有待处理工单。</div>
-        </div>
+      <!--
+        ★★★ 右侧动态插槽 ★★★
+          外层 .right-panel 提供固定 400px 宽度约束,内部 <transition> 不渲染
+          包裹元素,所以两个互斥组件必须共用这个 400px 父容器才能保证宽度一致
+          (Vue <transition> 默认不渲染 DOM 节点,直接挂载子组件到父级)
+          activeDevice === null  → 渲染 HudRightPanel (重点设备/AI预测/状态矩阵 三模块)
+          activeDevice !== null  → 渲染 DeviceFloatCard (设备详情面板)
+      -->
+      <div class="right-panel">
+        <transition name="right-swap" mode="out-in">
+          <HudRightPanel
+            v-if="activeDevice === null"
+            key="overview"
+            class="hud-panel is-right"
+            data-hud="right"
+            :devices="devices"
+            :focus-code="focusDeviceCode"
+            :summary="summary"
+            :forecast="summary.forecast || []"
+            :advice="summary.dispatchAdvice"
+            :advice-decided="currentAdviceDecision"
+            @select="onDeviceSelect"
+            @decide="decideAdvice"
+          />
+          <DeviceFloatCard
+            v-else
+            key="detail"
+            class="hud-panel is-right right-detail"
+            data-hud="right-detail"
+            :device="activeDevice"
+            @close="closeActiveDevice"
+            @view-detail="openFullDetail"
+          />
+        </transition>
       </div>
     </div>
 
-    <div class="glass-panel section-spacer device-strip">
-      <div class="device-strip-head">
-        <h3 class="card-title">设备状态总览</h3>
-        <span class="muted">支持运行中、停机、离线、故障待处理、维修中等状态</span>
-      </div>
-      <div class="device-strip-grid">
-        <div v-for="device in devices" :key="device.id" class="device-tile" @click="openDeviceDetail(device)">
-          <div class="tile-top">
-            <strong>{{ device.deviceName }}</strong>
-            <StatusPill :status="device.status" />
-          </div>
-          <p>{{ device.location || '未配置位置' }} / {{ device.maintainer || '待分配' }}</p>
-          <div class="tile-metrics">
-            <span>功率 {{ formatNumber(device.usageKwh) }}</span>
-            <span>温度 {{ formatNumber(device.temperature) }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- ████ ④ 底部设备切换条 ████ -->
+    <HudBottomNav
+      :devices="devices"
+      :focus-code="focusDeviceCode"
+      @select="onDeviceSelect"
+    />
 
+    <!-- ████ 设备完整详情弹窗 (由详情面板"完整详情 →"按钮触发) ████ -->
     <DeviceDetailDialog v-model="detailVisible" :device="detailDevice" />
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
-import MetricCard from '../components/MetricCard.vue'
-import StatusPill from '../components/StatusPill.vue'
-import GaugeChart from '../components/GaugeChart.vue'
-import AlertTicker from '../components/AlertTicker.vue'
-import ForecastChart from '../components/ForecastChart.vue'
+import gsap from 'gsap'
+
+import DashboardHero3D    from '../components/DashboardHero3D.vue'   // ★ Three.js 原样
+import HudHeader          from '../components/hud/HudHeader.vue'
+import HudLeftPanel       from '../components/hud/HudLeftPanel.vue'
+import HudRightPanel      from '../components/hud/HudRightPanel.vue'
+import HudBottomNav       from '../components/hud/HudBottomNav.vue'
+import DeviceFloatCard    from '../components/hud/DeviceFloatCard.vue'
 import DeviceDetailDialog from '../components/DeviceDetailDialog.vue'
-import { getActiveAlerts, getDashboardSummary, getDevices, getLatestSensor, getSensorHistory, postDispatchDecision, updateWorkOrderStatus } from '../api'
+
+import {
+  getActiveAlerts, getDashboardSummary, getDevices,
+  getLatestSensor, getSensorHistory, postDispatchDecision
+} from '../api'
 import { usePollingTask } from '../composables/usePollingTask'
-import { getPriceTierMeta } from '../utils/status'
+
+const rootRef = ref(null)
+const heroRef = ref(null)
 
 const summary = ref({})
 const devices = ref([])
 const latestData = ref({})
 const alerts = ref([])
 const forecastHistory = ref([])
+
 const focusDeviceCode = ref('EAF-01')
+const highlightDeviceId = ref(null)
+
+// ★★★ 全局选中状态(activeDevice)★★★
+//   null   → 右侧渲染 HudRightPanel 三个概览模块
+//   Device → 右侧渲染 DeviceFloatCard 详情面板(替换概览)
+//   同时驱动 <transition name="right-swap"> 的互斥动画
+const activeDevice = ref(null)
+
 const detailVisible = ref(false)
 const detailDevice = ref(null)
 
-const focusDevice = computed(() => devices.value.find((device) => device.deviceCode === focusDeviceCode.value))
-const priceMeta = computed(() => getPriceTierMeta(summary.value.currentPriceTier))
-
-const formatNumber = (value) => (value ?? value === 0 ? Number(value).toFixed(2) : '--')
-
 const loadAll = async () => {
-  const [summaryResult, devicesResult, latestResult, alertsResult, historyResult] = await Promise.all([
+  const [s, d, l, a, h] = await Promise.all([
     getDashboardSummary(focusDeviceCode.value),
     getDevices({ size: 999 }),
     getLatestSensor(focusDeviceCode.value),
     getActiveAlerts(8),
     getSensorHistory(focusDeviceCode.value, 3)
   ])
-
-  summary.value = summaryResult
-  devices.value = devicesResult.records || devicesResult
-  latestData.value = typeof latestResult === 'string' ? {} : latestResult
-  alerts.value = alertsResult
-  forecastHistory.value = Array.isArray(historyResult) ? historyResult : []
-
-  if (!focusDevice.value && devices.value.length) {
+  summary.value = s
+  devices.value = d.records || d
+  latestData.value = typeof l === 'string' ? {} : l
+  alerts.value = a
+  forecastHistory.value = Array.isArray(h) ? h : []
+  if (!devices.value.find(x => x.deviceCode === focusDeviceCode.value) && devices.value.length) {
     focusDeviceCode.value = devices.value[0].deviceCode
   }
 }
-
-const decideAdvice = async (decision) => {
-  const res = await postDispatchDecision({ deviceCode: focusDeviceCode.value, decision })
-  ElMessage.success(res?.message || (decision === 'CONFIRM' ? '已采纳建议' : '已忽略'))
-}
-
 const { start: startPolling, run: refreshNow } = usePollingTask(loadAll, 5000)
 
-const selectDevice = async (deviceCode) => {
-  focusDeviceCode.value = deviceCode
+const onDeviceSelect = async (dev) => {
+  focusDeviceCode.value = dev.deviceCode
+  highlightDeviceId.value = dev.id || dev.deviceType
+  await refreshNow()
+  heroRef.value?.applyHighlightById(dev.id || dev.deviceType)
+}
+const onDeviceClick = async (dev) => {
+  focusDeviceCode.value = dev.deviceCode
+  highlightDeviceId.value = dev.id || dev.deviceType
+  // ★ 关键:点击 3D 设备 → 写 activeDevice → 触发右侧 v-if/v-else 切换
+  activeDevice.value = dev
   await refreshNow()
 }
-
-const openDeviceDetail = async (device) => {
-  await selectDevice(device.deviceCode)
-  detailDevice.value = device
+// ★ 关闭按钮/状态矩阵点击空地 → activeDevice 重置为 null → 概览面板自动恢复
+const closeActiveDevice = () => {
+  activeDevice.value = null
+  heroRef.value?.clearHighlight()
+  highlightDeviceId.value = null
+}
+const openFullDetail = (dev) => {
+  // 完整详情弹窗独立于 activeDevice,可在详情面板内部触发
+  detailDevice.value = dev
   detailVisible.value = true
 }
-
-const changeOrderStatus = async (order, status) => {
-  await updateWorkOrderStatus(order.id, {
-    status,
-    assignee: order.assignee
-  })
-  ElMessage.success(status === 'IN_PROGRESS' ? '工单已确认处理' : '工单已完成闭环')
-  await refreshNow()
+// 记录已处理的调度建议：用建议内容生成签名，已处理则隐藏采纳/忽略按钮，
+// 改为显示"已采纳/已忽略"。轮询刷新时若建议内容未变则保持已处理，建议变化后自动恢复可操作。
+const decidedAdviceKey = ref(null)
+const decidedAdviceDecision = ref(null)
+const adviceKey = (a) => a ? `${focusDeviceCode.value}|${a.level}|${a.title}|${a.content}` : ''
+const currentAdviceDecision = computed(() =>
+  summary.value?.dispatchAdvice && adviceKey(summary.value.dispatchAdvice) === decidedAdviceKey.value
+    ? decidedAdviceDecision.value
+    : null
+)
+const decideAdvice = async (decision) => {
+  const advice = summary.value?.dispatchAdvice
+  try {
+    const res = await postDispatchDecision({ deviceCode: focusDeviceCode.value, decision })
+    ElMessage.success(res?.message || (decision === 'CONFIRM' ? '已采纳调度建议' : '已忽略当前建议'))
+    decidedAdviceKey.value = adviceKey(advice)
+    decidedAdviceDecision.value = decision
+  } catch (e) {
+    ElMessage.error('提交失败,请稍后重试')
+  }
 }
 
-onMounted(async () => {
-  await startPolling()
-})
+const onHeroReady = () => {
+  nextTick(() => {
+    gsap.timeline({ defaults: { ease: 'power3.out' } })
+      .from('.hud-header',  { y: -28, opacity: 0, duration: 0.55 })
+      .from('.is-left',      { x: -36, opacity: 0, duration: 0.65 }, '-=0.3')
+      .from('.is-right',     { x:  36, opacity: 0, duration: 0.65 }, '-=0.65')
+      .from('.hud-bottom-bar', { y: 28, opacity: 0, duration: 0.5 }, '-=0.4')
+  })
+}
+
+onMounted(async () => { await startPolling() })
+onBeforeUnmount(() => { /* 轮询自动清理 */ })
 </script>
 
 <style scoped>
-.chart-panel,
-.side-panel,
-.device-strip {
-  padding: 20px;
+.dashboard-twin {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  overflow: hidden;
+  background: #02060d;
+  margin: 0;
+  padding: 0;
+  isolation: isolate;
 }
 
-.panel-header,
-.device-strip-head {
+/* ★ 全屏 HUD 覆盖层(鼠标穿透到 3D 画布) */
+.hud-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  align-items: start;
+  /* 顶留 88px 给 Header,底留 100px 给 BottomNav */
+  padding: 88px 20px 100px 20px;
+  box-sizing: border-box;
 }
 
-.gauge-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.advice-card {
-  padding: 18px;
-  border-radius: 18px;
-  margin-bottom: 20px;
-  border: 1px solid rgba(82, 200, 255, 0.2);
-  background: rgba(15, 23, 42, 0.7);
-}
-
-.advice-card p {
-  margin: 10px 0 0;
-  color: var(--text-secondary);
-  line-height: 1.7;
-}
-
-.advice-meta {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 14px;
-}
-
-.advice-meta span {
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-
-.advice-meta strong {
-  display: block;
-  margin-top: 4px;
-  color: var(--text-primary);
-  font-size: 14px;
-}
-
-.advice-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 16px;
-}
-
-.forecast-card {
-  padding: 14px 16px;
-  border-radius: 16px;
-  margin-bottom: 20px;
-  background: rgba(15, 23, 42, 0.62);
-  border: 1px solid rgba(245, 158, 11, 0.22);
-}
-
-.forecast-chips {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.forecast-chip {
+/*
+ * ★★★ 右侧面板统一挂载容器 ★★★
+ *   固定宽度 400px,与 HudRightPanel 的 .hud-right { width: 400px } 完全一致
+ *   flex-shrink: 0 防止 .hud-overlay 的 flex 布局把它压扁
+ *   pointer-events: auto 让内部 .hud-panel 的鼠标交互不被父级穿透禁用阻断
+ *   display: flex + flex-direction: column 让子组件按列铺满(子组件 height:100% 才能生效)
+ */
+.right-panel {
+  position: relative;
+  width: 400px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  pointer-events: auto;
+  max-height: calc(100vh - 120px);
+  /* ★ 自身不设背景/border,由内部 .hud-panel 提供 4 角框 */
 }
 
-.forecast-chip span {
-  color: var(--text-secondary);
-  font-size: 12px;
+/*
+ * ★★★ 右侧动态插槽过渡动画 ★★★
+ *   out-in 模式:旧节点淡出完成后再挂载新节点,避免同时存在
+ *   0.3s 淡入淡出 + 12px 右侧滑入(设备详情从右侧 12px 处滑入)
+ *   离开时方向相反,符合 HUD 工业感的硬朗节奏
+ */
+.right-swap-enter-active {
+  transition: opacity 0.3s ease-out, transform 0.3s cubic-bezier(0.34, 1.2, 0.5, 1);
+}
+.right-swap-leave-active {
+  transition: opacity 0.25s ease-in, transform 0.25s ease-in;
+}
+.right-swap-enter-from {
+  opacity: 0;
+  transform: translateX(12px);
+}
+.right-swap-leave-to {
+  opacity: 0;
+  transform: translateX(-8px);
 }
 
-.forecast-chip strong {
-  color: #f59e0b;
-  font-size: 16px;
-}
-
-.forecast-chip em {
-  color: var(--text-secondary);
-  font-style: normal;
-  font-size: 11px;
-}
-
-.advice-warn {
-  border-color: rgba(255, 159, 67, 0.45);
-}
-
-.advice-critical {
-  border-color: rgba(255, 93, 93, 0.5);
-}
-
-.advice-good {
-  border-color: rgba(59, 255, 159, 0.45);
-}
-
-.section-title {
-  margin-top: 12px;
-}
-
-.order-list {
-  display: grid;
-  gap: 12px;
-}
-
-.order-item {
+/* 右侧详情面板槽位:继承 .hud-panel 的 4 角框与背景 */
+.right-detail {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: rgba(15, 23, 42, 0.62);
+  flex-direction: column;
+}
+</style>
+
+<!--
+  ★ 非作用域全局样式 ★ —— 所有 HUD 子组件共享 .hud-panel 基底类
+  必须放在 DashboardView 中以确保 Vue Scoped 不污染
+-->
+<style>
+.hud-panel {
+  position: relative;
+  pointer-events: auto;            /* ★ HUD 面板恢复鼠标交互 */
+  /* 4 角直角折线 (8x8, 2px, #00FFFF) 通过多重 linear-gradient 背景实现 */
+  background:
+    /* TL */
+    linear-gradient(#00FFFF, #00FFFF) top left / 8px 2px no-repeat,
+    linear-gradient(#00FFFF, #00FFFF) top left / 2px 8px no-repeat,
+    /* TR */
+    linear-gradient(#00FFFF, #00FFFF) top right / 8px 2px no-repeat,
+    linear-gradient(#00FFFF, #00FFFF) top right / 2px 8px no-repeat,
+    /* BL */
+    linear-gradient(#00FFFF, #00FFFF) bottom left / 8px 2px no-repeat,
+    linear-gradient(#00FFFF, #00FFFF) bottom left / 2px 8px no-repeat,
+    /* BR */
+    linear-gradient(#00FFFF, #00FFFF) bottom right / 8px 2px no-repeat,
+    linear-gradient(#00FFFF, #00FFFF) bottom right / 2px 8px no-repeat,
+    rgba(4, 15, 30, 0.7);
+  border: 1px solid rgba(0, 255, 255, 0.15);
+  border-radius: 2px;
+  color: #d9e8f5;
+  font-family: 'DIN', 'DIN Alternate', Arial, 'Microsoft YaHei', sans-serif;
+  letter-spacing: 0.5px;
 }
 
-.order-item p,
-.device-tile p {
-  margin: 6px 0 0;
-  color: var(--text-secondary);
-  font-size: 13px;
+/* HUD 子段(每个面板内部的区段) */
+.hud-block {
+  position: relative;
+  background:
+    /* 同样 4 角折角,但更小 (6x6 1px) */
+    linear-gradient(#00FFFF, #00FFFF) top left / 6px 1px no-repeat,
+    linear-gradient(#00FFFF, #00FFFF) top left / 1px 6px no-repeat,
+    linear-gradient(#00FFFF, #00FFFF) top right / 6px 1px no-repeat,
+    linear-gradient(#00FFFF, #00FFFF) top right / 1px 6px no-repeat,
+    linear-gradient(#00FFFF, #00FFFF) bottom left / 6px 1px no-repeat,
+    linear-gradient(#00FFFF, #00FFFF) bottom left / 1px 6px no-repeat,
+    linear-gradient(#00FFFF, #00FFFF) bottom right / 6px 1px no-repeat,
+    linear-gradient(#00FFFF, #00FFFF) bottom right / 1px 6px no-repeat,
+    rgba(0, 30, 60, 0.35);
+  border: 1px solid rgba(0, 255, 255, 0.1);
+  border-radius: 2px;
 }
 
-.order-actions {
+/* 通用块标题 */
+.hud-block-title {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid rgba(0, 255, 255, 0.12);
+  background: linear-gradient(90deg, rgba(0, 255, 255, 0.12), transparent 70%);
 }
-
-.device-strip-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+.hud-block-title::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 12px;
+  background: #00FFFF;
+  box-shadow: 0 0 6px #00FFFF;
 }
-
-.device-tile {
-  padding: 16px;
-  border-radius: 18px;
-  background: rgba(15, 23, 42, 0.6);
-  cursor: pointer;
-  transition: transform 0.2s ease, border-color 0.2s ease;
-  border: 1px solid rgba(82, 200, 255, 0.12);
-}
-
-.device-tile:hover {
-  transform: translateY(-2px);
-  border-color: rgba(82, 200, 255, 0.32);
-}
-
-.tile-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-}
-
-.tile-metrics {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 14px;
-  color: #dbeafe;
+.hud-block-title__cn {
   font-size: 13px;
+  letter-spacing: 2px;
+  font-weight: 600;
+  color: #ffffff;
+}
+.hud-block-title__en {
+  margin-left: auto;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: rgba(0, 255, 255, 0.55);
+  font-family: Arial, sans-serif;
 }
 
-@media (max-width: 1024px) {
-  .gauge-grid,
-  .device-strip-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .order-item,
-  .tile-top,
-  .tile-metrics {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+/* 通用青色数字样式 */
+.hud-num {
+  color: #00FFFF;
+  font-family: 'DIN', 'DIN Alternate', 'Bahnschrift', Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 6px rgba(0, 255, 255, 0.5);
 }
 </style>

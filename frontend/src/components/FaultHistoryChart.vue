@@ -11,8 +11,8 @@ const chartElement = shallowRef(null)
 let chart
 
 const metricDefinitions = [
-  { key: 'temperature', label: '温度', unit: '℃', color: '#ff9f43' },
-  { key: 'pressure', label: '压力', unit: '千帕', color: '#52c8ff' },
+  { key: 'temperature', label: '温度', unit: '℃', color: '#ff7e00' },
+  { key: 'pressure', label: '压力', unit: '千帕', color: '#5cdcff' },
   { key: 'vibration', label: '振动', unit: '毫米/秒', color: '#a78bfa' }
 ]
 
@@ -70,29 +70,37 @@ const render = async () => {
         return [data.times[index], ...values].join('<br/>')
       }
     },
-    legend: { data: metricDefinitions.map((metric) => metric.label), textStyle: { color: '#cbd5e1' } },
+    legend: { data: metricDefinitions.map((metric) => metric.label), textStyle: { color: '#a8c4e0' } },
     grid: { left: 48, right: 20, top: 42, bottom: 36 },
-    xAxis: { type: 'category', data: data.times, axisLabel: { color: '#94a3b8', hideOverlap: true } },
+    xAxis: { type: 'category', data: data.times, axisLabel: { color: '#a8c4e0', hideOverlap: true }, axisLine: { lineStyle: { color: 'rgba(92,220,255,.2)' } } },
     yAxis: {
       type: 'value',
       name: '相对正常值（%）',
+      nameTextStyle: { color: '#94a3b8' },
       min: (value) => Math.floor(Math.min(value.min, 80) - 5),
       max: (value) => Math.ceil(Math.max(value.max, 120) + 5),
-      axisLabel: { color: '#94a3b8' },
-      splitLine: { lineStyle: { color: 'rgba(148,163,184,.12)' } }
+      axisLabel: { color: '#a8c4e0' },
+      splitLine: { lineStyle: { color: 'rgba(92,220,255,.10)', type: 'dashed' } }
     },
     series: data.series
   }, true)
 }
 
 const resize = () => chart?.resize()
+let resizeObserver
 watch(() => props.points, render, { deep: true })
 onMounted(() => {
   render()
   window.addEventListener('resize', resize)
+  // 容器宽度变化（如布局收窄）时同步缩放图表，避免画布过宽撑破栅格列
+  if (chartElement.value) {
+    resizeObserver = new ResizeObserver(() => resize())
+    resizeObserver.observe(chartElement.value)
+  }
 })
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resize)
+  resizeObserver?.disconnect()
   chart?.dispose()
 })
 </script>

@@ -1,29 +1,32 @@
 import { defineStore } from 'pinia'
 import { loginApi, logoutApi } from '../api'
 import { normalizeRole } from '../utils/role'
+import { clearStoredSession, readStoredSession, setSessionToken, setSessionUser } from '../utils/session'
 
-const TOKEN_KEY = 'smart-energy-token'
-const USER_KEY = 'smart-energy-user'
-
-// 拿到后端返回的 user 时归一化 role：防御 "HR MANAGER" / "HR_MANAGER " 等空格脏数据导致路由死循环
 const sanitizeUser = (u) => {
   if (!u) return u
-  return { ...u, role: normalizeRole(u.role) }
+  const { token, password, ...profile } = u
+  return { ...profile, role: normalizeRole(profile.role) }
 }
 
 export const useAuthStore = defineStore('auth', {
-  state: () => ({
-    token: localStorage.getItem(TOKEN_KEY) || '',
-    user: sanitizeUser(JSON.parse(localStorage.getItem(USER_KEY) || 'null'))
-  }),
+  state: () => {
+    const session = readStoredSession()
+    return {
+      token: session.token,
+      user: sanitizeUser(session.user)
+    }
+  },
   actions: {
     async login(payload) {
       const result = await loginApi(payload)
+      const token = result.token || ''
       const sanitized = sanitizeUser(result)
-      this.token = sanitized.token
+
+      this.token = token
       this.user = sanitized
-      localStorage.setItem(TOKEN_KEY, sanitized.token)
-      localStorage.setItem(USER_KEY, JSON.stringify(sanitized))
+      setSessionToken(token)
+      setSessionUser(sanitized)
       return sanitized
     },
     async logout() {
@@ -36,13 +39,12 @@ export const useAuthStore = defineStore('auth', {
     clearSession() {
       this.token = ''
       this.user = null
-      localStorage.removeItem(TOKEN_KEY)
-      localStorage.removeItem(USER_KEY)
+      clearStoredSession()
     },
     updateContactInfo({ phone, email }) {
       if (!this.user) return
       this.user = { ...this.user, phone, email }
-      localStorage.setItem(USER_KEY, JSON.stringify(this.user))
+      setSessionUser(this.user)
     }
   }
 })

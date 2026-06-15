@@ -21,11 +21,11 @@ let chartInstance = null
 let resizeObserver = null
 
 const categoryColors = {
-  device_type: '#52c8ff',
-  fault_type: '#ff9f43',
+  device_type: '#5cdcff',
+  fault_type: '#ff7e00',
   sop: '#3bff9f',
-  case: '#c084fc',
-  cause: '#f472b6'
+  case: '#a78bfa',
+  cause: '#ff5d5d'
 }
 
 const categoryLabels = {
@@ -80,7 +80,7 @@ const buildOption = (data) => {
         source: l.source,
         target: l.target,
         label: { show: false },
-        lineStyle: { color: 'rgba(148, 163, 184, 0.4)', curveness: 0.1 }
+        lineStyle: { color: 'rgba(92, 220, 255, 0.4)', curveness: 0.1, width: 1.5 }
       })),
       categories: categoryKeys.map((key) => ({
         name: key,

@@ -89,7 +89,17 @@ def _one(req: ForecastRequest) -> dict:
     if p is None:
         raise HTTPException(status_code=503, detail=_predictor_error or "模型未加载")
     readings = [r.model_dump() for r in req.history]
+    # 输入归一化：训练数据 ~0-150，新数据 ~0-15000，÷100 对齐分布
+    SCALE = 100.0
+    for r in readings:
+        r["usageKwh"] = float(r.get("usageKwh", 0)) / SCALE
+        r["co2Emission"] = float(r.get("co2Emission", 0)) / SCALE
     forecasts = p.forecast(readings)
+    # 反归一化
+    for f in forecasts:
+        f["mean"] = round(f["mean"] * SCALE, 2)
+        f["lower"] = round(f["lower"] * SCALE, 2)
+        f["upper"] = round(f["upper"] * SCALE, 2)
     return {"deviceCode": req.deviceCode, "forecasts": forecasts}
 
 

@@ -73,7 +73,6 @@
             {{ locationLabel(row.location) }}
           </template>
         </el-table-column>
-        <el-table-column prop="maintainer" label="维修工人" min-width="120" />
         <el-table-column label="实时指标" min-width="220">
           <template #default="{ row }">
             功率 {{ formatNumber(row.usageKwh) }} / 温度 {{ formatNumber(row.temperature) }}
@@ -81,9 +80,9 @@
         </el-table-column>
         <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
-            <el-button link type="success" @click="openDetail(row)">详情</el-button>
-            <el-button link type="primary" @click="openDialog(row)">编辑</el-button>
-            <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button size="small" class="op-btn" @click="openDetail(row)">详情</el-button>
+            <el-button size="small" class="op-btn" @click="openDialog(row)">编辑</el-button>
+            <el-button size="small" class="op-btn" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -108,7 +107,7 @@
           <el-option label="全部" value="" />
           <el-option label="待处理" value="PENDING" />
           <el-option label="处理中" value="IN_PROGRESS" />
-          <el-option label="已修复" value="RESOLVED" />
+          <el-option label="已完成" value="RESOLVED" />
         </el-select>
       </div>
       <el-table :data="workOrders">
@@ -116,7 +115,11 @@
         <el-table-column prop="deviceName" label="设备" min-width="140" />
         <el-table-column prop="title" label="故障主题" min-width="180" />
         <el-table-column prop="assignee" label="维修工人" min-width="120" />
-        <el-table-column prop="status" label="状态" min-width="130" />
+        <el-table-column label="状态" min-width="130">
+          <template #default="{ row }">
+            {{ workOrderStatusLabel(row.status) }}
+          </template>
+        </el-table-column>
         <el-table-column label="关键指标" min-width="220">
           <template #default="{ row }">
             温度 {{ formatNumber(row.latestTemperature) }} / 压力 {{ formatNumber(row.latestPressure) }} / 振动 {{ formatNumber(row.latestVibration) }}
@@ -154,9 +157,6 @@
         </el-form-item>
         <el-form-item label="所在区域">
           <el-input v-model="form.location" />
-        </el-form-item>
-        <el-form-item label="维修工人">
-          <el-input v-model="form.maintainer" />
         </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="form.description" type="textarea" :rows="3" />
@@ -198,10 +198,6 @@
               <div class="detail-item">
                 <span class="detail-label">所在区域</span>
                 <span class="detail-value">{{ locationLabel(deviceDetail.location) }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">维修工人</span>
-                <span class="detail-value">{{ deviceDetail.maintainer }}</span>
               </div>
               <div class="detail-item detail-full">
                 <span class="detail-label">备注</span>
@@ -330,6 +326,14 @@ import { useAuthStore } from '../stores/auth'
 const priorityLabel = (p) => getPriorityMeta(p).label
 const auth = useAuthStore()
 
+// 工单状态 → 中文（设备管理页维修工单表）
+const workOrderStatusMap = {
+  PENDING: '待处理',
+  IN_PROGRESS: '处理中',
+  RESOLVED: '已完成'
+}
+const workOrderStatusLabel = (s) => workOrderStatusMap[s] || s || '--'
+
 // v6.2 改造：OPERATOR 失去"维修工单模块的编辑权限"，不能点"确认处理/已修复"按钮
 const canEditWorkOrder = computed(() => !['OPERATOR'].includes(auth.user?.role))
 // v6.2 改造：新建工单对话框状态（OPERATOR 也能用）
@@ -390,7 +394,6 @@ const emptyForm = () => ({
   deviceType: '',
   status: 'STOPPED',
   location: '',
-  maintainer: '',
   description: ''
 })
 
@@ -545,7 +548,8 @@ onMounted(async () => {
 }
 
 .table-panel {
-  padding: 20px;
+  padding: 18px 20px;
+  margin-bottom: 14px;
 }
 
 .table-head {
@@ -582,6 +586,25 @@ onMounted(async () => {
   margin-top: 16px;
 }
 
+/* 操作列按钮：深色背景 + 高对比文字，不使用红/绿/蓝彩色 link 文字 */
+.op-btn.el-button {
+  background: rgba(15, 30, 52, 0.92);
+  border: 1px solid rgba(120, 160, 200, 0.35);
+  color: #e8f1ff;
+  padding: 5px 12px;
+}
+
+.op-btn.el-button + .op-btn.el-button {
+  margin-left: 8px;
+}
+
+.op-btn.el-button:hover,
+.op-btn.el-button:focus {
+  background: rgba(28, 52, 84, 1);
+  border-color: var(--accent-cyan);
+  color: #ffffff;
+}
+
 .detail-body {
   min-height: 200px;
 }
@@ -594,7 +617,8 @@ onMounted(async () => {
   margin: 0 0 14px;
   font-size: 15px;
   font-weight: 700;
-  color: #dbeafe;
+  color: var(--accent-cyan);
+  letter-spacing: 2px;
   padding-bottom: 10px;
   border-bottom: 1px solid rgba(148, 163, 184, 0.15);
 }

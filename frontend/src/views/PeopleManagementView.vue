@@ -23,19 +23,6 @@
         <el-form-item label="部门">
           <el-input v-model="filters.department" placeholder="如：维修部" clearable style="width: 160px" />
         </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="filters.status" placeholder="全部" clearable style="width: 120px">
-            <el-option label="启用" value="ACTIVE" />
-            <el-option label="禁用" value="DISABLED" />
-            <el-option label="锁定" value="LOCKED" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="维修身份">
-          <el-select v-model="filters.isMaintenance" placeholder="全部" clearable style="width: 120px">
-            <el-option label="是" :value="true" />
-            <el-option label="否" :value="false" />
-          </el-select>
-        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="onSearch">查询</el-button>
           <el-button @click="onReset">重置</el-button>
@@ -54,27 +41,12 @@
           </template>
         </el-table-column>
         <el-table-column label="部门" prop="department" min-width="100" />
-        <el-table-column label="账号状态" min-width="90">
-          <template #default="{ row }">
-            <el-tag size="small" :type="statusTagType(row.status)">{{ statusLabel(row.status) }}</el-tag>
-          </template>
-        </el-table-column>
 
-        <!-- 是否维修人员标识 -->
-        <el-table-column label="维修身份" min-width="100" align="center">
-          <template #default="{ row }">
-            <el-tag v-if="row.isMaintenance" type="success" size="small">✓ 维修人员</el-tag>
-            <el-tag v-else type="info" size="small" effect="plain">普通</el-tag>
-          </template>
-        </el-table-column>
-
-        <!-- 档案信息（仅维修人员有） -->
-        <el-table-column label="工号" prop="employeeNo" min-width="80" />
-        <el-table-column label="姓名（档案）" prop="archiveName" min-width="100" />
+        <!-- 档案信息 -->
         <el-table-column label="手机" prop="archivePhone" min-width="120" />
         <el-table-column label="技能等级" min-width="100">
           <template #default="{ row }">
-            <el-tag v-if="row.skillLevel" size="small" effect="plain">{{ row.skillLevel }}</el-tag>
+            <el-tag v-if="row.role === 'MAINTENANCE_ENGINEER' && row.skillLevel" size="small" effect="plain">{{ skillLevelLabel(row.skillLevel) }}</el-tag>
             <span v-else class="empty-cell">—</span>
           </template>
         </el-table-column>
@@ -89,20 +61,30 @@
         <!-- 排班信息 -->
         <el-table-column label="在岗" min-width="70" align="center">
           <template #default="{ row }">
-            <el-tag v-if="row.isOnDuty === true" type="success" size="small">在岗</el-tag>
+            <el-switch
+              v-if="row.isMaintenance && canToggleDuty"
+              v-model="row.isOnDuty"
+              active-text="在岗"
+              inactive-text="离岗"
+              inline-prompt
+              :active-value="true"
+              :inactive-value="false"
+              @change="(val) => onToggleDutySwitch(row, val)"
+            />
+            <el-tag v-else-if="row.isOnDuty === true" type="success" size="small">在岗</el-tag>
             <el-tag v-else-if="row.isOnDuty === false" type="warning" size="small">离岗</el-tag>
             <span v-else class="empty-cell">—</span>
           </template>
         </el-table-column>
         <el-table-column label="当前/最大" min-width="100" align="center">
           <template #default="{ row }">
-            <span v-if="row.currentWorkload != null" class="value-text">{{ row.currentWorkload }} / {{ row.maxWorkload }}</span>
+            <span v-if="row.role === 'MAINTENANCE_ENGINEER' && row.currentWorkload != null" class="value-text">{{ row.currentWorkload }} / {{ row.maxWorkload }}</span>
             <span v-else class="empty-cell">—</span>
           </template>
         </el-table-column>
         <el-table-column label="负载率" min-width="120">
           <template #default="{ row }">
-            <el-progress v-if="row.workloadRate != null" :percentage="row.workloadRate"
+            <el-progress v-if="row.role === 'MAINTENANCE_ENGINEER' && row.workloadRate != null" :percentage="row.workloadRate"
                          :color="rateColor(row.workloadRate)" :stroke-width="14" />
             <span v-else class="empty-cell">—</span>
           </template>
@@ -111,10 +93,11 @@
         <!-- v6.1：操作列（编辑 + 更多下拉） -->
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
+            <div class="op-cell">
             <!-- v6.2 改造：DEVICE_MANAGER 看不到"编辑"按钮 -->
-            <el-button v-if="canFullEdit" size="small" link type="primary" @click="onEdit(row)">编辑</el-button>
+            <el-button v-if="canFullEdit" size="small" link class="op-action" @click="onEdit(row)">编辑</el-button>
             <el-dropdown trigger="click" size="small">
-              <el-button size="small" link type="primary">
+              <el-button size="small" link class="op-action">
                 更多 <el-icon class="el-icon--right"><ArrowDown /></el-icon>
               </el-button>
               <template #dropdown>
@@ -130,6 +113,7 @@
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -186,9 +170,6 @@
         <!-- 维修人员信息（仅维修角色显示） -->
         <fieldset v-if="form.role === 'MAINTENANCE_ENGINEER'" class="form-section">
           <legend>维修人员档案 / 排班</legend>
-          <el-form-item label="姓名（档案）" required>
-            <el-input v-model="form.archiveName" placeholder="维修人员显示名（可与昵称不同）" />
-          </el-form-item>
           <el-form-item label="技能等级" required>
             <el-select v-model="form.skillLevel" clearable style="width: 100%">
               <el-option label="初级 JUNIOR" value="JUNIOR" />
@@ -205,12 +186,6 @@
           </el-form-item>
           <el-form-item label="证书">
             <el-input v-model="form.certification" placeholder="如：高级工程师 / 15年" />
-          </el-form-item>
-          <el-form-item label="手机（维修）">
-            <el-input v-model="form.archivePhone" />
-          </el-form-item>
-          <el-form-item label="邮箱（维修）">
-            <el-input v-model="form.archiveEmail" />
           </el-form-item>
           <el-form-item label="最大工作负载">
             <el-input-number v-model="form.maxWorkload" :min="1" :max="20" />
@@ -233,6 +208,7 @@ import { createUser, deleteUser, listUsersWithPersonnel, updateUser } from '../a
 import { toggleDuty } from '../api/workorder'
 import { useAuthStore } from '../stores/auth'
 import { accountFormatHint, BUILT_IN_ADMIN_ACCOUNT, validateAccount } from '../utils/account'
+import { skillLevelLabel } from '../utils/skillLevel'
 
 const auth = useAuthStore()
 
@@ -242,7 +218,9 @@ const canToggleDuty = computed(() => ['HR_MANAGER', 'DEVICE_MANAGER', 'ADMIN'].i
 
 const rows = shallowRef([])
 const loading = shallowRef(false)
-const filters = reactive({ keyword: '', role: '', department: '', status: '', isMaintenance: true })  // v6.2 改造：默认只看维修人员
+// 维修身份筛选已从界面移除：DEVICE_MANAGER 仍限定只看维修人员，HR/ADMIN 查看全部人员
+const onlyMaintenance = auth.user?.role === 'DEVICE_MANAGER' ? true : ''
+const filters = reactive({ keyword: '', role: '', department: '', isMaintenance: onlyMaintenance })
 const pagination = reactive({ page: 1, size: 10, total: 0 })
 
 // v6.1: 编辑对话框
@@ -304,8 +282,8 @@ const onSubmit = async () => {
   if (!form.role) return ElMessage.warning('请选择角色')
   const accountError = validateAccount(form.username, form.role)
   if (accountError) return ElMessage.warning(accountError)
-  if (form.role === 'MAINTENANCE_ENGINEER' && !form.archiveName) {
-    return ElMessage.warning('请输入维修人员档案姓名')
+  if (form.role === 'MAINTENANCE_ENGINEER' && !form.nickname && !form.archiveName) {
+    return ElMessage.warning('请输入姓名')
   }
   if (form.role === 'MAINTENANCE_ENGINEER' && !form.skillLevel) {
     return ElMessage.warning('请选择维修人员技能等级')
@@ -333,12 +311,12 @@ const onSubmit = async () => {
       phone: form.phone,
       email: form.email,
       maintenanceProfile: form.role === 'MAINTENANCE_ENGINEER' ? {
-        name: form.archiveName,
+        name: form.archiveName || form.nickname,
         skillLevel: form.skillLevel,
         specializations: form.specializationsList,
         certification: form.certification,
-        phone: form.archivePhone,
-        email: form.archiveEmail,
+        phone: form.archivePhone || form.phone,
+        email: form.archiveEmail || form.email,
         maxWorkload: form.maxWorkload
       } : undefined
     }
@@ -372,10 +350,19 @@ const onDelete = async (row) => {
 const onToggleDuty = async (row) => {
   const newDuty = !row.isOnDuty
   try {
-    await toggleDuty(row.id, newDuty)
+    await toggleDuty(row.maintenancePersonnelId, newDuty)
     row.isOnDuty = newDuty
     ElMessage.success('已切换为' + (newDuty ? '在岗' : '离岗'))
   } catch (e) {
+    ElMessage.error(e?.response?.data?.message || '切换失败')
+  }
+}
+const onToggleDutySwitch = async (row, newDuty) => {
+  try {
+    await toggleDuty(row.maintenancePersonnelId, newDuty)
+    ElMessage.success('已切换为' + (newDuty ? '在岗' : '离岗'))
+  } catch (e) {
+    row.isOnDuty = !newDuty
     ElMessage.error(e?.response?.data?.message || '切换失败')
   }
 }
@@ -412,9 +399,9 @@ const load = async () => {
   loading.value = true
   try {
     const params = { page: pagination.page, size: pagination.size }
-    Object.keys(filters).forEach((k) => {
+    for (const k of ['keyword', 'role', 'department', 'isMaintenance']) {
       if (filters[k] !== '' && filters[k] !== undefined && filters[k] !== null) params[k] = filters[k]
-    })
+    }
     const result = await listUsersWithPersonnel(params)
     rows.value = result.records || []
     pagination.total = result.total || 0
@@ -424,7 +411,7 @@ const load = async () => {
 }
 const onSearch = () => { pagination.page = 1; load() }
 const onReset = () => {
-  Object.assign(filters, { keyword: '', role: '', department: '', status: '' })
+  Object.assign(filters, { keyword: '', role: '', department: '' })
   pagination.page = 1
   load()
 }
@@ -435,9 +422,9 @@ onMounted(load)
 <style scoped>
 .page-shell { display: flex; flex-direction: column; gap: 16px; }
 .page-header { padding: 4px 4px 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
-.page-title { margin: 0; font-size: 22px; font-weight: 600; color: var(--text-primary); }
-.page-subtitle { margin: 4px 0 0; color: var(--text-secondary); font-size: 13px; }
-.filter-bar { background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(8px); }
+.page-title { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 3px; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.page-subtitle { margin: 4px 0 0; color: var(--text-secondary); font-size: 13px; letter-spacing: 1px; }
+.filter-bar { background: linear-gradient(180deg, rgba(13, 37, 64, 0.85), rgba(10, 25, 41, 0.7)); border: 1px solid var(--panel-border); border-radius: 12px; }
 
 .people-table {
   --el-table-bg-color: rgba(15, 23, 42, 0.88);
@@ -468,6 +455,24 @@ onMounted(load)
 
 :deep(.people-table .el-table__body tr:hover > td.el-table__cell) {
   background-color: rgba(51, 65, 85, 0.92) !important;
+}
+
+/* 操作列：编辑 / 更多 横向对齐，避免互相挤压 */
+.op-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.op-cell :deep(.el-dropdown) {
+  line-height: 1;
+}
+/* 字体加亮：原 link type=primary 在深色表格里偏暗看不清，改用高对比亮色 */
+.op-cell :deep(.op-action.el-button.is-link) {
+  color: #6cc6ff;
+  font-weight: 600;
+}
+.op-cell :deep(.op-action.el-button.is-link:hover) {
+  color: #b6e6ff;
 }
 
 .empty-cell { color: var(--text-secondary); font-style: italic; font-weight: 400; }

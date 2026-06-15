@@ -141,6 +141,19 @@ public class WorkOrderAssignmentServiceImpl implements WorkOrderAssignmentServic
 
         // 5. 同步老字段
         syncAssigneeTo8080(workOrderId, workOrder.getStatus());
+
+        // 6. 若已无活跃指派人，工单回到 PENDING
+        boolean hasRemaining = assignmentMapper.exists(
+                new QueryWrapper<WorkOrderAssignment>()
+                        .eq("work_order_id", workOrderId)
+                        .isNull("released_at"));
+        if (!hasRemaining && "IN_PROGRESS".equals(workOrder.getStatus())) {
+            workOrder.setStatus("PENDING");
+            workOrder.setUpdatedAt(LocalDateTime.now());
+            workOrderMapper.updateById(workOrder);
+            log.info("[ReleaseOne] workOrderId={} 已无活跃指派人，状态回到 PENDING", workOrderId);
+        }
+
         log.info("[ReleaseOne] workOrderId={} 释放 personnelId={} ({})",
                 workOrderId, personnelId, personnel == null ? "<已删除>" : nameOf(personnel));
     }
@@ -218,12 +231,17 @@ public class WorkOrderAssignmentServiceImpl implements WorkOrderAssignmentServic
             bumpWorkload(a.getPersonnelId(), -1);
         }
         // 同步老字段：传 null 表示清空 assignee（即使 actives 为空也必须同步）
-        // 🆕 合并 workorder-backend: 本地调用，不再需要 try/catch
         workOrderSyncService.sync(workOrderId, null);
+        // 释放全部后若工单在 IN_PROGRESS，回到 PENDING
+        if ("IN_PROGRESS".equals(workOrder.getStatus())) {
+            workOrder.setStatus("PENDING");
+            workOrder.setUpdatedAt(LocalDateTime.now());
+            workOrderMapper.updateById(workOrder);
+        }
         if (actives.isEmpty()) {
-            log.info("[ReleaseAll] workOrderId={} 无活跃指派，仅同步 8080 清空 assignee", workOrderId);
+            log.info("[ReleaseAll] workOrderId={} 无活跃指派，仅同步清空 assignee，状态回到 PENDING", workOrderId);
         } else {
-            log.info("[ReleaseAll] workOrderId={} 释放 {} 个指派", workOrderId, actives.size());
+            log.info("[ReleaseAll] workOrderId={} 释放 {} 个指派，状态回到 PENDING", workOrderId, actives.size());
         }
     }
 
@@ -360,7 +378,7 @@ public class WorkOrderAssignmentServiceImpl implements WorkOrderAssignmentServic
     private String nameOf(MaintenancePersonnel p) {
         if (p == null) return null;
         MaintenancePersonnelArchive archive = archiveMapper.selectOne(
-                new QueryWrapper<MaintenancePersonnelArchive>().eq("employee_no", p.getEmployeeNo()));
+                new QueryWrapper<MaintenancePersonnelArchive>().eq("user_id", p.getUserId()));
         return archive == null ? null : archive.getName();
     }
 }

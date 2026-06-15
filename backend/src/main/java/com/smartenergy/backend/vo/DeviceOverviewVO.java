@@ -29,9 +29,6 @@ public class DeviceOverviewVO {
     @Schema(description = "安装位置")
     private String location;
 
-    @Schema(description = "维护负责人")
-    private String maintainer;
-
     @Schema(description = "设备描述")
     private String description;
 

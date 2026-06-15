@@ -4,14 +4,17 @@ const normalizeRole = (r) => (r == null ? '' : String(r).trim().replace(/\s+/g, 
 
 export const defaultHomeForRole = (role) => {
   const r = normalizeRole(role)
+
+  // 拥有监控大屏权限的成员登录后优先进入大屏
+  if (['OPERATOR', 'MANAGER', 'ADMIN'].includes(r)) {
+    return '/dashboard'
+  }
+
   return {
     MAINTENANCE_ENGINEER: '/maintenance',
-    DEVICE_MANAGER: '/devices',
-    MANAGER: '/admin',
-    HR_MANAGER: '/admin/users',
-    OPERATOR: '/dashboard',
-    ADMIN: '/admin'
-  }[r] || '/dashboard'
+    DEVICE_MANAGER: '/operations/orders',
+    HR_MANAGER: '/admin/people'
+  }[r] || '/account-settings'
 }
 
 // 暴露给 router/layout 做角色判断时也走归一化

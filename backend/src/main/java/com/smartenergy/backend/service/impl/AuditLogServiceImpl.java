@@ -5,6 +5,7 @@ import com.smartenergy.backend.service.AuditLogService;
 import com.smartenergy.backend.vo.AuditLogVO;
 import com.smartenergy.backend.vo.PageVO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -16,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuditLogServiceImpl implements AuditLogService {
@@ -32,8 +34,12 @@ public class AuditLogServiceImpl implements AuditLogService {
                     INSERT INTO audit_log(actor_username, action, module, target_type, target_id, detail)
                     VALUES (?, ?, ?, ?, ?, CAST(? AS jsonb))
                     """, username, action, module, targetType, targetId, objectMapper.writeValueAsString(detail));
-        } catch (Exception ignored) {
-            // 审计记录失败不能阻断主业务。
+        } catch (Exception e) {
+            // ★ NewC4 修复 (2026-06-13): 旧版 catch(Exception ignored){} 完全静默,
+            //   导致审计 DB 故障/约束冲突时主业务无感知,事后追责无凭据。
+            //   修复后: 仍然不阻断主业务(审计降级), 但必须 log.warn 让运维感知。
+            log.warn("[Audit] insert failed, action={}, module={}, target={}:{}, actor={}, error={}",
+                    action, module, targetType, targetId, username, e.getMessage());
         }
     }
 

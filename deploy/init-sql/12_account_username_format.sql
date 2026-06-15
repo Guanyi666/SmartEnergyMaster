@@ -3,6 +3,8 @@
 --           04 HR_MANAGER、05 OPERATOR、06 DEVICE_MANAGER
 BEGIN;
 
+SAVEPOINT before_migration;
+
 ALTER TABLE sys_user DROP CONSTRAINT IF EXISTS ck_sys_user_username_format;
 
 CREATE TEMP TABLE account_username_migration ON COMMIT DROP AS
@@ -54,17 +56,31 @@ SET username = m.new_username,
 FROM account_username_migration m
 WHERE u.id = m.id AND u.username <> m.new_username;
 
-UPDATE maintenance_personnel p
-SET employee_no = m.new_username,
-    updated_at = CURRENT_TIMESTAMP
-FROM account_username_migration m
-WHERE p.employee_no = m.old_username AND m.old_username <> m.new_username;
+-- V2 兼容：maintenance_personnel 可能无 employee_no 列
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'maintenance_personnel' AND column_name = 'employee_no') THEN
+        UPDATE maintenance_personnel p
+        SET employee_no = m.new_username,
+            updated_at = CURRENT_TIMESTAMP
+        FROM account_username_migration m
+        WHERE p.employee_no = m.old_username AND m.old_username <> m.new_username;
+    END IF;
+END $$;
 
-UPDATE workorder_maintenance_personnel p
-SET employee_no = m.new_username,
-    updated_at = CURRENT_TIMESTAMP
-FROM account_username_migration m
-WHERE p.employee_no = m.old_username AND m.old_username <> m.new_username;
+-- V2 兼容：workorder_maintenance_personnel 可能无 employee_no 列
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'workorder_maintenance_personnel' AND column_name = 'employee_no') THEN
+        UPDATE workorder_maintenance_personnel p
+        SET employee_no = m.new_username,
+            updated_at = CURRENT_TIMESTAMP
+        FROM account_username_migration m
+        WHERE p.employee_no = m.old_username AND m.old_username <> m.new_username;
+    END IF;
+END $$;
 
 UPDATE spare_part_usage s
 SET user_name = m.new_username

@@ -34,8 +34,10 @@ public class SysUser {
 
     private String phone;
     private String email;
-    private String avatarUrl;
+    @Schema(description = "账号状态：ACTIVE / INACTIVE / RESIGNED")
     private String status;
+
+    private String avatarUrl;
     private LocalDateTime lastLoginAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

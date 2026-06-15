@@ -1,5 +1,5 @@
 <script setup>
-import { computed, shallowRef, watch } from 'vue'
+import { computed, nextTick, shallowRef, watch } from 'vue'
 import { getDeviceDetail, getDeviceFaultHistory, getDeviceHealthScore, getSensorHistory } from '../api'
 import StatusPill from './StatusPill.vue'
 import TrendChart from './TrendChart.vue'
@@ -14,7 +14,17 @@ const detail = shallowRef(null)
 const history = shallowRef([])
 const faults = shallowRef([])
 const health = shallowRef(null)
+const trendChartRef = shallowRef(null)
 const title = computed(() => `${detail.value?.deviceName || props.device?.deviceName || '设备'} · 实时详情`)
+
+// 负荷趋势可选时间范围
+const rangeHours = shallowRef(3)
+const rangeOptions = [
+  { label: '1 小时', value: 1 },
+  { label: '3 小时', value: 3 },
+  { label: '12 小时', value: 12 }
+]
+const historyLoading = shallowRef(false)
 
 const format = (value, unit = '') => value ?? value === 0 ? `${Number(value).toFixed(2)}${unit}` : '--'
 const healthColor = computed(() => {
@@ -28,7 +38,7 @@ const load = async () => {
   try {
     const [detailResult, historyResult, faultResult, healthResult] = await Promise.all([
       getDeviceDetail(props.device.id),
-      getSensorHistory(props.device.deviceCode, 24),
+      getSensorHistory(props.device.deviceCode, rangeHours.value),
       getDeviceFaultHistory(props.device.id),
       getDeviceHealthScore(props.device.id)
     ])
@@ -41,11 +51,35 @@ const load = async () => {
   }
 }
 
+// 仅切换时间范围时，单独重新拉取负荷历史，不重载整个弹窗
+const loadHistory = async () => {
+  if (!visible.value || !props.device?.deviceCode) return
+  historyLoading.value = true
+  try {
+    history.value = await getSensorHistory(props.device.deviceCode, rangeHours.value) || []
+    await resizeTrendChart()
+  } finally {
+    historyLoading.value = false
+  }
+}
+
 watch(() => [visible.value, props.device?.id], load)
+watch(rangeHours, loadHistory)
+
+const resizeTrendChart = async () => {
+  await nextTick()
+  trendChartRef.value?.resize()
+}
 </script>
 
 <template>
-  <el-dialog v-model="visible" :title="title" width="920px" destroy-on-close>
+  <el-dialog
+    v-model="visible"
+    :title="title"
+    width="min(920px, calc(100vw - 32px))"
+    destroy-on-close
+    @opened="resizeTrendChart"
+  >
     <div v-loading="loading" class="device-detail">
       <div class="detail-head">
         <div>
@@ -66,8 +100,11 @@ watch(() => [visible.value, props.device?.id], load)
       </div>
 
       <div class="detail-panel">
-        <h4>过去 24 小时负荷趋势</h4>
-        <TrendChart :records="history" />
+        <div class="panel-row">
+          <h4>过去 {{ rangeHours }} 小时负荷趋势</h4>
+          <el-segmented v-model="rangeHours" :options="rangeOptions" size="small" />
+        </div>
+        <TrendChart ref="trendChartRef" v-loading="historyLoading" :records="history" />
       </div>
 
       <div class="detail-panel">
@@ -89,6 +126,7 @@ watch(() => [visible.value, props.device?.id], load)
 .detail-panel {
   display: grid;
   gap: 16px;
+  min-width: 0;
 }
 
 .detail-head {
@@ -148,13 +186,37 @@ watch(() => [visible.value, props.device?.id], load)
   margin: 0;
 }
 
+.panel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .detail-panel :deep(.chart-box) {
-  height: 280px;
+  min-width: 0;
+  height: clamp(220px, 32vh, 360px);
 }
 
 @media (max-width: 720px) {
+  .detail-head {
+    align-items: flex-start;
+  }
+
+  .health-ring {
+    width: 72px;
+    height: 72px;
+    border-width: 6px;
+  }
+
   .metric-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .metric-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

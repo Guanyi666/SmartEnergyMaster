@@ -1,8 +1,10 @@
 package com.smartenergy.backend.cache;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.serializer.SerializationException;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -35,7 +37,7 @@ public class RedisCacheServiceImpl implements CacheService {
     public void set(String key, Object value, Duration ttl) {
         try {
             redisTemplate.opsForValue().set(key, value, ttl);
-        } catch (Exception e) {
+        } catch (DataAccessException | SerializationException | IllegalArgumentException e) {
             log.warn("缓存写入失败 key={}: {}", key, e.getMessage());
         }
     }
@@ -45,7 +47,7 @@ public class RedisCacheServiceImpl implements CacheService {
     public <T> T get(String key) {
         try {
             return (T) redisTemplate.opsForValue().get(key);
-        } catch (Exception e) {
+        } catch (DataAccessException | SerializationException | ClassCastException e) {
             log.warn("缓存读取失败 key={}: {}", key, e.getMessage());
             return null;
         }
@@ -55,7 +57,7 @@ public class RedisCacheServiceImpl implements CacheService {
     public void evict(String key) {
         try {
             redisTemplate.delete(key);
-        } catch (Exception e) {
+        } catch (DataAccessException | IllegalArgumentException e) {
             log.warn("缓存删除失败 key={}: {}", key, e.getMessage());
         }
     }
@@ -69,7 +71,7 @@ public class RedisCacheServiceImpl implements CacheService {
             if (keys != null && !keys.isEmpty()) {
                 redisTemplate.delete(keys);
             }
-        } catch (Exception e) {
+        } catch (DataAccessException | IllegalArgumentException e) {
             log.warn("缓存按前缀删除失败 prefix={}: {}", prefix, e.getMessage());
         }
     }
@@ -126,7 +128,7 @@ public class RedisCacheServiceImpl implements CacheService {
             Boolean ok = stringRedisTemplate.opsForValue()
                     .setIfAbsent(lockKey, "1", REBUILD_LOCK_TTL);
             return Boolean.TRUE.equals(ok);
-        } catch (Exception e) {
+        } catch (DataAccessException | IllegalArgumentException e) {
             log.warn("缓存重建锁获取失败 lockKey={}: {}", lockKey, e.getMessage());
             // 锁获取异常时降级为直接回源
             return true;
@@ -136,7 +138,7 @@ public class RedisCacheServiceImpl implements CacheService {
     private void releaseRebuildLock(String lockKey) {
         try {
             stringRedisTemplate.delete(lockKey);
-        } catch (Exception e) {
+        } catch (DataAccessException | IllegalArgumentException e) {
             log.warn("缓存重建锁释放失败 lockKey={}: {}", lockKey, e.getMessage());
         }
     }

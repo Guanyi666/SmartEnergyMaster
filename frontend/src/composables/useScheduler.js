@@ -2,10 +2,12 @@ import { computed, readonly, shallowRef } from 'vue'
 import { getDashboardSummary, getDevices, getForecast, getSensorHistory } from '../api'
 
 const tierByHour = (hour) => {
-  if ([10, 11, 18, 19].includes(hour)) return { tier: '尖峰', price: 1.28, color: '#ff5d5d' }
-  if ([8, 9, 12, 13, 14, 15, 16, 17, 20, 21].includes(hour)) return { tier: '峰', price: 0.96, color: '#ffb347' }
-  if ([0, 1, 2, 3, 4, 5].includes(hour)) return { tier: '谷', price: 0.34, color: '#3bff9f' }
-  return { tier: '平', price: 0.62, color: '#52c8ff' }
+  // 陕西省大工业电价 1-10kV（2024-2025）
+  if ((hour >= 19 && hour < 21) || (hour >= 18 && hour < 20)) return { tier: '尖峰', price: 1.25, color: '#ff5d5d' }
+  if (hour >= 23 || hour < 6) return { tier: '谷', price: 0.32, color: '#3bff9f' }
+  if ((hour >= 8 && hour < 11) || (hour >= 18 && hour < 23)) return { tier: '峰', price: 0.95, color: '#ffb347' }
+  if (hour >= 6 && hour < 8 || hour >= 11 && hour < 18) return { tier: '平', price: 0.60, color: '#52c8ff' }
+  return { tier: '平', price: 0.60, color: '#52c8ff' }
 }
 
 export function useScheduler() {
@@ -28,14 +30,27 @@ export function useScheduler() {
     duration: device.status === 'RUNNING' ? 6 : 3 + (index % 3),
     load: Math.round(Number(device.usageKwh || 40))
   })))
-  const suggestions = computed(() => devices.value.slice(0, 5).map((device, index) => ({
-    id: device.id,
-    deviceName: device.deviceName,
-    action: index % 2 ? '降低负荷至 70%' : '转移至低谷时段启动',
-    delay: `${index + 1} 小时`,
-    saving: Math.round(Number(device.usageKwh || 60) * (0.28 + index * 0.04)),
-    status: decisions.value[device.id]
-  })))
+  // 分时电价峰谷差：尖峰 1.28 - 深谷 0.34 = 0.94 元/千瓦时
+  const PEAK_VALLEY_DIFF = 0.94
+  // 仿真遥测 usageKwh 是采样级归一读数，按机组规模折算为小时负荷（千瓦时/时）
+  const FLEET_LOAD_SCALE = 80
+
+  const suggestions = computed(() => devices.value.slice(0, 5).map((device, index) => {
+    const delayHours = index + 1
+    // 可错峰转移的小时负荷（千瓦时）
+    const hourlyLoad = Math.max(Number(device.usageKwh || 0), 30) * FLEET_LOAD_SCALE
+    // “降低负荷至 70%”只转移约一半负荷，“转移至低谷”转移全部
+    const shiftRatio = index % 2 ? 0.5 : 1
+    return {
+      id: device.id,
+      deviceName: device.deviceName,
+      action: index % 2 ? '降低负荷至 70%' : '转移至低谷时段启动',
+      delay: `${delayHours} 小时`,
+      // 节省电费 = 转移负荷 × 推迟时长 × 峰谷电价差
+      saving: Math.round(hourlyLoad * shiftRatio * delayHours * PEAK_VALLEY_DIFF).toLocaleString('zh-CN'),
+      status: decisions.value[device.id]
+    }
+  }))
 
   const load = async () => {
     loading.value = true

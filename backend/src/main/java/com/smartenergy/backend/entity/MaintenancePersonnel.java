@@ -21,9 +21,6 @@ public class MaintenancePersonnel {
     @Schema(description = "主键 ID（自增）")
     private Long id;
 
-    @Schema(description = "工号（唯一，登录账号）", example = "2026030001")
-    private String employeeNo;
-
     @Schema(description = "头像底色（hex）", example = "#52c8ff")
     private String avatarColor;
 

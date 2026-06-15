@@ -103,11 +103,16 @@ const confirmChoose = () => {
 
 .process-list {
   display: grid;
-  gap: 9px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 9px 28px;
   margin: 0;
   padding-left: 22px;
   color: #dbeafe;
   line-height: 1.6;
+}
+
+.process-list li {
+  padding-left: 2px;
 }
 
 .sop-options {

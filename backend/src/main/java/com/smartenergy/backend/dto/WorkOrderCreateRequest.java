@@ -33,7 +33,7 @@ public class WorkOrderCreateRequest {
             example = "MECHANICAL_JAM",
             allowableValues = {"MECHANICAL_JAM", "COOLING_INTERRUPT",
                     "ELECTRICAL_OVERLOAD", "SENSOR_DRIFT",
-                    "BEARING_WEAR", "INTERMITTENT_JAM"})
+                    "BEARING_WEAR", "INTERMITTENT_JAM", "OTHER"})
     private String faultType;
 
     @NotBlank(message = "请选择优先级")
