@@ -41,6 +41,8 @@ public class DashboardServiceImpl implements DashboardService {
         BigDecimal totalCo2 = BigDecimal.ZERO;
         long runningCount = 0;
         long offlineCount = 0;
+        long faultCount = 0;
+        long stoppedCount = 0;
 
         for (DeviceOverviewVO device : devices) {
             if (device.getUsageKwh() != null) {
@@ -51,6 +53,10 @@ public class DashboardServiceImpl implements DashboardService {
             }
             if ("OFFLINE".equals(device.getStatus())) {
                 offlineCount++;
+            } else if (List.of("FAULT", "MAINTENANCE").contains(device.getStatus())) {
+                faultCount++;
+            } else if ("STOPPED".equals(device.getStatus())) {
+                stoppedCount++;
             }
             if (List.of("RUNNING", "HIGH_LOAD", "IDLE").contains(device.getStatus())) {
                 runningCount++;
@@ -75,6 +81,8 @@ public class DashboardServiceImpl implements DashboardService {
         summary.setCurrentPriceTier(focusData != null ? focusData.getXianPriceTier() : "--");
         summary.setRunningDeviceCount(runningCount);
         summary.setOfflineDeviceCount(offlineCount);
+        summary.setFaultDeviceCount(faultCount);
+        summary.setStoppedDeviceCount(stoppedCount);
         summary.setActiveAlerts(workOrderService.listActiveAlerts(5));
         summary.setActiveAlertCount(summary.getActiveAlerts().size());
         summary.setFocusDeviceCode(focusDevice != null ? focusDevice.getDeviceCode() : null);

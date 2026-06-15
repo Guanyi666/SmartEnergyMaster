@@ -1,0 +1,162 @@
+{
+  "description": "故障模式知识库 — AI进行故障诊断时必须基于此库，禁止编造故障类型和处置方案",
+  "fault_patterns": [
+    {
+      "id": "MECHANICAL_JAM",
+      "name": "机械卡涩",
+      "trigger_conditions": "operatingStatus=1(空转) AND vibration>15mm/s",
+      "root_causes": ["轴承磨损", "润滑不足", "异物卡入", "对中偏差"],
+      "confidence_rules": {
+        "轴承磨损": "振动频率集中在1x-3x RPM + 温度缓慢上升",
+        "润滑不足": "振动高频分量增加 + 轴承温度骤升",
+        "异物卡入": "振动突发性增大 + 伴随异响",
+        "对中偏差": "振动以1x RPM为主 + 轴向振动大"
+      },
+      "severity": "HIGH",
+      "procedures": [
+        {"step": 1, "action": "立即切换到备用设备（如有）", "time": "立即"},
+        {"step": 2, "action": "检查轴承润滑脂状态，取样检测", "time": "30分钟内"},
+        {"step": 3, "action": "测量轴承间隙，与标准值对比", "time": "2小时内"},
+        {"step": 4, "action": "如确认卡涩，更换轴承组件", "time": "8小时内"}
+      ],
+      "spare_parts": ["SKF-22320轴承", "SKF-22218轴承", "高温润滑脂EP2"],
+      "estimated_repair_time_hours": 6
+    },
+    {
+      "id": "COOLING_INTERRUPT",
+      "name": "冷却中断",
+      "trigger_conditions": "temperature>1000°C AND pressure<50kPa",
+      "root_causes": ["冷却泵故障", "管路堵塞", "冷却水阀门误关", "冷却塔风机停转"],
+      "confidence_rules": {
+        "冷却泵故障": "泵出口压力骤降 + 流量归零",
+        "管路堵塞": "压力逐渐下降 + 温差增大",
+        "冷却水阀门误关": "压力突然归零 + 温度快速上升",
+        "冷却塔风机停转": "冷却水温差减小 + 风机电流为零"
+      },
+      "severity": "CRITICAL",
+      "procedures": [
+        {"step": 1, "action": "立即降功率至60%以下，防止设备过热损坏", "time": "立即"},
+        {"step": 2, "action": "检查冷却泵运行状态和出口压力表", "time": "15分钟内"},
+        {"step": 3, "action": "检查冷却水管路阀门状态", "time": "30分钟内"},
+        {"step": 4, "action": "如确认冷却泵故障，更换叶轮或泵体", "time": "4小时内"}
+      ],
+      "spare_parts": ["冷却泵叶轮", "管路密封垫片", "冷却水阀门DN100"],
+      "estimated_repair_time_hours": 4
+    },
+    {
+      "id": "BEARING_DAMAGE",
+      "name": "轴承损坏",
+      "trigger_conditions": "temperature>800°C AND vibration>20mm/s AND pressure<70kPa AND operatingStatus=2",
+      "root_causes": ["轴承疲劳剥落", "对中不良", "润滑脂劣化", "过载运行"],
+      "confidence_rules": {
+        "轴承疲劳剥落": "振动冲击脉冲值>35dB + 包络谱出现轴承故障频率",
+        "对中不良": "轴向振动>径向振动 + 2x RPM分量明显",
+        "润滑脂劣化": "温度逐步上升 + 振动缓慢增大",
+        "过载运行": "功率超额定值 + 温度快速上升"
+      },
+      "severity": "CRITICAL",
+      "procedures": [
+        {"step": 1, "action": "立即停机，防止二次损坏", "time": "立即"},
+        {"step": 2, "action": "检查轴承温度分布，确认损坏位置", "time": "1小时内"},
+        {"step": 3, "action": "对中校验，检查联轴器状态", "time": "2小时内"},
+        {"step": 4, "action": "更换轴承组件，重新对中", "time": "12小时内"}
+      ],
+      "spare_parts": ["轴承组件全套", "联轴器弹性体", "对中仪校准块"],
+      "estimated_repair_time_hours": 12
+    },
+    {
+      "id": "ELECTRICAL_OVERLOAD",
+      "name": "电气过载",
+      "trigger_conditions": "operatingStatus=3(高负荷) AND temperature>900°C",
+      "root_causes": ["电网电压波动", "电机绕组短路", "机械负载突增", "功率因数下降"],
+      "severity": "HIGH",
+      "procedures": [
+        {"step": 1, "action": "检查供电电压稳定性，记录波动范围", "time": "30分钟内"},
+        {"step": 2, "action": "测量电机绕组绝缘电阻", "time": "1小时内"},
+        {"step": 3, "action": "降低负载至额定功率80%以下", "time": "2小时内"}
+      ],
+      "spare_parts": ["电机绕组线圈", "绝缘材料", "电压保护器"],
+      "estimated_repair_time_hours": 8
+    },
+    {
+      "id": "SENSOR_DRIFT",
+      "name": "传感器漂移",
+      "trigger_conditions": "vibration<2mm/s（读数过低，疑似失效）",
+      "root_causes": ["传感器老化", "校准失效", "接线松动"],
+      "severity": "LOW",
+      "procedures": [
+        {"step": 1, "action": "用便携式测量仪对比读数", "time": "1小时内"},
+        {"step": 2, "action": "检查传感器接线和供电", "time": "2小时内"},
+        {"step": 3, "action": "如确认漂移，更换传感器并重新校准", "time": "4小时内"}
+      ],
+      "spare_parts": ["振动传感器IME-202", "温度传感器PT100", "标定证书"],
+      "estimated_repair_time_hours": 4
+    },
+    {
+      "id": "MOLD_BREAKOUT_RISK",
+      "name": "结晶器漏钢风险",
+      "trigger_conditions": "temperature>400°C AND vibration>7mm/s AND device_type=CONTINUOUS_CASTER",
+      "root_causes": ["结晶器铜板磨损", "冷却水流量不足", "保护渣润滑不良", "拉速过快"],
+      "confidence_rules": {
+        "结晶器铜板磨损": "温度逐渐升高 + 振动缓慢增大 + 铜板热电偶温差>50°C",
+        "冷却水流量不足": "温度快速上升 + 冷却水压力骤降",
+        "保护渣润滑不良": "振动增大 + 结晶器摩擦力增大",
+        "拉速过快": "温度快速上升 + 实际拉速>3.5m/min"
+      },
+      "severity": "CRITICAL",
+      "affected_devices": ["CC-01"],
+      "procedures": [
+        {"step": 1, "action": "立即降低拉速至1.5m/min以下", "time": "立即"},
+        {"step": 2, "action": "检查结晶器冷却水流量和进出口温差", "time": "10分钟内"},
+        {"step": 3, "action": "检查保护渣添加频率和渣层厚度", "time": "30分钟内"},
+        {"step": 4, "action": "如确认铜板磨损严重，更换结晶器铜管", "time": "8小时内"}
+      ],
+      "spare_parts": ["结晶器铜管", "冷却水密封圈", "保护渣（低粘度）"],
+      "estimated_repair_time_hours": 8
+    },
+    {
+      "id": "FILTER_BAG_FAILURE",
+      "name": "布袋除尘失效",
+      "trigger_conditions": "pressure<-250kPa（压差异常） AND temperature>220°C AND device_type=DUST_COLLECTOR",
+      "root_causes": ["滤袋破损", "脉冲阀故障", "滤袋结露糊袋", "沉降室积灰过多"],
+      "confidence_rules": {
+        "滤袋破损": "粉尘排放浓度骤升 + 压差先升后降（破损后气流短路）",
+        "脉冲阀故障": "压差持续升高 + 反吹管无脉冲动作音",
+        "滤袋结露糊袋": "烟气温度偏低（<80°C）+ 压差缓慢升高 + 湿度大",
+        "沉降室积灰过多": "沉降室料位高 + 布袋入口粉尘浓度异常高"
+      },
+      "severity": "HIGH",
+      "affected_devices": ["DC-01"],
+      "procedures": [
+        {"step": 1, "action": "检查在线粉尘仪读数，确认排放是否超标（>30mg/Nm³）", "time": "15分钟内"},
+        {"step": 2, "action": "检查布袋压差趋势和反吹脉冲阀动作记录", "time": "30分钟内"},
+        {"step": 3, "action": "排查破损滤袋位置（逐个仓室隔离检测）", "time": "2小时内"},
+        {"step": 4, "action": "更换破损滤袋或修复脉冲阀", "time": "4小时内"}
+      ],
+      "spare_parts": ["PTFE覆膜滤袋Φ160×6000", "脉冲阀膜片", "袋笼"],
+      "estimated_repair_time_hours": 4
+    },
+    {
+      "id": "ELECTRODE_MISALIGNMENT",
+      "name": "电极对中偏差",
+      "trigger_conditions": "vibration>8mm/s AND temperature>1600°C AND device_type=LADLE_FURNACE",
+      "root_causes": ["电极升降机构磨损", "立柱变形", "导向轮松动", "地基沉降"],
+      "confidence_rules": {
+        "电极升降机构磨损": "振动以1x RPM为主 + 轴向振动偏大",
+        "立柱变形": "对中偏差>2mm + 多方向振动异常",
+        "导向轮松动": "振动高频分量增加 + 异响",
+        "地基沉降": "偏差缓慢增大 + 基础标高检测异常"
+      },
+      "severity": "HIGH",
+      "affected_devices": ["LF-01"],
+      "procedures": [
+        {"step": 1, "action": "停止精炼操作，提升电极至最高位", "time": "立即"},
+        {"step": 2, "action": "使用激光对中仪测量电极对中偏差", "time": "30分钟内"},
+        {"step": 3, "action": "检查导向轮间隙和立柱垂直度", "time": "1小时内"},
+        {"step": 4, "action": "重新校准电极对中，更换磨损导向轮", "time": "4小时内"}
+      ],
+      "spare_parts": ["导向轮组件", "对中校准块", "SKF-22215轴承"],
+      "estimated_repair_time_hours": 4
+    }
+  ]
+}

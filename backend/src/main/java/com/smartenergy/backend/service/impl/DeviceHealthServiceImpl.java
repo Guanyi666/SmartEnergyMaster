@@ -151,10 +151,23 @@ public class DeviceHealthServiceImpl implements DeviceHealthService {
         }
         switch (deviceType.toUpperCase()) {
             case "ARC_FURNACE":
+                // 电弧炉：高温设备，正常800°C以下，振动10mm/s以下
                 return new DeviceTypeThresholds(new BigDecimal("800"), new BigDecimal("10.0"));
+            case "LADLE_FURNACE":
+                // 钢包精炼炉：精炼温度1480-1650°C，振动6mm/s以下
+                return new DeviceTypeThresholds(new BigDecimal("1650"), new BigDecimal("6.0"));
+            case "CONTINUOUS_CASTER":
+                // 连铸机：结晶器温度正常350°C以下，振动5mm/s以下
+                return new DeviceTypeThresholds(new BigDecimal("350"), new BigDecimal("5.0"));
+            case "DUST_COLLECTOR":
+                // 除尘系统：烟气温度正常200°C以下，振动7mm/s以下
+                return new DeviceTypeThresholds(new BigDecimal("200"), new BigDecimal("7.0"));
             case "COMPRESSOR":
-                return new DeviceTypeThresholds(new BigDecimal("80"), new BigDecimal("5.0"));
+                // 空压机：排气温度正常100°C以下，振动9mm/s以下
+                return new DeviceTypeThresholds(new BigDecimal("100"), new BigDecimal("9.0"));
             case "PUMP":
+                // 循环水泵：出水温度正常80°C以下，振动8mm/s以下
+                return new DeviceTypeThresholds(new BigDecimal("80"), new BigDecimal("8.0"));
             default:
                 return new DeviceTypeThresholds(new BigDecimal("60"), new BigDecimal("5.0"));
         }

@@ -25,6 +25,12 @@ public class DashboardSummaryVO {
     @Schema(description = "离线设备数")
     private long offlineDeviceCount;
 
+    @Schema(description = "故障/维修中设备数（存在活跃工单的设备）")
+    private long faultDeviceCount;
+
+    @Schema(description = "停机设备数（operatingStatus=0且无活跃工单）")
+    private long stoppedDeviceCount;
+
     @Schema(description = "活跃告警数")
     private long activeAlertCount;
 

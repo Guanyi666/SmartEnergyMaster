@@ -143,6 +143,9 @@
 
     <!-- 品牌水印(全屏路由隐藏) -->
     <div v-if="!isFullscreen" class="brand-watermark">智驭能效 · SMART ENERGY MASTER</div>
+
+    <!-- AI 智能助手（全局浮动） -->
+    <AiChatPanel />
   </div>
 </template>
 
@@ -155,6 +158,7 @@ import {
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth'
 import NotificationBell from '../components/NotificationBell.vue'
+import AiChatPanel from '../components/AiChatPanel.vue'
 import { getActiveAlerts } from '../api'
 import { usePollingTask } from '../composables/usePollingTask'
 import { defaultHomeForRole } from '../utils/role'

@@ -23,7 +23,7 @@ public class Device {
     @Schema(description = "设备名称")
     private String deviceName;
 
-    @Schema(description = "设备类型（电弧炉/水泵/空压机）")
+    @Schema(description = "设备类型（ARC_FURNACE/LADLE_FURNACE/CONTINUOUS_CASTER/PUMP/COMPRESSOR/DUST_COLLECTOR）")
     private String deviceType;
 
     @Schema(description = "设备状态")

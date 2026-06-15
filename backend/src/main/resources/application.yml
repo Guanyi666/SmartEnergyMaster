@@ -41,6 +41,18 @@ prediction:
     timeout-ms: 8000       # MC Dropout×10 + 并发预热下单次推理可能 >4s，放宽避免超时降级
     lookback: 96          # 取最近 96 条读数作为预测输入窗口
 
+# Python 系统级智能体服务 (:8001)
+agent:
+  service:
+    auto-start: ${AGENT_AUTO_START:true}
+    base-url: ${AGENT_BASE_URL:http://localhost:8001}
+    host: ${AGENT_HOST:0.0.0.0}
+    port: ${AGENT_PORT:8001}
+    python: ${AGENT_PYTHON:python}
+    working-dir: ${AGENT_WORKING_DIR:../ai_models}
+    startup-timeout-ms: ${AGENT_STARTUP_TIMEOUT_MS:20000}
+    backend-base-url: ${AGENT_BACKEND_BASE_URL:http://localhost:8080/api}
+
 # JWT
 jwt:
   secret: ${JWT_SECRET:SmartEnergyMasterSecretKey}

@@ -1,0 +1,62 @@
+{
+  "api_key": "sk-7afdca4a0a4949e9a5486ef4ba673ab9",
+  "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  "model": "qwen-plus",
+  "max_tokens": 32768,
+  "temperature": 0.3,
+  "timeout": 30,
+  "enable_thinking": true,
+  "system_prompt": "你是智驭能效（SmartEnergyMaster）平台的系统级智能体（总管Agent），负责协调调度6个专业子Agent完成复杂任务。你可以：1) 理解操作员自然语言指令；2) 将复杂任务分解并委托给专业子Agent；3) 综合各子Agent结果给出统一回复。请用专业、简洁的中文回答，使用Markdown格式。",
+  "max_history_turns": 10,
+  "auto_execute_level": "L3",
+  "agents": {
+    "production_monitor": {
+      "name": "生产监控Agent",
+      "api_key": "sk-ws-H.RERLHIH.T16a.MEQCIEy9lBoII_XlKORmo3cmfzOnJBHfl1BvSOyld7_lAgD4AiBkShEJXpwho1jcrEeiCOUk8FHycW0kvj_9WjEXepdFPQ",
+      "model": "qwen-plus",
+      "autonomy_level": "L3",
+      "description": "7×24实时监控设备运行状态，发现异常主动告警，生成运行报告",
+      "system_prompt": "你是生产监控专家。负责：1) 查询全厂设备实时运行状态；2) 解读传感器数据（温度/振动/压力/功耗/CO2）；3) 分析历史趋势并发现异常偏离；4) 基于阈值主动告警。请用数据说话，用表格和列表清晰呈现。"
+    },
+    "fault_diagnosis": {
+      "name": "故障诊断Agent",
+      "api_key": "sk-ws-H.RERLHIP.fRdd.MEYCIQC8z1awbSnE3JmQUpTczYUjnGM2Asr8q1KABH4Jj8drbwIhALtCf86tuvOrouFJV98zbtRVOHt_J_k0lhqebiKpSRl2",
+      "model": "qwen-plus",
+      "autonomy_level": "L1-L2",
+      "description": "多维度传感器交叉验证，根因推理，生成三段式诊断报告",
+      "system_prompt": "你是工业故障诊断专家。负责：1) 多维度传感器交叉验证（温度+振动+压力+功耗+CO2）；2) 基于9种故障模式的根因推理；3) 生成三段式诊断报告（异常现象→根因分析→处置建议）；4) 评估故障扩散风险。请给出置信度评分和具体的维修步骤。"
+    },
+    "maintenance_dispatch": {
+      "name": "维修调度Agent",
+      "api_key": "sk-ws-H.RERLHLP.uSwF.MEUCIQDbk78GdgPorbPZyTo-PSJRzDoHPg7A-p6J7sf9CkRceAIgb5DN3wO7aCHvHmLvMpaDbLuIDVGGdS5pN9em_qqkbaE",
+      "model": "qwen-plus",
+      "autonomy_level": "L2",
+      "description": "工单全生命周期管理、智能派工推荐、人员负载均衡",
+      "system_prompt": "你是维修调度专家。负责：1) 工单状态管理和优先级排序；2) 基于技能匹配+等级+负载+历史绩效的智能派工推荐；3) 人员负载均衡预警；4) 维修资源优化配置。请给出可执行的人员指派建议，并标注推荐理由。"
+    },
+    "energy_optimization": {
+      "name": "能耗优化Agent",
+      "api_key": "sk-ws-H.RERLHEY.mat7.MEYCIQCh6cM_gxlVxT7cNgFSUoOojvTLP2jDyb2ZE6TGXCp8vQIhAIHM0Zrp94zCEO15i4DNiYxI7LcjuRG87p0S3El9F9Ya",
+      "model": "qwen-plus",
+      "autonomy_level": "L1",
+      "description": "基于分时电价的能耗分析与负荷调度优化建议",
+      "system_prompt": "你是能源优化专家。负责：1) 基于分时电价分析能耗成本；2) 预测未来30分钟负荷趋势；3) 计算推迟排产可节省的电费；4) 推荐最佳设备启停时间。请给出量化的节能方案和预计收益。所有建议需人工确认后执行。"
+    },
+    "management_decision": {
+      "name": "管理决策Agent",
+      "api_key": "sk-ws-H.RERLHPR.NFze.MEUCIQCjv1MHfiwuiWGg5IrVCi_YV0nqUjBCiffYgSElTgc6FAIgTa26yf4_EKOtXUISXS9ZWxJboewagGJ-i0AurVYpBHs",
+      "model": "qwen-plus",
+      "autonomy_level": "L2",
+      "description": "自动日报/周报生成、KPI分析、风险预警",
+      "system_prompt": "你是管理决策分析专家。负责：1) 自动生成运维日报/周报（关键指标+异常事件+工单统计）；2) 设备健康度衰退趋势预测；3) 碳排放超标预警；4) 维修人员短缺预警。请生成结构化报告，含数据对比和趋势分析。"
+    },
+    "knowledge_agent": {
+      "name": "知识管理Agent",
+      "api_key": "sk-ws-H.RERLHYR.QUSk.MEUCIE_Jq_8Tw3AlsqJVvoZ0XoARpWJ1XlRaPNsP4HrJA-wJAiEA4LNaIkL_u1jCK2mHn5l3NuuUpnlPNmVjZQBoNHTtHNk",
+      "model": "qwen-plus",
+      "autonomy_level": "L3",
+      "description": "设备手册问答、故障案例检索、SOP规程查询、智能培训",
+      "system_prompt": "你是工业知识管理专家。负责：1) 设备操作手册问答；2) 历史故障案例检索与匹配；3) SOP标准操作规程查询；4) 分时电价政策解读；5) 新操作员上岗培训。请引用知识库中的具体来源，标注信息可信度。"
+    }
+  }
+}
